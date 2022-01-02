@@ -1,0 +1,69 @@
+{{define "navbar"}}
+<a class="nav-link" href="/">服务器状态</a>
+<a class="nav-link" href="/config">配置</a>
+<a aria-current="page"  class="nav-link active" href="/ssl">SSL证书管理</a>
+<a class="nav-link disabled">服务器管理</a>
+{{end}}
+{{define "content"}}
+<h3>SSL</h3>
+<div class="alert alert-primary" role="alert">
+    SSL 证书签名列表
+</div>
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">Class</th>
+        <th scope="col">Heading</th>
+        <th scope="col">Heading</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">Default</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+
+    <tr class="table-primary">
+        <th scope="row">Primary</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-secondary">
+        <th scope="row">Secondary</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-success">
+        <th scope="row">Success</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-danger">
+        <th scope="row">Danger</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-warning">
+        <th scope="row">Warning</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-info">
+        <th scope="row">Info</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-light">
+        <th scope="row">Light</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    <tr class="table-dark">
+        <th scope="row">Dark</th>
+        <td>Cell</td>
+        <td>Cell</td>
+    </tr>
+    </tbody>
+</table>
+{{end}}
