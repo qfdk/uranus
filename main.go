@@ -19,5 +19,5 @@ func main() {
 		DisableCache: false,
 	})
 	routers.RegisterRoutes(r)
-	r.Run(":6666")
+	r.Run(":7777")
 }
