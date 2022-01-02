@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/foolin/goview"
+	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
 	"proxy-manager/app/routers"
-	"github.com/foolin/goview/supports/ginview"
-	"github.com/foolin/goview"
 )
 
 func main() {

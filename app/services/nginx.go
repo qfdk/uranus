@@ -1,8 +1,8 @@
 package services
 
 import (
-	"os/exec"
 	"fmt"
+	"os/exec"
 	"proxy-manager/config"
 )
 

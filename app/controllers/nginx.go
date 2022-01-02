@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"proxy-manager/app/services"
-	"fmt"
-	"log"
 )
 
 func Nginx(ctx *gin.Context) {

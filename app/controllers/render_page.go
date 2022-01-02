@@ -2,13 +2,13 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
-	"strconv"
+	"net/http"
 	"proxy-manager/app/services"
 	"proxy-manager/config"
+	"strconv"
 )
 
 func Index(ctx *gin.Context) {

@@ -1,9 +1,9 @@
 package config
 
 import (
-	"strings"
-	"os/exec"
 	"fmt"
+	"os/exec"
+	"strings"
 )
 
 type NginxCompileInfo struct {
