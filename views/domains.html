@@ -1,20 +1,20 @@
 {{define "navbar"}}
 <a class="nav-link" href="/">服务器状态</a>
 <a class="nav-link" href="/config">配置</a>
-<a class="nav-link" href="/domains">域名管理</a>
-<a aria-current="page" class="nav-link active" href="/ssl">SSL证书管理</a>
+<a aria-current="page" class="nav-link active" href="/domains">域名管理</a>
+<a class="nav-link" href="/ssl">SSL证书管理</a>
 {{end}}
 {{define "content"}}
-<h3>SSL</h3>
+<h3>域名管理</h3>
 <div class="alert alert-primary" role="alert">
-    SSL 证书签名列表
+    已存在域名列表
 </div>
 <table class="table">
     <thead>
     <tr>
-        <th scope="col">Class</th>
-        <th scope="col">Heading</th>
-        <th scope="col">Heading</th>
+        <th scope="col">域名</th>
+        <th scope="col">SSL</th>
+        <th scope="col">操作</th>
     </tr>
     </thead>
     <tbody>

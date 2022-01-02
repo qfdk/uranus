@@ -46,6 +46,10 @@ func GetNginxCompileInfo(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "config", gin.H{"nginxCompileInfo": config.GetNginxCompileInfo()})
 }
 
+func Domains(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "domains", gin.H{})
+}
+
 func SSLSettings(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "ssl", gin.H{})
 }
