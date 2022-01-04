@@ -1,0 +1,36 @@
+{{define "navbar"}}
+<a class="nav-link" href="/">服务器状态</a>
+<a class="nav-link" href="/config">配置</a>
+<a aria-current="page" class="nav-link active" href="/sites">网站管理</a>
+<a class="nav-link" href="/ssl">SSL证书管理</a>
+{{end}}
+{{define "content"}}
+<h3>网站管理</h3>
+<div class="alert alert-primary" role="alert">
+    已添加的网站列表
+</div>
+<form action="/nginx" method="post">
+    <button type="submit" name="action" value="template" class="btn btn-primary">添加新配置</button>
+</form>
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">配置文件</th>
+        <th scope="col">大小</th>
+        <th scope="col">操作</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{range $index, $value :=.files}}
+    <tr>
+        <th scope="row">{{$value.Name}}</th>
+        <td>{{call $.humanizeBytes $value.Size}}</td>
+        <td>
+            <a href="/sites/edit?path={{$value.Name}}"><span class="badge bg-primary">编辑</span></a>
+            <a href="/sites/delete?path={{$value.Name}}"><span class="badge bg-danger">删除</span></a>
+        </td>
+    </tr>
+    {{end}}
+    </tbody>
+</table>
+{{end}}

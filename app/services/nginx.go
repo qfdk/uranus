@@ -2,8 +2,10 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"proxy-manager/config"
+	"regexp"
 )
 
 func NginxStatus() string {
@@ -20,7 +22,7 @@ func NginxStatus() string {
 }
 
 func StartNginx() string {
-	_, err := exec.Command("nginx").CombinedOutput()
+	out, err := exec.Command("nginx").CombinedOutput()
 	var result string
 	if err != nil {
 		fmt.Println("启动出错")
@@ -29,6 +31,7 @@ func StartNginx() string {
 	} else {
 		result = "OK"
 	}
+	fmt.Println(string(out))
 	return result
 }
 
@@ -59,3 +62,16 @@ func StopNginx() string {
 	}
 	return result
 }
+
+func GetNginxConfPath() string {
+	configPath := config.GetNginxCompileInfo().NginxConfPath
+	regex, _ := regexp.Compile("(.*)/(.*.conf)")
+	confPath := regex.FindStringSubmatch(configPath)[1]
+	log.Println("配置文件位置: " + confPath)
+	return confPath
+}
+
+//func ParserNginxConfig(configPath string) string {
+//	GetNginxConfPath()
+//	return string("confPath")
+//}

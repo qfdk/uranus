@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
@@ -8,7 +9,6 @@ import (
 	"net/http"
 	"proxy-manager/app/services"
 	"proxy-manager/config"
-	"strconv"
 )
 
 func Index(ctx *gin.Context) {
@@ -26,28 +26,19 @@ func Index(ctx *gin.Context) {
 	cpuInfo, _ := cpu.Info()
 	// memory
 	memInfo, _ := mem.VirtualMemory()
-	var memTotal string
-	if memInfo.Total >= 1073741824 {
-		memTotal = strconv.FormatFloat(float64(memInfo.Total)/1024/1024/1024.0, 'f', 2, 64) + " G"
-	} else {
-		memTotal = strconv.FormatFloat(float64(memInfo.Total)/1024/1024.0, 'f', 2, 64) + " M"
-	}
 
 	ctx.HTML(http.StatusOK, "index",
 		gin.H{
-			"osName":      fullOsName,
-			"cpu":         cpuInfo[0],
-			"memInfo":     memTotal,
-			"nginxStatus": nginxStatus,
+			"osName":           fullOsName,
+			"cpu":              cpuInfo[0],
+			"memInfo":          humanize.Bytes(memInfo.Total),
+			"nginxStatus":      nginxStatus,
+			"nginxCompileInfo": config.GetNginxCompileInfo(),
 		})
 }
 
 func GetNginxCompileInfo(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "config", gin.H{"nginxCompileInfo": config.GetNginxCompileInfo()})
-}
-
-func Domains(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "domains", gin.H{})
 }
 
 func SSLSettings(ctx *gin.Context) {

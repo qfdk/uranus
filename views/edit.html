@@ -1,0 +1,78 @@
+{{ block "css" .}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
+{{ end }}
+{{define "navbar"}}
+<a class="nav-link" href="/">服务器状态</a>
+<a class="nav-link" href="/config">配置</a>
+<a class="nav-link" href="/sites">网站管理</a>
+<a aria-current="page" class="nav-link active" href="/ssl">SSL证书管理</a>
+{{end}}
+{{define "content"}}
+<h3>Nginx 配置编辑器</h3>
+<div class="alert alert-primary" role="alert">
+    正在编辑 {{.configFileName}}
+</div>
+<div class="row">
+    <div class="col-auto">
+        <button class="btn btn-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary" id="saveNginxConf">保存</button>
+    </div>
+    <div class="col-md-12 mt-3">
+        <pre id="editor" data-lang="nginx"></pre>
+    </div>
+</div>
+{{end}}
+
+{{block "js" .}}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/min/vs/loader.js'></script>
+<script src="/public/js/editor.js"></script>
+<script>
+    require(['vs/editor/editor.main'], function () {
+        monaco.languages.register({id: defaultLang});
+        monaco.languages.setLanguageConfiguration(defaultLang, {
+            autoClosingPairs: [
+                {open: '{', close: '}'},
+                {open: '"', close: '"'},
+            ],
+        });
+        monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
+        monaco.editor.defineTheme(themeConfig.base, themeConfig);
+        var codeContent = {{.content}};
+        editor = monaco.editor.create(document.getElementById('editor'),
+            {
+                value: codeContent,
+                language: "nginx",
+                theme: defaultTheme,
+                fontSize: 18,
+                automaticLayout: true,
+                scrollbar: {
+                    verticalScrollbarSize: 13,
+                    horizontalScrollbarSize: 13
+                },
+                minimap: {
+                    enabled: true
+                }
+            });
+
+        //格式化
+        monaco.languages.registerDocumentFormattingEditProvider('nginx', {
+            provideDocumentFormattingEdits: function (model, _options, _token) {
+                return [{
+                    text: nginxFormatter(model.getValue()),
+                    range: model.getFullModelRange()
+                }];
+            }
+        });
+
+        $(window).on("load resize", function () {
+            var ch = $(window).height() - $('#editor').offset().top - 20;
+            $('#editor').css('height', Math.max(200, ch));
+        });
+    });
+
+</script>
+{{end}}

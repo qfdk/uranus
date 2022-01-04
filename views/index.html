@@ -1,7 +1,7 @@
 {{define "navbar"}}
 <a aria-current="page" class="nav-link active" href="/">服务器状态</a>
 <a class="nav-link" href="/config">配置</a>
-<a class="nav-link" href="/domains">域名管理</a>
+<a class="nav-link" href="/sites">网站管理</a>
 <a class="nav-link" href="/ssl">SSL证书管理</a>
 {{end}}
 
@@ -25,6 +25,7 @@
     "KO" }}disabled{{end}}>重载配置</button>
     <button type="submit" name="action" value="stop" class="btn btn-outline-danger" {{ if eq .nginxStatus
     "KO" }}disabled{{end}}>停止服务</button>
+    <button type="submit" name="action" value="parser" class="btn btn-dark">读取配置文件</button>
 </form>
 
 <table class="table">
@@ -48,8 +49,20 @@
         <td>{{.memInfo}}</td>
     </tr>
     <tr>
-        <th scope="row">版本</th>
-        <td>v0.0.0</td>
+        <th scope="row">Nginx 版本</th>
+        <td>{{.nginxCompileInfo.Version}}</td>
+    </tr>
+    <tr>
+        <th scope="row">编译器</th>
+        <td>{{.nginxCompileInfo.CompilerVersion}}</td>
+    </tr>
+    <tr>
+        <th scope="row">SSL 版本</th>
+        <td>{{.nginxCompileInfo.SSLVersion}}</td>
+    </tr>
+    <tr>
+        <th scope="row"></th>
+        <td>{{.nginxCompileInfo.TLSSupport}}</td>
     </tr>
     </tbody>
 </table>
