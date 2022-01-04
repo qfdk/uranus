@@ -5,7 +5,6 @@ const tokenConf = {
     tokenizer: {
         root: [
             [/(")/, 'delimiter.bracket'],
-            // [/[{}()[\]]/, "@brackets"],
             [/[;,.]/, 'delimiter'],
             [/\\.* |~|~\*|!~|!~\*/, 'string.regexp'],
             [/\b\d+\w+\b/, 'number'],
@@ -49,13 +48,8 @@ const tokenConf = {
             [/\b(if)\b/, 'module.condition'],
             [/\$\w+/, 'variable'],
             [/#.*$/, 'comment'],
-            // { include: "@numbers" },
         ],
         comment: [[/#.*$/, 'comment']],
-        // urldeclaration: [
-        //     ['[^)\r\n]+', 'string'],
-        //     ['\\)', { token: 'delimiter.parenthesis', next: '@pop' }]
-        // ],
         numbers: [
             ['-?(\\d*\\.)?\\d+([eE][\\-+]?\\d+)?', {token: 'attribute.value.number', next: '@units'}],
             ['#[0-9a-fA-F_]+(?!\\w)', 'attribute.value.hex'],
@@ -128,7 +122,7 @@ const themeConfig = {
     ],
 };
 
-var editor,
+let editor,
     defaultLang = 'nginx',
     defaultTheme = 'vs-dark';
 
@@ -138,21 +132,32 @@ require.config({
     },
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
+// 保存配置文件
+$('#saveNginxConf').click(() => {
+    $.post('/sites/save', {
+        name: $("#filename").val(),
+        content: editor.getValue()
+    }, (data) => {
+        if (data.msg === 'OK') {
+            window.location = "/sites";
+        }
+    })
+});
 
-$('#btnFormatterNginxConf').click(function () {
+$('#btnFormatterNginxConf').click(() => {
     editor.trigger('a', 'editor.action.formatDocument')
 });
-
-$('#saveNginxConf').click(() => {
-    console.log(editor.getValue());
-});
-
-function nginxFormatter(text) {
-    var indent = "    ";
+/**
+ * 格式化 nginx
+ * @param text
+ * @returns {*}
+ */
+const nginxFormatter = (text) => {
+    const indent = "    ";
     modifyOptions({INDENTATION: indent});
-    var cleanLines = clean_lines(text);
+    let cleanLines = clean_lines(text);
     modifyOptions({trailingBlankLines: false});
     cleanLines = join_opening_bracket(cleanLines);
     cleanLines = perform_indentation(cleanLines, indent);
-    return cleanLines.join("\n")
+    return cleanLines.join("\n");
 }

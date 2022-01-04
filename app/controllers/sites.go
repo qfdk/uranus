@@ -5,7 +5,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,24 +12,22 @@ import (
 )
 
 // GetConfig  TODO /** 安全问题 ！！！跨目录
-func GetConfig(c *gin.Context) {
-	name := c.Query("name")
+func GetConfig(ctx *gin.Context) {
+	name := ctx.Query("name")
 	path := filepath.Join(services.GetNginxConfPath(), name)
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"config": string(content),
-	})
+	ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": name, "content": string(content)})
 }
 
 func GetSites(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(filepath.Join(services.GetNginxConfPath(), "servers"))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		return
 	}
 	ctx.HTML(http.StatusOK, "sites", gin.H{"files": files, "humanizeBytes": humanize.Bytes})
 }
@@ -51,4 +48,12 @@ func DeleteSiteConf(ctx *gin.Context) {
 	path := filepath.Join(services.GetNginxConfPath(), "servers", name)
 	os.Remove(path)
 	ctx.Redirect(http.StatusFound, "/sites")
+}
+
+func SaveSiteConf(ctx *gin.Context) {
+	fileName := ctx.PostForm("name")
+	content := ctx.PostForm("content")
+	path := filepath.Join(services.GetNginxConfPath(), "servers", fileName)
+	ioutil.WriteFile(path, []byte(content), 0644)
+	ctx.JSON(http.StatusOK, gin.H{"msg": "OK"})
 }

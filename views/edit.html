@@ -9,10 +9,12 @@
 {{end}}
 {{define "content"}}
 <h3>Nginx 配置编辑器</h3>
-<div class="alert alert-primary" role="alert">
-    正在编辑 {{.configFileName}}
-</div>
 <div class="row">
+    <div class="input-group col-auto mb-3">
+        <span class="input-group-text" id="inputGroup-sizing-default">文件名：</span>
+        <input type="text" value="{{.configFileName}}" id="filename" class="form-control" aria-label="Sizing example input"
+               aria-describedby="inputGroup-sizing-default">
+    </div>
     <div class="col-auto">
         <button class="btn btn-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
     </div>
