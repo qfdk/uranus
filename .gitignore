@@ -151,3 +151,4 @@ Temporary Items
 !.vscode/*.code-snippets
 tmp/
 # End of https://www.toptal.com/developers/gitignore/api/macos,goland,visualstudiocode,go
+/config.toml

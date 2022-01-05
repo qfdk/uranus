@@ -1,0 +1,8 @@
+# nginx 配置文件夹下面的vhosts路径
+# nginx 配置必需有 "include servers/*;"
+# 默认位置
+VhostPath = "/etc/nginx/sites-available"
+# macOS 位置
+#VhostPath = "/opt/homebrew/etc/nginx/servers"
+# 宝塔面板
+#VhostPath = "/www/server/nginx/conf/vhost"
