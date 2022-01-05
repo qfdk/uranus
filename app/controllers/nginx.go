@@ -37,7 +37,7 @@ func Nginx(ctx *gin.Context) {
 		if err != nil {
 			fmt.Println(err)
 		}
-		ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": "template.conf", "content": string(content)})
+		ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": "blog.qfdk.me.conf", "content": string(content)})
 		return
 	}
 	ctx.Redirect(http.StatusMovedPermanently, "/")
