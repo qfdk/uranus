@@ -1,0 +1,3 @@
+# nginx 配置文件夹下面的vhosts路径
+# nginx 配置必需有 "include servers/*;"
+VhostPath = "/opt/homebrew/etc/nginx/servers"

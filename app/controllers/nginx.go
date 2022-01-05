@@ -31,13 +31,14 @@ func Nginx(ctx *gin.Context) {
 		log.Println("读取 nginx 配置文件")
 		content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
 		ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": "nginx.conf", "content": string(content)})
+		return
 	case "template":
 		content, err := ioutil.ReadFile(filepath.Join("template", "http.conf"))
 		if err != nil {
 			fmt.Println(err)
 		}
 		ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": "template.conf", "content": string(content)})
+		return
 	}
-
 	ctx.Redirect(http.StatusMovedPermanently, "/")
 }

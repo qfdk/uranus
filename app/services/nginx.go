@@ -36,18 +36,23 @@ func StartNginx() string {
 }
 
 func ReloadNginx() string {
-	out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
-	var result string
-	if err != nil {
-		fmt.Println("重载配置出现错误")
-		fmt.Println(err)
-		result = "KO"
+	if NginxStatus() != "KO" {
+		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
+		var result string
+		if err != nil {
+			fmt.Println("重载配置出现错误")
+			fmt.Println(err)
+			result = "KO"
+		} else {
+			result = "OK"
+		}
+		output := string(out)
+		fmt.Println(output)
+		return result
 	} else {
-		result = "OK"
+		fmt.Println("Nginx 没有启动,不用重载配置 !")
+		return "KO"
 	}
-	output := string(out)
-	fmt.Println(output)
-	return result
 }
 
 func StopNginx() string {
