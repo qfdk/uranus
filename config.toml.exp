@@ -5,4 +5,4 @@ VhostPath = "/etc/nginx/sites-available"
 # macOS 位置
 #VhostPath = "/opt/homebrew/etc/nginx/servers"
 # 宝塔面板
-#VhostPath = "/www/server/nginx/conf/vhost"
+#VhostPath = "/www/server/panel/vhost/nginx"
