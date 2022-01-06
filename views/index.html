@@ -1,8 +1,8 @@
-{{define "navbar"}}
+{{ block "navbar" .}}
 <a aria-current="page" class="nav-link active" href="/">服务器状态</a>
 <a class="nav-link" href="/config">配置</a>
 <a class="nav-link" href="/sites">网站管理</a>
-<a class="nav-link" href="/ssl">SSL证书管理</a>
+<!--<a class="nav-link" href="/ssl">SSL证书管理</a>-->
 {{end}}
 
 {{define "content"}}
