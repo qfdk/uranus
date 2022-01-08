@@ -10,9 +10,14 @@
 {{define "content"}}
 <h3>Nginx 配置编辑器</h3>
 <div class="row">
+    <div class="container" id="alert" style="display: none">
+        <div class="alert alert-danger"><span id="message"></span></div>
+    </div>
     <div class="input-group col-auto mb-3">
         <span class="input-group-text" id="inputGroup-sizing-default">文件名：</span>
-        <input type="text" value="{{.configFileName}}" id="filename" class="form-control" aria-label="Sizing example input"
+        <input type="text" value="{{.configFileName}}" id="filename" class="form-control"
+               aria-label="Sizing example input"
+               {{ if .disabledChangeFileName }}disabled{{end}}
                aria-describedby="inputGroup-sizing-default">
     </div>
     <div class="col-auto">

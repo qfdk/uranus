@@ -132,16 +132,34 @@ require.config({
     },
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
+
+const processResponse = (data) => {
+    if (data.message === 'OK') {
+        window.location = "/sites";
+    } else {
+        $("#message").html(data.message);
+        $("#alert").show();
+    }
+}
+
 // 保存配置文件
 $('#saveNginxConf').click(() => {
-    $.post('/sites/save', {
-        name: $("#filename").val(),
-        content: editor.getValue()
-    }, (data) => {
-        if (data.msg === 'OK') {
-            window.location = "/sites";
-        }
-    })
+    if ($("#filename").val() === 'nginx.conf') {
+        $.post('/nginx', {
+            action: "saveConfig",
+            name: $("#filename").val(),
+            content: editor.getValue()
+        }, (data) => {
+            processResponse(data);
+        });
+    } else {
+        $.post('/sites/save', {
+            name: $("#filename").val(),
+            content: editor.getValue()
+        }, (data) => {
+            processResponse(data);
+        });
+    }
 });
 
 $('#btnFormatterNginxConf').click(() => {

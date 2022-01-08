@@ -2,8 +2,10 @@ package services
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os/exec"
+	"path/filepath"
 	"proxy-manager/config"
 	"regexp"
 )
@@ -40,13 +42,10 @@ func ReloadNginx() string {
 		var result string
 		if err != nil {
 			fmt.Println("重载配置出现错误")
-			fmt.Println(err)
-			result = "KO"
+			result = string(out)
 		} else {
 			result = "OK"
 		}
-		output := string(out)
-		fmt.Println(output)
 		return result
 	} else {
 		fmt.Println("Nginx 没有启动,不用重载配置 !")
@@ -75,7 +74,8 @@ func GetNginxConfPath() string {
 	return confPath
 }
 
-//func ParserNginxConfig(configPath string) string {
-//	GetNginxConfPath()
-//	return string("confPath")
-//}
+func SaveNginxConf(content string) {
+	path := filepath.Join(GetNginxConfPath(), "nginx.conf")
+	ioutil.WriteFile(path, []byte(content), 0644)
+	ReloadNginx()
+}

@@ -41,7 +41,6 @@ func EditSiteConf(ctx *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	services.ReloadNginx()
 	ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": name, "content": string(content)})
 }
 
@@ -58,6 +57,6 @@ func SaveSiteConf(ctx *gin.Context) {
 	content := ctx.PostForm("content")
 	path := filepath.Join(config.GetAppConfig().VhostPath, fileName)
 	ioutil.WriteFile(path, []byte(content), 0644)
-	services.ReloadNginx()
-	ctx.JSON(http.StatusOK, gin.H{"msg": "OK"})
+	response := services.ReloadNginx()
+	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
