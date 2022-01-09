@@ -151,13 +151,15 @@ $('#enableSSL').click(() => {
     $("#alert").hide();
     $("#alertSuccess").hide();
     $('#enableSSL').text("正在签名...");
-    $.get('/ssl', {filename: $("#filename").val()}, (data) => {
+    const domain = $("#filename").val().split('.conf')[0];
+    $.get('/ssl', {domain}, (data) => {
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
-        const domain = $("#filename").val().split('.conf')[0];
-        $.get('/sites/template', {domain, ssl: true}, (data) => {
-            editor.getModel().setValue(data.content);
-        });
+        if (data.message === 'OK') {
+            $.get('/sites/template', {domain, ssl: true}, (data) => {
+                editor.getModel().setValue(data.content);
+            });
+        }
     });
 });
 

@@ -6,5 +6,5 @@ import (
 )
 
 func sslRouter(engine *gin.Engine) {
-	engine.GET("/ssl", controllers.GetCertificate)
+	engine.GET("/ssl", controllers.IssueCert)
 }
