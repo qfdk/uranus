@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
 	"proxy-manager/app/services"
 	"proxy-manager/config"
 )
@@ -33,14 +32,6 @@ func Nginx(ctx *gin.Context) {
 		content, _ := ctx.GetPostForm("content")
 		services.SaveNginxConf(content)
 		ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
-		return
-	case "template":
-		log.Println("读取 nginx 模板配置文件")
-		content, err := ioutil.ReadFile(filepath.Join("template", "http.conf"))
-		if err != nil {
-			fmt.Println(err)
-		}
-		ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": "blog.qfdk.me.conf", "content": string(content)})
 		return
 	}
 	ctx.Redirect(http.StatusMovedPermanently, "/")

@@ -40,7 +40,3 @@ func Index(ctx *gin.Context) {
 func GetNginxCompileInfo(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "config", gin.H{"nginxCompileInfo": config.GetNginxCompileInfo()})
 }
-
-func SSLSettings(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "ssl", gin.H{})
-}

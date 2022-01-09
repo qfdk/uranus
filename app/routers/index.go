@@ -10,5 +10,4 @@ func indexRouter(engine *gin.Engine) {
 	engine.GET("/", controllers.Index)
 	engine.POST("/nginx", controllers.Nginx)
 	engine.GET("/config", controllers.GetNginxCompileInfo)
-	engine.GET("/ssl", controllers.SSLSettings)
 }

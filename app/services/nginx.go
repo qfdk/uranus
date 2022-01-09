@@ -25,12 +25,12 @@ func NginxStatus() string {
 
 func StartNginx() string {
 	log.Println("启动 nginx")
-	_, err := exec.Command("nginx").CombinedOutput()
+	out, err := exec.Command("nginx").CombinedOutput()
 	var result string
 	if err != nil {
 		fmt.Println("启动出错")
-		fmt.Println(err)
-		result = "KO"
+		result = string(out)
+		fmt.Println(result)
 	} else {
 		result = "OK"
 	}

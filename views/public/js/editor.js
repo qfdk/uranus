@@ -133,14 +133,40 @@ require.config({
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
 
-const processResponse = (data) => {
+const processResponse = (data, redirect, successMessage) => {
     if (data.message === 'OK') {
-        window.location = "/sites";
+        if (redirect) {
+            window.location = "/sites";
+        }
+        $("#successMessage").html(successMessage);
+        $("#alertSuccess").show()
     } else {
         $("#message").html(data.message);
         $("#alert").show();
+        $("#alertSuccess").hide();
     }
 }
+
+$('#enableSSL').click(() => {
+    $("#alert").hide();
+    $("#alertSuccess").hide();
+    $('#enableSSL').text("正在签名...");
+    $.get('/ssl', {filename: $("#filename").val()}, (data) => {
+        processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
+        $('#enableSSL').text("Let's Encrypt");
+        const domain = $("#filename").val().split('.conf')[0];
+        $.get('/sites/template', {domain, ssl: true}, (data) => {
+            editor.getModel().setValue(data.content);
+        });
+    });
+});
+
+$('#getTemplate').click(() => {
+    const domain = $("#filename").val();
+    $.get('/sites/template', {domain}, (data) => {
+        editor.getModel().setValue(data.content);
+    });
+});
 
 // 保存配置文件
 $('#saveNginxConf').click(() => {
@@ -150,16 +176,14 @@ $('#saveNginxConf').click(() => {
             name: $("#filename").val(),
             content: editor.getValue()
         }, (data) => {
-            processResponse(data);
+            processResponse(data, true);
         });
     } else {
-        const enableSSL = $('#enableSSL').is(':checked');
         $.post('/sites/save', {
             name: $("#filename").val(),
             content: editor.getValue(),
-            enableSSL
         }, (data) => {
-            processResponse(data);
+            processResponse(data, true);
         });
     }
 });

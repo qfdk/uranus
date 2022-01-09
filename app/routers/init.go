@@ -14,4 +14,5 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 初始化路由
 	indexRouter(engine)
 	sitesRouter(engine)
+	sslRouter(engine)
 }

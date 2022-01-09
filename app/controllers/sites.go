@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"proxy-manager/app/services"
-	"proxy-manager/app/tools"
 	"proxy-manager/config"
 	"strconv"
 	"strings"
@@ -24,7 +23,28 @@ func GetConfig(ctx *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": name, "content": string(content)})
+	ctx.HTML(http.StatusOK, "siteEdit", gin.H{"configFileName": name, "content": string(content)})
+}
+
+func NewSite(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "siteEdit", gin.H{"content": ""})
+}
+
+func GetTemplate(ctx *gin.Context) {
+	domain := ctx.Query("domain")
+	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
+	var templateConf = "http.conf"
+	if enableSSL {
+		templateConf = "https.conf"
+	}
+	content, err := ioutil.ReadFile(filepath.Join("template", templateConf))
+	inputTemplate := string(content)
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", domain)
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", config.GetAppConfig().SSLPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
 func GetSites(ctx *gin.Context) {
@@ -58,14 +78,14 @@ func DeleteSiteConf(ctx *gin.Context) {
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("name")
 	content := ctx.PostForm("content")
-	enableSSL, _ := strconv.ParseBool(ctx.PostForm("enableSSL"))
+	if !strings.Contains(fileName, ".conf") {
+		fileName = fileName + ".conf"
+	}
 	path := filepath.Join(config.GetAppConfig().VhostPath, fileName)
 	ioutil.WriteFile(path, []byte(content), 0644)
-	// 需要ssl
-	if enableSSL {
-		tools.IssueCert(strings.Split(fileName, ".conf")[0])
-	}
-	// 签名完成才能重载
 	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
+
+// 需要ssl
+//tools.IssueCert(strings.Split(fileName, ".conf")[0])
