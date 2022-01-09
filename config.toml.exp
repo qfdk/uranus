@@ -1,8 +1,6 @@
 # nginx 配置文件夹下面的 include vhosts路径
 # 默认位置
 VhostPath = "/etc/nginx/sites-enabled"
-# macOS 位置
-#VhostPath = "/opt/homebrew/etc/nginx/servers"
 # SSL Path
 SSLPath = "/etc/nginx/ssl"
 # Email

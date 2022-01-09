@@ -1,0 +1,13 @@
+{
+  "name": "proxy-manager",
+  "script": "proxy-manager",
+  "cwd": "./",
+  "exec_mode": "fork",
+  "env": {
+    "GIN_MODE": "release"
+  },
+  "error": "./logs/app-err.log",
+  "output": "./logs/app-out.log",
+  "log_date_format": "YYYY-MM-DD HH:mm:ss.SSS",
+  "merge_logs": true
+}

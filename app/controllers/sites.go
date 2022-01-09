@@ -86,6 +86,3 @@ func SaveSiteConf(ctx *gin.Context) {
 	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
-
-// 需要ssl
-//tools.IssueCert(strings.Split(fileName, ".conf")[0])
