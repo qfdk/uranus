@@ -9,6 +9,8 @@ type AppConfig struct {
 	VhostPath string
 	Email     string
 	SSLPath   string
+	Username  string
+	Password  string
 }
 
 var _appConfig *AppConfig = nil
