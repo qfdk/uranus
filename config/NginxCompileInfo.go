@@ -41,7 +41,11 @@ func initNginxCompileInfo() {
 	arr := strings.Split(nginxCompileInfo, "\n")
 	var nci = &NginxCompileInfo{}
 	nci.Version = strings.Split(arr[0], "nginx version: ")[1]
-	nci.CompilerVersion = strings.Split(arr[1], "built by ")[1]
+	if len(strings.Split(arr[1], "built by ")) > 1 {
+		nci.CompilerVersion = strings.Split(arr[1], "built by ")[1]
+	} else {
+		nci.CompilerVersion = "非编译版"
+	}
 	nci.SSLVersion = strings.Split(arr[2], "built with ")[1]
 	nci.TLSSupport = arr[3]
 	for _, v := range arr {
