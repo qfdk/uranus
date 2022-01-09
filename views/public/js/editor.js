@@ -152,7 +152,7 @@ $('#enableSSL').click(() => {
     $("#alertSuccess").hide();
     $('#enableSSL').text("正在签名...");
     const domain = $("#filename").val().split('.conf')[0];
-    $.get('/ssl', {domain}, (data) => {
+    $.get('/ssl/renew', {domain}, (data) => {
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
         if (data.message === 'OK') {

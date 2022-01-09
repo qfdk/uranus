@@ -6,10 +6,12 @@ import (
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
 	"proxy-manager/app/routers"
+	"proxy-manager/app/tools"
 	"proxy-manager/config"
 )
 
 func main() {
+	go tools.RenewSSL()
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	fmt.Println(config.GetAppConfig().VhostPath)
