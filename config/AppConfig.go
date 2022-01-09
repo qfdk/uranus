@@ -7,6 +7,8 @@ import (
 
 type AppConfig struct {
 	VhostPath string
+	Email     string
+	SSLPath   string
 }
 
 var _appConfig *AppConfig = nil

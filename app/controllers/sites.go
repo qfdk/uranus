@@ -9,7 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"proxy-manager/app/services"
+	"proxy-manager/app/tools"
 	"proxy-manager/config"
+	"strconv"
+	"strings"
 )
 
 // GetConfig  TODO /** 安全问题 ！！！跨目录
@@ -55,8 +58,15 @@ func DeleteSiteConf(ctx *gin.Context) {
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("name")
 	content := ctx.PostForm("content")
+	enableSSL, _ := strconv.ParseBool(ctx.PostForm("enableSSL"))
 	path := filepath.Join(config.GetAppConfig().VhostPath, fileName)
 	ioutil.WriteFile(path, []byte(content), 0644)
 	response := services.ReloadNginx()
+
+	// 需要ssl
+	if enableSSL {
+		tools.IssueCert(strings.Split(fileName, ".conf")[0])
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }

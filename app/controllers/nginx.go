@@ -19,13 +19,10 @@ func Nginx(ctx *gin.Context) {
 	}
 	switch action {
 	case "start":
-		log.Println("启动 nginx")
 		services.StartNginx()
 	case "reload":
-		log.Println("重载 nginx 配置文件")
 		services.ReloadNginx()
 	case "stop":
-		log.Println("关闭 nginx")
 		services.StopNginx()
 	case "parser":
 		log.Println("读取 nginx 配置文件")

@@ -153,9 +153,11 @@ $('#saveNginxConf').click(() => {
             processResponse(data);
         });
     } else {
+        const enableSSL = $('#enableSSL').is(':checked');
         $.post('/sites/save', {
             name: $("#filename").val(),
-            content: editor.getValue()
+            content: editor.getValue(),
+            enableSSL
         }, (data) => {
             processResponse(data);
         });

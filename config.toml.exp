@@ -6,3 +6,7 @@ VhostPath = "/etc/nginx/sites-available"
 #VhostPath = "/opt/homebrew/etc/nginx/servers"
 # 宝塔面板
 #VhostPath = "/www/server/panel/vhost/nginx"
+# SSL Path
+SSLPath = "/opt/homebrew/etc/nginx/ssl"
+# Email
+Email = "qfdk2010@gmail.com"

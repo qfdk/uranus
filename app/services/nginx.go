@@ -24,6 +24,7 @@ func NginxStatus() string {
 }
 
 func StartNginx() string {
+	log.Println("启动 nginx")
 	_, err := exec.Command("nginx").CombinedOutput()
 	var result string
 	if err != nil {
@@ -37,6 +38,7 @@ func StartNginx() string {
 }
 
 func ReloadNginx() string {
+	log.Println("重载 nginx 配置文件")
 	if NginxStatus() != "KO" {
 		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
 		var result string
@@ -49,11 +51,12 @@ func ReloadNginx() string {
 		return result
 	} else {
 		fmt.Println("Nginx 没有启动,不用重载配置 !")
-		return "KO"
+		return "OK"
 	}
 }
 
 func StopNginx() string {
+	log.Println("关闭 nginx")
 	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
 	var result string
 	if err != nil {
@@ -75,6 +78,7 @@ func GetNginxConfPath() string {
 }
 
 func SaveNginxConf(content string) {
+	log.Println("保存 Nginx 配置")
 	path := filepath.Join(GetNginxConfPath(), "nginx.conf")
 	ioutil.WriteFile(path, []byte(content), 0644)
 	ReloadNginx()
