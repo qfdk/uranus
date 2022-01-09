@@ -61,12 +61,11 @@ func SaveSiteConf(ctx *gin.Context) {
 	enableSSL, _ := strconv.ParseBool(ctx.PostForm("enableSSL"))
 	path := filepath.Join(config.GetAppConfig().VhostPath, fileName)
 	ioutil.WriteFile(path, []byte(content), 0644)
-	response := services.ReloadNginx()
-
 	// 需要ssl
 	if enableSSL {
 		tools.IssueCert(strings.Split(fileName, ".conf")[0])
 	}
-
+	// 签名完成才能重载
+	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
