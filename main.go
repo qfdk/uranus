@@ -17,7 +17,7 @@ func main() {
 	fmt.Println(config.GetAppConfig().VhostPath)
 	//new template engine
 	r.HTMLRender = ginview.New(goview.Config{
-		Root:         "views",
+		Root:         "web",
 		Extension:    ".html",
 		Master:       "layouts/master",
 		Partials:     []string{},
