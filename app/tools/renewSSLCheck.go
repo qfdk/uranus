@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"proxy-manager/app/services"
 	"proxy-manager/config"
 	"time"
 )
@@ -41,6 +42,7 @@ func RenewSSL() {
 				if certInfo.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
 					log.Println("证书过期，需要续签！")
 					IssueCert(domain)
+					services.ReloadNginx()
 				} else {
 					log.Printf("%s => 证书OK.\n", domain)
 				}
