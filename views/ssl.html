@@ -19,7 +19,7 @@
     <tbody>
     {{range $index, $value :=.files}}
     <tr>
-        <th scope="row">{{$value.Name}}</th>
+        <th scope="row"><a href="https://{{$value.Name}}">{{$value.Name}}</a></th>
         <td>
             <a href="/ssl/renew?domain={{$value.Name}}"><span class="badge bg-primary">续命</span></a>
             <a href="/ssl/delete?domain={{$value.Name}}"><span class="badge bg-danger">删除</span></a>

@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +14,8 @@ import (
 func SSLDirs(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(config.GetAppConfig().SSLPath)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+		ctx.HTML(http.StatusOK, "ssl", gin.H{"files": []string{}})
 		return
 	}
 	ctx.HTML(http.StatusOK, "ssl", gin.H{"files": files})
