@@ -19,13 +19,13 @@
 {{end}}
 
 <form action="/nginx" method="post">
-    <button type="submit" name="action" value="start" class="btn btn-primary" {{ if ne .nginxStatus
+    <button type="submit" name="action" value="start" class="btn btn-sm btn-primary" {{ if ne .nginxStatus
     "KO" }}disabled{{end}} >开始服务</button>
-    <button type="submit" name="action" value="reload" class="btn btn-outline-warning" {{ if eq .nginxStatus
+    <button type="submit" name="action" value="reload" class="btn btn-sm btn-outline-warning" {{ if eq .nginxStatus
     "KO" }}disabled{{end}}>重载配置</button>
-    <button type="submit" name="action" value="stop" class="btn btn-outline-danger" {{ if eq .nginxStatus
+    <button type="submit" name="action" value="stop" class="btn btn-sm btn-outline-danger" {{ if eq .nginxStatus
     "KO" }}disabled{{end}}>停止服务</button>
-    <button type="submit" name="action" value="parser" class="btn btn-dark">Nginx配置文件</button>
+    <button type="submit" name="action" value="parser" class="btn btn-sm btn-dark">Nginx配置文件</button>
 </form>
 
 <table class="table">
