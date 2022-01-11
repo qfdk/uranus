@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/foolin/goview"
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
@@ -14,7 +13,7 @@ func main() {
 	go tools.RenewSSL()
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
-	fmt.Println(config.GetAppConfig().VhostPath)
+	println("Nginx vhost 路径：" + config.GetAppConfig().VhostPath)
 	//new template engine
 	r.HTMLRender = ginview.New(goview.Config{
 		Root:         "web",
