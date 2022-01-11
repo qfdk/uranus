@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/robfig/cron/v3"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"proxy-manager/app/services"
 	"proxy-manager/config"
@@ -20,7 +19,7 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 	client := &http.Client{Transport: transport}
 	response, err := client.Get("https://" + domain)
 	if err != nil {
-		log.Println(err.Error())
+		panic(err)
 		return nil
 	}
 	defer response.Body.Close()
