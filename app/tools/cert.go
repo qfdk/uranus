@@ -84,12 +84,7 @@ func IssueCert(domain string) error {
 	// nginx 根目录
 	saveDir := filepath.Join(pmConfig.GetAppConfig().SSLPath, domain)
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
-		err = os.MkdirAll(saveDir, 0755)
-		if err != nil {
-			panic(err)
-			println("无法建立文件夹", saveDir)
-			return err
-		}
+		os.MkdirAll(saveDir, 0755)
 	}
 
 	// Each certificate comes back with the cert bytes, the bytes of the client's

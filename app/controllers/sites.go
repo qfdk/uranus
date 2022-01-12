@@ -51,6 +51,7 @@ func GetSites(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(filepath.Join(config.GetAppConfig().VhostPath))
 	if err != nil {
 		fmt.Println(err)
+		ctx.HTML(http.StatusOK, "sites", gin.H{"files": []string{}})
 		return
 	}
 	ctx.HTML(http.StatusOK, "sites", gin.H{"files": files, "humanizeBytes": humanize.Bytes})
@@ -80,6 +81,10 @@ func SaveSiteConf(ctx *gin.Context) {
 	content := ctx.PostForm("content")
 	if !strings.Contains(fileName, ".conf") {
 		fileName = fileName + ".conf"
+	}
+	//  检测 文件夹是否存在不存在建立
+	if _, err := os.Stat(config.GetAppConfig().VhostPath); os.IsNotExist(err) {
+		os.MkdirAll(config.GetAppConfig().VhostPath, 0755)
 	}
 	path := filepath.Join(config.GetAppConfig().VhostPath, fileName)
 	ioutil.WriteFile(path, []byte(content), 0644)
