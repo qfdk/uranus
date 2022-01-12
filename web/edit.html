@@ -3,39 +3,45 @@
 {{ end }}
 {{define "content"}}
 {{ if .disabledChangeFileName }}
-<h3>Nginx 默认配置编辑</h3>
+<h3 class="title">Nginx 默认配置编辑</h3>
 {{end}}
 {{ if not .disabledChangeFileName }}
-<h3>网站配置编辑</h3>
+<h3 class="title">网站配置编辑</h3>
 {{end}}
 
 <div class="row">
-    <div class="container">
-        <div class="alert alert-danger" id="alert" style="display: none"><span id="message"></span></div>
-        <div class="alert alert-success" id="alertSuccess" style="display: none"><span id="successMessage"></span></div>
-    </div>
-    <div class="col-auto mb-3">
-        <div class="input-group">
-            <span class="input-group-text" id="inputGroup-sizing-default">文件名：</span>
-            <input type="text" value="{{.configFileName}}" id="filename" class="form-control"
-                   aria-label="Sizing example input"
-                   {{ if .disabledChangeFileName }}disabled{{end}}
-                   aria-describedby="inputGroup-sizing-default">
+    <article class="message is-danger" id="alert" style="display: none">
+        <div class="message-body">
+            <span id="message"></span>
         </div>
+    </article>
+
+    <article class="message is-success" id="alertSuccess" style="display: none">
+        <div class="message-body">
+            <span id="successMessage"></span>
+        </div>
+    </article>
+
+    <div class="field has-addons">
+        <p class="control">
+            <a class="button is-static"> 文件名：</a>
+        </p>
+        <p class="control">
+            <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{ if
+                   .disabledChangeFileName }}readonly{{end}}>
+        </p>
     </div>
-    {{ if not .disabledChangeFileName }}
-    <div class="col-auto">
-        <button class="btn btn-primary" id="enableSSL">Let's Encrypt</button>
+
+    <div class="block">
+        {{ if not .disabledChangeFileName }}
+        <button class="button is-dark" id="enableSSL">Let's Encrypt</button>
+        {{end}}
+        <button class="button is-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
+        <button class="button is-info" id="saveNginxConf">保存</button>
     </div>
-    {{end}}
-    <div class="col-auto">
-        <button class="btn btn-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-primary" id="saveNginxConf">保存</button>
-    </div>
-    <div class="col-md-12 mt-3">
-        <pre id="editor" data-lang="nginx"></pre>
+
+    <div class="block">
+        <div id="editor" data-lang="nginx"></div>
     </div>
 </div>
 {{end}}

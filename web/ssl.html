@@ -5,23 +5,27 @@
         SSL 证书签名列表
     </div>
 </article>
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">域名</th>
-        <th scope="col">操作</th>
-    </tr>
-    </thead>
-    <tbody>
-    {{range $index, $value :=.files}}
-    <tr>
-        <th scope="row"><a href="https://{{$value.Name}}">{{$value.Name}}</a></th>
-        <td>
-            <a href="/ssl/renew?domain={{$value.Name}}"><span class="badge bg-primary">续命</span></a>
-            <a href="/ssl/delete?domain={{$value.Name}}"><span class="badge bg-danger">删除</span></a>
-        </td>
-    </tr>
-    {{end}}
-    </tbody>
-</table>
+<div class="columns is-centered">
+    <div class="column">
+        <table class="table is-fullwidth">
+            <thead>
+            <tr>
+                <th scope="col">域名</th>
+                <th scope="col">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range $index, $value :=.files}}
+            <tr>
+                <th scope="row"><a href="https://{{$value.Name}}">{{$value.Name}}</a></th>
+                <td>
+                    <a href="/ssl/renew?domain={{$value.Name}}"><span class="tag is-info">续命</span></a>
+                    <a href="/ssl/delete?domain={{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
+                </td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
 {{end}}

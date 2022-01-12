@@ -69,7 +69,6 @@ func IssueCert(domain string) error {
 	// New users will need to register
 	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
 	if err != nil {
-		panic(err)
 		return err
 	}
 	myUser.Registration = reg
@@ -80,7 +79,6 @@ func IssueCert(domain string) error {
 	}
 	certificates, err := client.Certificate.Obtain(request)
 	if err != nil {
-		panic(err)
 		return err
 	}
 	// nginx 根目录

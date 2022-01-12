@@ -133,10 +133,10 @@ require.config({
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
 
-const processResponse = (data, redirect, successMessage) => {
+const processResponse = (data, redirect="/sites", successMessage) => {
     if (data.message === 'OK') {
         if (redirect) {
-            window.location = "/sites";
+            window.location = redirect;
         }
         $("#successMessage").html(successMessage);
         $("#alertSuccess").show()
@@ -150,11 +150,13 @@ const processResponse = (data, redirect, successMessage) => {
 $('#enableSSL').click(() => {
     $("#alert").hide();
     $("#alertSuccess").hide();
-    $('#enableSSL').text("正在签名...");
+    $('#enableSSL').addClass("is-loading");
     const domain = $("#filename").val().split('.conf')[0];
     $.get('/ssl/renew', {domain}, (data) => {
+        console.log(data)
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
+        $('#enableSSL').removeClass("is-loading");
         if (data.message === 'OK') {
             $.get('/sites/template', {domain, ssl: true}, (data) => {
                 editor.getModel().setValue(data.content);
@@ -178,14 +180,14 @@ $('#saveNginxConf').click(() => {
             name: $("#filename").val(),
             content: editor.getValue()
         }, (data) => {
-            processResponse(data, true);
+            processResponse(data, "/");
         });
     } else {
         $.post('/sites/save', {
             name: $("#filename").val(),
             content: editor.getValue(),
         }, (data) => {
-            processResponse(data, true);
+            processResponse(data);
         });
     }
 });

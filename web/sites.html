@@ -6,25 +6,29 @@
     </div>
 </article>
 <a type="link" href="/sites/new" class="button is-info">添加新配置</a>
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">配置文件</th>
-        <th scope="col">大小</th>
-        <th scope="col">操作</th>
-    </tr>
-    </thead>
-    <tbody>
-    {{range $index, $value :=.files}}
-    <tr>
-        <th scope="row">{{$value.Name}}</th>
-        <td>{{call $.humanizeBytes $value.Size}}</td>
-        <td>
-            <a href="/sites/edit?path={{$value.Name}}"><span class="badge bg-primary">编辑</span></a>
-            <a href="/sites/delete?path={{$value.Name}}"><span class="badge bg-danger">删除</span></a>
-        </td>
-    </tr>
-    {{end}}
-    </tbody>
-</table>
+<div class="columns is-centered">
+    <div class="column">
+        <table class="table is-fullwidth">
+            <thead>
+            <tr>
+                <th scope="col">配置文件</th>
+                <th scope="col">大小</th>
+                <th scope="col">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range $index, $value :=.files}}
+            <tr>
+                <th scope="row">{{$value.Name}}</th>
+                <td>{{call $.humanizeBytes $value.Size}}</td>
+                <td>
+                    <a href="/sites/edit?path={{$value.Name}}"><span class="tag is-info">编辑</span></a>
+                    <a href="/sites/delete?path={{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
+                </td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
 {{end}}

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
@@ -16,13 +17,14 @@ func Nginx(ctx *gin.Context) {
 		// 参数不存在
 		fmt.Println("参数不存在")
 	}
+	var nginxActionResult string
 	switch action {
 	case "start":
-		services.StartNginx()
+		nginxActionResult = services.StartNginx()
 	case "reload":
-		services.ReloadNginx()
+		nginxActionResult = services.ReloadNginx()
 	case "stop":
-		services.StopNginx()
+		nginxActionResult = services.StopNginx()
 	case "parser":
 		log.Println("读取 nginx 配置文件")
 		content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
@@ -34,5 +36,5 @@ func Nginx(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
 		return
 	}
-	ctx.Redirect(http.StatusMovedPermanently, "/")
+	ctx.Redirect(http.StatusMovedPermanently, "/?message="+base64.StdEncoding.EncodeToString([]byte(nginxActionResult)))
 }

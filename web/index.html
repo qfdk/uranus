@@ -20,6 +20,14 @@
         Nginx 没有运行 ...
     </div>
 </article>
+{{if and (ne .nginxActionMessage "OK") (ne .nginxActionMessage "")}}
+<article class="message is-danger">
+    <div class="message-body">
+        {{.nginxActionMessage}}
+    </div>
+</article>
+{{end}}
+
 {{end}}
 
 <form action="/nginx" method="post">
@@ -39,7 +47,7 @@
 
 
 <div class="columns is-centered">
-    <div class="column is-four-fifths">
+    <div class="column">
         <table class="table is-fullwidth">
             <thead>
             <tr>

@@ -2,33 +2,40 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
 {{ end }}
 {{define "content"}}
-<h3>网站配置编辑</h3>
+<h3 class="title">网站配置编辑</h3>
 <div class="row">
-    <div class="container">
-        <div class="alert alert-danger" id="alert" style="display: none"><span id="message"></span></div>
-        <div class="alert alert-success" id="alertSuccess" style="display: none"><span id="successMessage"></span></div>
+    <article class="message is-danger" id="alert" style="display: none">
+        <div class="message-body">
+            <span id="message"></span>
+        </div>
+    </article>
+    <article class="message is-success" id="alertSuccess" style="display: none">
+        <div class="message-body">
+            <span id="successMessage"></span>
+        </div>
+    </article>
+    <div class="field has-addons">
+        <p class="control">
+            <a class="button is-static">域名：</a>
+        </p>
+        <p class="control">
+            <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control">
+        </p>
+        <p class="control">
+            <a class="button is-static">.conf</a>
+        </p>
     </div>
-    <div class="col-auto mb-3">
-        <div class="input-group">
-            <span class="input-group-text">域名：</span>
-            <input type="text" id="filename" class="form-control"
-                   aria-label="Sizing example input"
-                   aria-describedby="inputGroup-sizing-default">
-            <span class="input-group-text">.conf</span>
+
+    <div class="block">
+        <div class="buttons">
+            {{ if not .disabledChangeFileName }}
+            <button class="button is-primary" id="getTemplate">获取配置</button>
+            {{end}}
+            <button class="button is-warning" d="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
+            <button class="button is-info" id="saveNginxConf">保存</button>
         </div>
     </div>
-    <div class="col-auto">
-        <button class="btn btn-primary" id="getTemplate">获取配置</button>
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-primary" id="saveNginxConf">保存</button>
-    </div>
-    <div class="col-md-12 mt-3">
-        <pre id="editor" data-lang="nginx"></pre>
-    </div>
+    <div id="editor" data-lang="nginx"></div>
 </div>
 {{end}}
 
@@ -48,7 +55,12 @@
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {{.content}};
+        var codeContent = {
+        {.
+            content
+        }
+    }
+        ;
         editor = monaco.editor.create(document.getElementById('editor'),
             {
                 value: codeContent,

@@ -12,8 +12,9 @@
     {{block "css" .}}{{end}}
     <title>Proxy Manager</title>
     <style>
-        body{margin-top: 65px;}
-        #main{margin-left: 8px;margin-right: 8px;}
+        body {
+            margin-top: 65px;
+        }
     </style>
 </head>
 
@@ -44,8 +45,10 @@
     </div>
 </nav>
 
-<div class="container" id="main">
-    {{template "content" .}}
+<div class="container">
+    <div class="mx-3">
+        {{template "content" .}}
+    </div>
 </div>
 </body>
 <script>
