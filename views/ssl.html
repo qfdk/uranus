@@ -1,14 +1,10 @@
-{{ block "navbar" .}}
-<a class="nav-link" href="/">服务器状态</a>
-<a class="nav-link" href="/config">配置</a>
-<a class="nav-link" href="/sites">网站管理</a>
-<a aria-current="page" class="nav-link active" href="/ssl">SSL证书管理</a>
-{{end}}
 {{define "content"}}
-<h3>SSL</h3>
-<div class="alert alert-primary" role="alert">
-    SSL 证书签名列表
-</div>
+<h3 class="title">SSL</h3>
+<article class="message is-info">
+    <div class="message-body">
+        SSL 证书签名列表
+    </div>
+</article>
 <table class="table">
     <thead>
     <tr>

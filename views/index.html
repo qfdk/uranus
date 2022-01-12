@@ -1,69 +1,81 @@
 {{ block "navbar" .}}
-<a aria-current="page" class="nav-link active" href="/">服务器状态</a>
-<a class="nav-link" href="/config">配置</a>
-<a class="nav-link" href="/sites">网站管理</a>
-<a class="nav-link" href="/ssl">SSL证书管理</a>
+<a class="navbar-item" href="/">服务器状态</a>
+<a class="navbar-item" href="/config">配置</a>
+<a class="navbar-item" href="/sites">网站管理</a>
+<a class="navbar-item" href="/ssl">SSL证书管理</a>
 {{end}}
 
 {{define "content"}}
-<h3>服务器状态</h3>
+<h3 class="title is-3">服务器状态</h3>
 
 {{ if ne .nginxStatus "KO" }}
-<div class="alert alert-success" role="alert">
-    Nginx 正在平稳运行 PID : {{.nginxStatus}}
-</div>
+<article class="message is-success">
+    <div class="message-body">
+        Nginx 正在平稳运行 PID : <strong>{{.nginxStatus}}</strong>
+    </div>
+</article>
 {{else}}
-<div class="alert alert-warning" role="alert">
-    Nginx 没有运行 ...
-</div>
+<article class="message is-warning">
+    <div class="message-body">
+        Nginx 没有运行 ...
+    </div>
+</article>
 {{end}}
 
-<form action="/nginx" method="post">
-    <button type="submit" name="action" value="start" class="btn btn-primary" {{ if ne .nginxStatus
-    "KO" }}disabled{{end}} >开始服务</button>
-    <button type="submit" name="action" value="reload" class="btn btn-outline-warning" {{ if eq .nginxStatus
-    "KO" }}disabled{{end}}>重载配置</button>
-    <button type="submit" name="action" value="stop" class="btn btn-outline-danger" {{ if eq .nginxStatus
-    "KO" }}disabled{{end}}>停止服务</button>
-    <button type="submit" name="action" value="parser" class="btn btn-dark">Nginx配置文件</button>
-</form>
+<div class="block">
+    <form action="/nginx" method="post">
+        <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus
+        "KO" }}disabled{{end}} >开始服务</button>
+        <button type="submit" name="action" value="reload" class="button is-warning is-outlined" {{ if eq .nginxStatus
+        "KO" }}disabled{{end}}>重载配置</button>
+        <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus
+        "KO" }}disabled{{end}}>停止服务</button>
+        <button type="submit" name="action" value="parser" class="button is-dark">Nginx配置文件</button>
+    </form>
+</div>
 
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">项目名称</th>
-        <th scope="col">状态</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <th scope="row">操作系统</th>
-        <td>{{.osName}}</td>
-    </tr>
-    <tr>
-        <th scope="row">CPU</th>
-        <td>{{.cpu.ModelName}} x {{.cpu.Cores}} - {{.cpu.Mhz}} Mhz</td>
-    </tr>
-    <tr>
-        <th scope="row">内存</th>
-        <td>{{.memInfo}}</td>
-    </tr>
-    <tr>
-        <th scope="row">Nginx 版本</th>
-        <td>{{.nginxCompileInfo.Version}}</td>
-    </tr>
-    <tr>
-        <th scope="row">编译器</th>
-        <td>{{.nginxCompileInfo.CompilerVersion}}</td>
-    </tr>
-    <tr>
-        <th scope="row">SSL 版本</th>
-        <td>{{.nginxCompileInfo.SSLVersion}}</td>
-    </tr>
-    <tr>
-        <th scope="row"></th>
-        <td>{{.nginxCompileInfo.TLSSupport}}</td>
-    </tr>
-    </tbody>
-</table>
+
+<div class="columns is-centered">
+    <div class="column is-four-fifths">
+        <table class="table is-fullwidth">
+            <thead>
+            <tr>
+                <th>项目名称</th>
+                <th>状态</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <th scope="row">操作系统</th>
+                <td>{{.osName}}</td>
+            </tr>
+            <tr>
+                <th scope="row">CPU</th>
+                <td>{{.cpu.ModelName}} x {{.cpu.Cores}}</td>
+            </tr>
+            <tr>
+                <th scope="row">内存</th>
+                <td>{{.memInfo}}</td>
+            </tr>
+            <tr>
+                <th scope="row">Nginx 版本</th>
+                <td>{{.nginxCompileInfo.Version}}</td>
+            </tr>
+            <tr>
+                <th scope="row">编译器</th>
+                <td>{{.nginxCompileInfo.CompilerVersion}}</td>
+            </tr>
+            <tr>
+                <th scope="row">SSL 版本</th>
+                <td>{{.nginxCompileInfo.SSLVersion}}</td>
+            </tr>
+            <tr>
+                <th scope="row"></th>
+                <td>{{.nginxCompileInfo.TLSSupport}}</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {{end}}

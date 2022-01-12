@@ -1,44 +1,44 @@
-{{ block "navbar" .}}
-<a class="nav-link" href="/">服务器状态</a>
-<a aria-current="page" class="nav-link active" href="/config">配置</a>
-<a class="nav-link" href="/sites">网站管理</a>
-<a class="nav-link" href="/ssl">SSL证书管理</a>
-{{end}}
 {{define "content"}}
-<h3>配置文件</h3>
-<div class="alert alert-primary" role="alert">
-    配置文件列表
+<h3 class="title">配置文件</h3>
+<article class="message is-info">
+    <div class="message-body">
+        配置文件列表
+    </div>
+</article>
+<div class="columns is-centered">
+    <div class="column is-four-fifths">
+        <table class="table is-fullwidth">
+            <thead>
+            <tr>
+                <th scope="col">项目名称</th>
+                <th scope="col">状态</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <th scope="row">Nginx 版本</th>
+                <td>{{.nginxCompileInfo.Version}}</td>
+            </tr>
+            <tr>
+                <th scope="row">编译器</th>
+                <td>{{.nginxCompileInfo.CompilerVersion}}</td>
+            </tr>
+            <tr>
+                <th scope="row">SSL 版本</th>
+                <td>{{.nginxCompileInfo.SSLVersion}}</td>
+            </tr>
+            <tr>
+                <th scope="row"></th>
+                <td>{{.nginxCompileInfo.TLSSupport}}</td>
+            </tr>
+            {{range $index, $value :=.nginxCompileInfo.Params}}
+            <tr>
+                <th scope="row"></th>
+                <td>--{{$value}}</td>
+            </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">项目名称</th>
-        <th scope="col">状态</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <th scope="row">Nginx 版本</th>
-        <td>{{.nginxCompileInfo.Version}}</td>
-    </tr>
-    <tr>
-        <th scope="row">编译器</th>
-        <td>{{.nginxCompileInfo.CompilerVersion}}</td>
-    </tr>
-    <tr>
-        <th scope="row">SSL 版本</th>
-        <td>{{.nginxCompileInfo.SSLVersion}}</td>
-    </tr>
-    <tr>
-        <th scope="row"></th>
-        <td>{{.nginxCompileInfo.TLSSupport}}</td>
-    </tr>
-    {{range $index, $value :=.nginxCompileInfo.Params}}
-    <tr>
-        <th scope="row"></th>
-        <td>--{{$value}}</td>
-    </tr>
-    {{end}}
-    </tbody>
-</table>
 {{end}}

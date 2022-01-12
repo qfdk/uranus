@@ -1,12 +1,6 @@
 {{ block "css" .}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
 {{ end }}
-{{ block "navbar" .}}
-<a class="nav-link" href="/">服务器状态</a>
-<a class="nav-link" href="/config">配置</a>
-<a class="nav-link" href="/sites">网站管理</a>
-<!--<a aria-current="page" class="nav-link active" href="/ssl">SSL证书管理</a>-->
-{{end}}
 {{define "content"}}
 {{ if .disabledChangeFileName }}
 <h3>Nginx 默认配置编辑</h3>
