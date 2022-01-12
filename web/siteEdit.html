@@ -55,12 +55,7 @@
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {
-        {.
-            content
-        }
-    }
-        ;
+        var codeContent = {{.content}};
         editor = monaco.editor.create(document.getElementById('editor'),
             {
                 value: codeContent,
