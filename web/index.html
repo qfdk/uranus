@@ -22,17 +22,20 @@
 </article>
 {{end}}
 
-<div class="block">
-    <form action="/nginx" method="post">
-        <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus
-        "KO" }}disabled{{end}} >开始服务</button>
-        <button type="submit" name="action" value="reload" class="button is-warning is-outlined" {{ if eq .nginxStatus
-        "KO" }}disabled{{end}}>重载配置</button>
-        <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus
-        "KO" }}disabled{{end}}>停止服务</button>
-        <button type="submit" name="action" value="parser" class="button is-dark">Nginx配置文件</button>
-    </form>
-</div>
+<form action="/nginx" method="post">
+    <div class="block">
+        <div class="buttons">
+            <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus
+            "KO" }}disabled{{end}} >开始服务</button>
+            <button type="submit" name="action" value="reload" class="button is-warning is-outlined" {{ if eq
+                    .nginxStatus
+            "KO" }}disabled{{end}}>重载配置</button>
+            <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus
+            "KO" }}disabled{{end}}>停止服务</button>
+            <button type="submit" name="action" value="parser" class="button is-dark">Nginx配置文件</button>
+        </div>
+    </div>
+</form>
 
 
 <div class="columns is-centered">
