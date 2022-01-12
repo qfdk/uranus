@@ -5,14 +5,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"fmt"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/challenge/http01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	pmConfig "proxy-manager/config"
@@ -39,7 +37,8 @@ func IssueCert(domain string) error {
 	// Create a user. New accounts need an email and private key to start.
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
+		return err
 	}
 
 	myUser := MyUser{
@@ -56,21 +55,21 @@ func IssueCert(domain string) error {
 	// A client facilitates communication with the CA server.
 	client, err := lego.NewClient(config)
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 
 	// 9999 端口为签名端口
 	err = client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "9999"))
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 
 	// New users will need to register
 	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 	myUser.Registration = reg
@@ -81,7 +80,7 @@ func IssueCert(domain string) error {
 	}
 	certificates, err := client.Certificate.Obtain(request)
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 	// nginx 根目录
@@ -89,8 +88,8 @@ func IssueCert(domain string) error {
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
 		err = os.MkdirAll(saveDir, 0755)
 		if err != nil {
-			fmt.Println(err)
-			log.Println("无法建立文件夹", saveDir)
+			panic(err)
+			println("无法建立文件夹", saveDir)
 			return err
 		}
 	}
@@ -100,13 +99,13 @@ func IssueCert(domain string) error {
 	err = ioutil.WriteFile(filepath.Join(saveDir, "fullchain.cer"),
 		certificates.Certificate, 0644)
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 	err = ioutil.WriteFile(filepath.Join(saveDir, "private.key"),
 		certificates.PrivateKey, 0644)
 	if err != nil {
-		log.Println(err)
+		panic(err)
 		return err
 	}
 	return nil

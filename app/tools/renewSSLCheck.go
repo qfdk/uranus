@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/robfig/cron/v3"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"proxy-manager/app/services"
 	"proxy-manager/config"
 	"time"
 )
@@ -19,7 +19,7 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 	client := &http.Client{Transport: transport}
 	response, err := client.Get("https://" + domain)
 	if err != nil {
-		log.Println(err.Error())
+		panic(err)
 		return nil
 	}
 	defer response.Body.Close()
@@ -30,7 +30,7 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 
 func RenewSSL() {
 	// 每天 00:05 进行检测
-	spec := "5 0,12 * * *"
+	spec := "5 0 * * *"
 	c := cron.New()
 	c.AddFunc(spec, func() {
 		sslPath := config.GetAppConfig().SSLPath
@@ -43,6 +43,7 @@ func RenewSSL() {
 				if certInfo.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
 					fmt.Printf("%s 证书过期，需要续签！\n", domain)
 					IssueCert(domain)
+					services.ReloadNginx()
 				} else {
 					fmt.Printf("%s => 证书OK.\n", domain)
 				}

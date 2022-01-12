@@ -1,9 +1,9 @@
-# nginx 配置文件夹下面的 include vhosts路径
 # 默认位置
 VhostPath = "/etc/nginx/sites-enabled"
 # SSL Path
 SSLPath = "/etc/nginx/ssl"
 # Email
 Email = "qfdk2010@gmail.com"
-Username = "qfdk"
+# 访问配置
+Username = "admin"
 Password = "admin"

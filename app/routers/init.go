@@ -13,7 +13,7 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 错误中间件
 	engine.Use(middlewares.ErrorHttp)
 	// 静态文件路由
-	engine.StaticFS("/public", http.Dir("./views/public"))
+	engine.StaticFS("/public", http.Dir("./web/public"))
 	// 初始化路由
 	indexRouter(engine)
 	sitesRouter(engine)
