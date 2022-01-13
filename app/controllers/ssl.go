@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"proxy-manager/app/tools"
-	"proxy-manager/config"
+	"github.com/qfdk/nginx-proxy-manager/app/tools"
+	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func SSLDirs(ctx *gin.Context) {

@@ -1,4 +1,4 @@
-module proxy-manager
+module github.com/qfdk/nginx-proxy-manager
 
 go 1.17
 

@@ -3,7 +3,7 @@ package routers
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"proxy-manager/config"
+	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 // RegisterRoutes /** 路由组*/

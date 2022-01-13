@@ -1,6 +1,6 @@
 {
-  "name": "proxy-manager",
-  "script": "proxy-manager",
+  "name": "nginx-proxy-manager",
+  "script": "nginx-proxy-manager",
   "cwd": "./",
   "exec_mode": "fork",
   "env": {

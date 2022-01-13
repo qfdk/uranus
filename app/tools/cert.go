@@ -13,7 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	pmConfig "proxy-manager/config"
+	npmConfig "github.com/qfdk/nginx-proxy-manager/config"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -42,7 +42,7 @@ func IssueCert(domain string) error {
 	}
 
 	myUser := MyUser{
-		Email: pmConfig.GetAppConfig().Email,
+		Email: npmConfig.GetAppConfig().Email,
 		key:   privateKey,
 	}
 
@@ -82,7 +82,7 @@ func IssueCert(domain string) error {
 		return err
 	}
 	// nginx 根目录
-	saveDir := filepath.Join(pmConfig.GetAppConfig().SSLPath, domain)
+	saveDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, domain)
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
 		os.MkdirAll(saveDir, 0755)
 	}

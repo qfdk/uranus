@@ -7,8 +7,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"io/ioutil"
 	"net/http"
-	"proxy-manager/app/services"
-	"proxy-manager/config"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
+	"github.com/qfdk/nginx-proxy-manager/config"
 	"time"
 )
 

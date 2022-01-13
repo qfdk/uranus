@@ -2,7 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
-	"proxy-manager/app/controllers"
+	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 )
 
 // IndexRouter /** 定义index路由组

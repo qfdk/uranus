@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"proxy-manager/config"
+	"github.com/qfdk/nginx-proxy-manager/config"
 	"regexp"
 )
 

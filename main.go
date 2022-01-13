@@ -4,16 +4,16 @@ import (
 	"github.com/foolin/goview"
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
-	"proxy-manager/app/routers"
-	"proxy-manager/app/tools"
-	"proxy-manager/config"
+	"github.com/qfdk/nginx-proxy-manager/app/routers"
+	"github.com/qfdk/nginx-proxy-manager/app/tools"
+	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func main() {
 	go tools.RenewSSL()
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
-	println("Nginx vhost 路径：" + config.GetAppConfig().VhostPath)
+	println("网站路径：" + config.GetAppConfig().VhostPath)
 	//new template engine
 	r.HTMLRender = ginview.New(goview.Config{
 		Root:         "web",
