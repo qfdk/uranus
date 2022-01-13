@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
-    <link rel="shortcut icon" href="/public/icon/favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="/public/icon/favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
+    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          name="viewport">
+    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
+    <link href="/public/icon/favicon.ico" rel="shortcut icon">
+    <link href="/public/icon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
+    <link href="/public/icon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    <script crossorigin="anonymous" src="https://kit.fontawesome.com/e563806347.js"></script>
     {{block "css" .}}{{end}}
-    <title>Proxy Manager</title>
+    <title>Nginx Proxy Manager</title>
     <style>
         body {
             margin-top: 65px;
@@ -18,20 +19,20 @@
 </head>
 
 <body>
-<nav class="navbar is-black is-fixed-top" role="navigation" aria-label="main navigation">
+<nav aria-label="main navigation" class="navbar is-black is-fixed-top" role="navigation">
     <div class="navbar-brand">
         <a class="navbar-item" href="/">
-            Nginx manager
+            <img height="28" src="/public/icon/nginx.png">GINX
         </a>
 
-        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+        <a aria-expanded="false" aria-label="menu" class="navbar-burger" data-target="navbarBasicExample" role="button">
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
         </a>
     </div>
 
-    <div id="navbarBasicExample" class="navbar-menu">
+    <div class="navbar-menu" id="navbarBasicExample">
         <div class="navbar-start">
             {{ block "navbar" .}}
             <a class="navbar-item" href="/">服务器状态</a>
