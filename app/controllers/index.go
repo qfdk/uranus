@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
+	"github.com/qfdk/nginx-proxy-manager/config"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func Index(ctx *gin.Context) {
