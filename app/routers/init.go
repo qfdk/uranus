@@ -18,6 +18,7 @@ func RegisterRoutes(engine *gin.Engine) {
 	engine.GET("/", controllers.Index)
 	engine.GET("/config", controllers.GetNginxCompileInfo)
 	engine.POST("/nginx", controllers.Nginx)
+	engine.GET("/ws", ws)
 	sitesRouter(engine)
 	sslRouter(engine)
 }
