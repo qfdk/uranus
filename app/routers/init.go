@@ -2,8 +2,9 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 	"github.com/qfdk/nginx-proxy-manager/config"
+	"net/http"
 )
 
 // RegisterRoutes /** 路由组*/
@@ -14,7 +15,9 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 静态文件路由
 	engine.StaticFS("/public", http.Dir("./web/public"))
 	// 初始化路由
-	indexRouter(engine)
+	engine.GET("/", controllers.Index)
+	engine.GET("/config", controllers.GetNginxCompileInfo)
+	engine.POST("/nginx", controllers.Nginx)
 	sitesRouter(engine)
 	sslRouter(engine)
 }
