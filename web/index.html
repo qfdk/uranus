@@ -45,7 +45,6 @@
     </div>
 </form>
 
-
 <div class="columns is-centered">
     <div class="column">
         <table class="table is-fullwidth">
@@ -87,10 +86,98 @@
             </tbody>
         </table>
     </div>
+    <div class="column is-one-quarter">
+        <div id="cpuChart" style="height:250px;"></div>
+    </div>
+    <div class="column is-one-quarter">
+        <div id="ramChart" style="height:250px;"></div>
+    </div>
 </div>
-
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>
+<script type="text/javascript">
+    function createChart(id, title) {
+        var myChart = echarts.init(document.getElementById(id));
+        var option;
+        const gaugeData = [
+            {
+                value: 0,
+                name: title,
+                title: {
+                    offsetCenter: ['0%', '5%']
+                },
+                detail: {
+                    valueAnimation: true,
+                    offsetCenter: ['0%', '35%']
+                }
+            }
+        ];
+        option = {
+            series: [
+                {
+                    type: 'gauge',
+                    startAngle: 90,
+                    endAngle: -270,
+                    pointer: {
+                        show: false
+                    },
+                    progress: {
+                        show: true,
+                        overlap: false,
+                        roundCap: true,
+                        clip: false,
+                        itemStyle: {
+                            borderWidth: 10,
+                            borderColor: '#fffff'
+                        }
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            width: 1,
+                        }
+                    },
+                    splitLine: {
+                        show: false,
+                        distance: 0,
+                        length: 5
+                    },
+                    axisTick: {
+                        show: false
+                    },
+                    axisLabel: {
+                        show: false,
+                        distance: 50
+                    },
+                    data: gaugeData,
+                    title: {
+                        fontSize: 20
+                    },
+                    itemStyle: {
+                        color: '#4FA349'
+                    },
+                    detail: {
+                        width: 50,
+                        height: 15,
+                        fontSize: 14,
+                        color: 'auto',
+                        borderColor: 'auto',
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        formatter: '{value}%'
+                    }
+                }
+            ]
+        };
+        if (option && typeof option === 'object') {
+            myChart.setOption(option);
+        }
+        return myChart;
+    }
+</script>
 <script>
-    var ws = new WebSocket("ws://localhost:7777/ws");
+    const protocol = window.location.protocol === 'http:' ? "ws://" : "wss://";
+    const ws = new WebSocket(protocol + window.location.host + "/ws");
+    const cpu = createChart("cpuChart", "CPU");
+    const ram = createChart("ramChart", "RAM");
     //连接打开时触发
     ws.onopen = function (evt) {
         console.log("Connection open ...");
@@ -99,7 +186,51 @@
     //接收到消息时触发
     ws.onmessage = function (evt) {
         console.log("Received Message: ");
-        console.log(JSON.parse(evt.data))
+        const data = JSON.parse(evt.data);
+        cpu.setOption({
+            series: [
+                {
+                    data: [
+                        {
+                            value: parseFloat(data.cpu).toFixed(2),
+                            name: "CPU",
+                            title: {
+                                offsetCenter: ['0%', '5%']
+                            },
+                            detail: {
+                                valueAnimation: true,
+                                offsetCenter: ['0%', '35%']
+                            }
+                        }
+                    ],
+                    pointer: {
+                        show: false
+                    }
+                }
+            ]
+        });
+        ram.setOption({
+            series: [
+                {
+                    data: [
+                        {
+                            value: parseFloat(data.ram).toFixed(2),
+                            name: "RAM",
+                            title: {
+                                offsetCenter: ['0%', '5%']
+                            },
+                            detail: {
+                                valueAnimation: true,
+                                offsetCenter: ['0%', '35%']
+                            }
+                        }
+                    ],
+                    pointer: {
+                        show: false
+                    }
+                }
+            ]
+        });
     };
     //连接关闭时触发
     ws.onclose = function (evt) {

@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -22,13 +25,21 @@ func ws(c *gin.Context) {
 		return
 	}
 	defer ws.Close()
+	response := make(gin.H)
+
 	//读取ws中的数据
 	mt, message, err := ws.ReadMessage()
 	if err != nil {
 		return
 	}
 	for {
-		message, _ = json.Marshal(gin.H{"s": "s"})
+		totalPercent, _ := cpu.Percent(1*time.Second, false)
+		response["cpu"] = strconv.FormatFloat(totalPercent[0], 'f', 2, 64)
+
+		memInfo, _ := mem.VirtualMemory()
+		response["ram"] = strconv.FormatFloat(memInfo.UsedPercent, 'f', 2, 64)
+
+		message, _ = json.Marshal(response)
 		//写入ws数据
 		err = ws.WriteMessage(mt, message)
 		if err != nil {
