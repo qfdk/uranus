@@ -1,4 +1,4 @@
-package routers
+package controllers
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ var upGrader = websocket.Upgrader{
 }
 
 //webSocket请求ping 返回pong
-func ws(c *gin.Context) {
+func Websocket(c *gin.Context) {
 	//升级get请求为webSocket协议
 	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

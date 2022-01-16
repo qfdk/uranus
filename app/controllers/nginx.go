@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/qfdk/nginx-proxy-manager/app/config"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func Nginx(ctx *gin.Context) {

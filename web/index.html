@@ -200,7 +200,7 @@
 </script>
 <script>
     const protocol = window.location.protocol === 'http:' ? "ws://" : "wss://";
-    const ws = new WebSocket(protocol + window.location.host + "/ws");
+    const ws = new WebSocket(protocol + window.location.host + "/ws-status");
     const cpu = createChart("cpuChart", "CPU");
     const ram = createChart("ramChart", "RAM");
     //连接打开时触发

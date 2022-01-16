@@ -1,10 +1,10 @@
 package services
 
 import (
+	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"github.com/qfdk/nginx-proxy-manager/config"
 	"regexp"
 )
 

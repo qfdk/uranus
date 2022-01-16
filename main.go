@@ -4,12 +4,13 @@ import (
 	"github.com/foolin/goview"
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
+	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/routers"
 	"github.com/qfdk/nginx-proxy-manager/app/tools"
-	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func main() {
+	config.InitRedis()
 	go tools.RenewSSL()
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})

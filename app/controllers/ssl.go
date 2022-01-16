@@ -2,13 +2,13 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/qfdk/nginx-proxy-manager/app/config"
+	"github.com/qfdk/nginx-proxy-manager/app/tools"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"github.com/qfdk/nginx-proxy-manager/app/tools"
-	"github.com/qfdk/nginx-proxy-manager/config"
 )
 
 func SSLDirs(ctx *gin.Context) {

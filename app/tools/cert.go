@@ -10,10 +10,10 @@ import (
 	"github.com/go-acme/lego/v4/challenge/http01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	npmConfig "github.com/qfdk/nginx-proxy-manager/app/config"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	npmConfig "github.com/qfdk/nginx-proxy-manager/config"
 )
 
 // MyUser You'll need a user or account type that implements acme.User

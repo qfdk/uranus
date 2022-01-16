@@ -4,11 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/qfdk/nginx-proxy-manager/app/config"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/robfig/cron/v3"
 	"io/ioutil"
 	"net/http"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/qfdk/nginx-proxy-manager/config"
 	"time"
 )
 
