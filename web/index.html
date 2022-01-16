@@ -96,7 +96,7 @@
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>
 <script type="text/javascript">
     function createChart(id, title) {
-        var myChart = echarts.init(document.getElementById(id));
+        var myChart = echarts.init(document.getElementById(id), null, {renderer: 'svg'});
         var option;
         const gaugeData = [
             {
@@ -132,7 +132,7 @@
                     },
                     axisLine: {
                         lineStyle: {
-                            width: 1,
+                            width: 8,
                         }
                     },
                     splitLine: {
@@ -172,6 +172,31 @@
         }
         return myChart;
     }
+
+    function setValue(element, title, value) {
+        element.setOption({
+            series: [
+                {
+                    data: [
+                        {
+                            value: parseFloat(value).toFixed(2),
+                            name: title,
+                            title: {
+                                offsetCenter: ['0%', '5%']
+                            },
+                            detail: {
+                                valueAnimation: true,
+                                offsetCenter: ['0%', '35%']
+                            }
+                        }
+                    ],
+                    pointer: {
+                        show: false
+                    }
+                }
+            ]
+        });
+    }
 </script>
 <script>
     const protocol = window.location.protocol === 'http:' ? "ws://" : "wss://";
@@ -185,52 +210,9 @@
     };
     //接收到消息时触发
     ws.onmessage = function (evt) {
-        console.log("Received Message: ");
         const data = JSON.parse(evt.data);
-        cpu.setOption({
-            series: [
-                {
-                    data: [
-                        {
-                            value: parseFloat(data.cpu).toFixed(2),
-                            name: "CPU",
-                            title: {
-                                offsetCenter: ['0%', '5%']
-                            },
-                            detail: {
-                                valueAnimation: true,
-                                offsetCenter: ['0%', '35%']
-                            }
-                        }
-                    ],
-                    pointer: {
-                        show: false
-                    }
-                }
-            ]
-        });
-        ram.setOption({
-            series: [
-                {
-                    data: [
-                        {
-                            value: parseFloat(data.ram).toFixed(2),
-                            name: "RAM",
-                            title: {
-                                offsetCenter: ['0%', '5%']
-                            },
-                            detail: {
-                                valueAnimation: true,
-                                offsetCenter: ['0%', '35%']
-                            }
-                        }
-                    ],
-                    pointer: {
-                        show: false
-                    }
-                }
-            ]
-        });
+        setValue(cpu, "CPU", data.cpu);
+        setValue(ram, "RAM", data.ram);
     };
     //连接关闭时触发
     ws.onclose = function (evt) {
