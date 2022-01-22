@@ -1,0 +1,47 @@
+{{ define "header.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          name="viewport">
+    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
+    <link href="/public/icon/favicon.ico" rel="shortcut icon">
+    <link href="/public/icon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
+    <link href="/public/icon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    {{block "css" .}}{{end}}
+    <title>Nginx Proxy Manager</title>
+    <style>
+        body {
+            margin-top: 65px;
+        }
+    </style>
+</head>
+
+<body>
+<nav aria-label="main navigation" class="navbar is-black is-fixed-top" role="navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+            <img height="28" src="/public/icon/nginx.png">GINX
+        </a>
+
+        <a aria-expanded="false" aria-label="menu" class="navbar-burger" data-target="navbarBasicExample" role="button">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <div class="navbar-menu" id="navbarBasicExample">
+        <div class="navbar-start">
+            <a class="navbar-item" href="/">服务器状态</a>
+            <a class="navbar-item" href="/config">配置</a>
+            <a class="navbar-item" href="/sites">网站管理</a>
+            <a class="navbar-item" href="/ssl">SSL证书管理</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="mx-3">
+        {{end}}

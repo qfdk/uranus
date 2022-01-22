@@ -33,7 +33,7 @@ func Index(ctx *gin.Context) {
 	// memory
 	memInfo, _ := mem.VirtualMemory()
 
-	ctx.HTML(http.StatusOK, "index",
+	ctx.HTML(http.StatusOK, "index.html",
 		gin.H{
 			"osName":             fullOsName,
 			"cpu":                cpuInfo[0],
@@ -45,5 +45,5 @@ func Index(ctx *gin.Context) {
 }
 
 func GetNginxCompileInfo(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "config", gin.H{"nginxCompileInfo": config.GetNginxCompileInfo()})
+	ctx.HTML(http.StatusOK, "config.html", gin.H{"nginxCompileInfo": config.GetNginxCompileInfo()})
 }

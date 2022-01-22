@@ -1,6 +1,6 @@
-{{define "content"}}
+{{template "header.html" .}}
 <h3>ERROR</h3>
 <div class="alert alert-danger" role="alert">
     {{.message}}
 </div>
-{{end}}
+{{template "footer.html" .}}

@@ -1,11 +1,4 @@
-{{ block "navbar" .}}
-<a class="navbar-item" href="/">服务器状态</a>
-<a class="navbar-item" href="/config">配置</a>
-<a class="navbar-item" href="/sites">网站管理</a>
-<a class="navbar-item" href="/ssl">SSL证书管理</a>
-{{end}}
-
-{{define "content"}}
+{{template "header.html" .}}
 <h3 class="title is-3">服务器状态</h3>
 
 {{ if ne .nginxStatus "KO" }}
@@ -93,6 +86,8 @@
         <div id="ramChart" style="height:250px;"></div>
     </div>
 </div>
+{{template "footer.html" .}}
+
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>
 <script type="text/javascript">
     function createChart(id, title) {
@@ -220,5 +215,3 @@
     };
 
 </script>
-
-{{end}}

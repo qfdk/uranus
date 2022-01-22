@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	_ "embed"
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,12 @@ import (
 	"strings"
 )
 
+//go:embed template/http.conf
+var httpConf string
+
+//go:embed template/https.conf
+var httpsConf string
+
 // GetConfig  TODO /** 安全问题 ！！！跨目录
 func GetConfig(ctx *gin.Context) {
 	name := ctx.Query("name")
@@ -23,27 +30,23 @@ func GetConfig(ctx *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	ctx.HTML(http.StatusOK, "siteEdit", gin.H{"configFileName": name, "content": string(content)})
+	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": name, "content": string(content)})
 }
 
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteEdit", gin.H{"content": ""})
+	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"content": ""})
 }
 
 func GetTemplate(ctx *gin.Context) {
 	domain := ctx.Query("domain")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
-	var templateConf = "http.conf"
+	var templateConf = httpConf
 	if enableSSL {
-		templateConf = "https.conf"
+		templateConf = httpsConf
 	}
-	content, err := ioutil.ReadFile(filepath.Join("template", templateConf))
-	inputTemplate := string(content)
+	inputTemplate := templateConf
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", domain)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", config.GetAppConfig().SSLPath)
-	if err != nil {
-		fmt.Println(err)
-	}
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
@@ -51,10 +54,10 @@ func GetSites(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(filepath.Join(config.GetAppConfig().VhostPath))
 	if err != nil {
 		fmt.Println(err)
-		ctx.HTML(http.StatusOK, "sites", gin.H{"files": []string{}})
+		ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": []string{}})
 		return
 	}
-	ctx.HTML(http.StatusOK, "sites", gin.H{"files": files, "humanizeBytes": humanize.Bytes})
+	ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": files, "humanizeBytes": humanize.Bytes})
 }
 
 func EditSiteConf(ctx *gin.Context) {
@@ -65,7 +68,7 @@ func EditSiteConf(ctx *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	ctx.HTML(http.StatusOK, "edit", gin.H{"configFileName": name, "content": string(content)})
+	ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": name, "content": string(content)})
 }
 
 func DeleteSiteConf(ctx *gin.Context) {

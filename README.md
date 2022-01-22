@@ -11,10 +11,10 @@ Gin 框架写的 NGINX 代理设置工具，
 - 添加网站 并自动申请证书
 - SSL 自自动签名
 
-更改中：
+todo：
 
-- redis key 结构
-- npm(nginx-proxy-manager)
+- 主控模式
+- redis key 结构修改 npm(nginx-proxy-manager)
     - 域名
         - 证书
             - 私钥

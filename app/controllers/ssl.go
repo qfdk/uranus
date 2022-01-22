@@ -15,10 +15,10 @@ func SSLDirs(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(config.GetAppConfig().SSLPath)
 	if err != nil {
 		log.Println(err)
-		ctx.HTML(http.StatusOK, "ssl", gin.H{"files": []string{}})
+		ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": []string{}})
 		return
 	}
-	ctx.HTML(http.StatusOK, "ssl", gin.H{"files": files})
+	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": files})
 }
 
 func IssueCert(ctx *gin.Context) {

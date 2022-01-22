@@ -1,52 +1,42 @@
-{{ block "css" .}}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
-{{ end }}
-{{define "content"}}
-{{ if .disabledChangeFileName }}
-<h3 class="title">Nginx 默认配置编辑</h3>
-{{end}}
-{{ if not .disabledChangeFileName }}
+{{template "header.html" .}}
 <h3 class="title">网站配置编辑</h3>
-{{end}}
-
 <div class="row">
     <article class="message is-danger" id="alert" style="display: none">
         <div class="message-body">
             <span id="message"></span>
         </div>
     </article>
-
     <article class="message is-success" id="alertSuccess" style="display: none">
         <div class="message-body">
             <span id="successMessage"></span>
         </div>
     </article>
-
     <div class="field has-addons">
         <p class="control">
-            <a class="button is-static"> 文件名：</a>
+            <a class="button is-static">域名：</a>
         </p>
         <p class="control">
-            <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{ if
-                   .disabledChangeFileName }}readonly{{end}}>
+            <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control">
+        </p>
+        <p class="control">
+            <a class="button is-static">.conf</a>
         </p>
     </div>
 
     <div class="block">
-        {{ if not .disabledChangeFileName }}
-        <button class="button is-dark" id="enableSSL">Let's Encrypt</button>
-        {{end}}
-        <button class="button is-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
-        <button class="button is-info" id="saveNginxConf">保存</button>
+        <div class="buttons">
+            {{ if not .disabledChangeFileName }}
+            <button class="button is-primary" id="getTemplate">获取配置</button>
+            {{end}}
+            <button class="button is-warning" d="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
+            <button class="button is-info" id="saveNginxConf">保存</button>
+        </div>
     </div>
-
-    <div class="block">
-        <div id="editor" data-lang="nginx"></div>
-    </div>
+    <div id="editor" data-lang="nginx"></div>
 </div>
-{{end}}
 
-{{block "js" .}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
+
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script src='https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/min/vs/loader.js'></script>
@@ -96,4 +86,4 @@
     });
 
 </script>
-{{end}}
+{{template "footer.html" .}}

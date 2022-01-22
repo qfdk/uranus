@@ -1,28 +1,43 @@
 package main
 
 import (
-	"github.com/foolin/goview"
-	"github.com/foolin/goview/supports/ginview"
+	"embed"
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/routers"
 	"github.com/qfdk/nginx-proxy-manager/app/tools"
+	"html/template"
+	"io/fs"
+	"net/http"
 )
 
+//go:embed views/web
+var templates embed.FS
+
+//go:embed public
+var staticFS embed.FS
+
+func mustFS() http.FileSystem {
+	sub, err := fs.Sub(staticFS, "public")
+
+	if err != nil {
+		panic(err)
+	}
+
+	return http.FS(sub)
+}
+
 func main() {
-	config.InitRedis()
+	//config.InitRedis()
 	go tools.RenewSSL()
 	r := gin.Default()
+	t, _ := template.ParseFS(templates, "views/**/*")
+	r.SetHTMLTemplate(t)
+	// 静态文件路由
+	r.StaticFS("/public", mustFS())
 	r.SetTrustedProxies([]string{"127.0.0.1"})
-	println("网站路径：" + config.GetAppConfig().VhostPath)
-	//new template engine
-	r.HTMLRender = ginview.New(goview.Config{
-		Root:         "web",
-		Extension:    ".html",
-		Master:       "layouts/master",
-		Partials:     []string{},
-		DisableCache: false,
-	})
+	//r.LoadHTMLGlob("views/**/*")
 	routers.RegisterRoutes(r)
+	println("网站路径：" + config.GetAppConfig().VhostPath)
 	r.Run(":7777")
 }

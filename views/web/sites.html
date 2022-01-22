@@ -1,11 +1,11 @@
-{{define "content"}}
+{{template "header.html" .}}
 <h3 class="title">网站管理</h3>
 <article class="message is-info">
     <div class="message-body">
         已添加的网站列表
     </div>
 </article>
-<a type="link" href="/sites/new" class="button is-info">添加新配置</a>
+<a class="button is-info" href="/sites/new" type="link">添加新配置</a>
 <div class="columns is-centered">
     <div class="column">
         <table class="table is-fullwidth">
@@ -31,4 +31,4 @@
         </table>
     </div>
 </div>
-{{end}}
+{{template "footer.html" .}}
