@@ -42,7 +42,7 @@ func RenewSSL() {
 			if certInfo != nil {
 				if certInfo.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
 					fmt.Printf("%s 证书过期，需要续签！\n", domain)
-					IssueCert(domain)
+					IssueCert([]string{domain})
 					services.ReloadNginx()
 				} else {
 					fmt.Printf("%s => 证书OK.\n", domain)

@@ -33,7 +33,7 @@ func (u *MyUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-func IssueCert(domain string) error {
+func IssueCert(domains []string) error {
 	// Create a user. New accounts need an email and private key to start.
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -74,7 +74,7 @@ func IssueCert(domain string) error {
 	myUser.Registration = reg
 
 	request := certificate.ObtainRequest{
-		Domains: []string{domain},
+		Domains: domains,
 		Bundle:  true,
 	}
 	certificates, err := client.Certificate.Obtain(request)
@@ -82,7 +82,7 @@ func IssueCert(domain string) error {
 		return err
 	}
 	// nginx 根目录
-	saveDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, domain)
+	saveDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, domains[0])
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
 		os.MkdirAll(saveDir, 0755)
 	}

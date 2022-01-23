@@ -133,7 +133,7 @@ require.config({
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
 
-const processResponse = (data, redirect="/sites", successMessage) => {
+const processResponse = (data, redirect = "/sites", successMessage) => {
     if (data.message === 'OK') {
         if (redirect) {
             window.location = redirect;
@@ -151,14 +151,14 @@ $('#enableSSL').click(() => {
     $("#alert").hide();
     $("#alertSuccess").hide();
     $('#enableSSL').addClass("is-loading");
-    const domain = $("#filename").val().split('.conf')[0];
-    $.get('/ssl/renew', {domain}, (data) => {
+    const domains = $("#filename").val().split('.conf')[0].split(",");
+    $.get('/ssl/renew', {domains}, (data) => {
         console.log(data)
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
         $('#enableSSL').removeClass("is-loading");
         if (data.message === 'OK') {
-            $.get('/sites/template', {domain, ssl: true}, (data) => {
+            $.get('/sites/template', {domain: domains[0], ssl: true}, (data) => {
                 editor.getModel().setValue(data.content);
             });
         }

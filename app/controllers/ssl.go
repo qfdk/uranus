@@ -22,9 +22,9 @@ func SSLDirs(ctx *gin.Context) {
 }
 
 func IssueCert(ctx *gin.Context) {
-	domain, _ := ctx.GetQuery("domain")
+	domains := ctx.QueryArray("domains[]")
 	var message string
-	err := tools.IssueCert(domain)
+	err := tools.IssueCert(domains)
 	if err != nil {
 		message = err.Error()
 	} else {
