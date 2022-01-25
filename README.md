@@ -8,15 +8,19 @@ Gin 框架写的 NGINX 代理设置工具，
 
 - 读取nginx版本
 - nginx 关闭/重启/载入配置操作
-- 添加网站 并自动申请证书
-- SSL 自自动签名
+- 添加网站，并自动申请证书，支持多个域名
+- 一键申请证书
 
 todo：
-
 - 主控模式
+- 数据库支持，尽量用轻量数据库
+  - mongodb
+  - redis
+  
 - redis key 结构修改 npm(nginx-proxy-manager)
+  - key md5 ?
     - 域名
-        - 证书
-            - 私钥
-            - 公钥
-        - 配置文件(.conf)
+    - 证书
+        - 私钥
+        - 公钥
+    - conf
