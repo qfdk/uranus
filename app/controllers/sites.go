@@ -38,14 +38,15 @@ func NewSite(ctx *gin.Context) {
 }
 
 func GetTemplate(ctx *gin.Context) {
-	domain := ctx.Query("domain")
+	domains := ctx.QueryArray("domains")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
 	var templateConf = httpConf
 	if enableSSL {
 		templateConf = httpsConf
 	}
 	inputTemplate := templateConf
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", domain)
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains[:], " "))
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslKey}}", domains[0])
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", config.GetAppConfig().SSLPath)
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }

@@ -158,7 +158,7 @@ $('#enableSSL').click(() => {
         $('#enableSSL').text("Let's Encrypt");
         $('#enableSSL').removeClass("is-loading");
         if (data.message === 'OK') {
-            $.get('/sites/template', {domain: domains[0], ssl: true}, (data) => {
+            $.get('/sites/template', {domains, ssl: true}, (data) => {
                 editor.getModel().setValue(data.content);
             });
         }
@@ -166,8 +166,8 @@ $('#enableSSL').click(() => {
 });
 
 $('#getTemplate').click(() => {
-    const domain = $("#filename").val();
-    $.get('/sites/template', {domain}, (data) => {
+    const domains = $("#filename").split(",");
+    $.get('/sites/template', {domains}, (data) => {
         editor.getModel().setValue(data.content);
     });
 });

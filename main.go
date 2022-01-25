@@ -11,7 +11,7 @@ import (
 	"net/http"
 )
 
-//go:embed views/web
+//go:embed views
 var templates embed.FS
 
 //go:embed public
@@ -31,12 +31,11 @@ func main() {
 	//config.InitRedis()
 	go tools.RenewSSL()
 	r := gin.Default()
-	t, _ := template.ParseFS(templates, "views/**/*")
+	t, _ := template.ParseFS(templates, "views/*")
 	r.SetHTMLTemplate(t)
 	// 静态文件路由
 	r.StaticFS("/public", mustFS())
 	r.SetTrustedProxies([]string{"127.0.0.1"})
-	//r.LoadHTMLGlob("views/**/*")
 	routers.RegisterRoutes(r)
 	println("网站路径：" + config.GetAppConfig().VhostPath)
 	r.Run(":7777")
