@@ -22,11 +22,14 @@
 
     <div class="field has-addons">
         <p class="control">
-            <a class="button is-static"> 文件名：</a>
+            <a class="button is-static"> 域名：</a>
         </p>
         <p class="control">
             <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{ if
                    .disabledChangeFileName }}readonly{{end}}>
+        </p>
+        <p class="control">
+            <a class="button is-static">.conf</a>
         </p>
     </div>
 

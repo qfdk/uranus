@@ -28,7 +28,7 @@ func Nginx(ctx *gin.Context) {
 	case "parser":
 		log.Println("读取 nginx 配置文件")
 		content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
-		ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": "nginx.conf", "content": string(content), "disabledChangeFileName": true})
+		ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": "nginx", "content": string(content), "disabledChangeFileName": true})
 		return
 	case "saveConfig":
 		content, _ := ctx.GetPostForm("content")

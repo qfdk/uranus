@@ -174,7 +174,7 @@ $('#getTemplate').click(() => {
 
 // 保存配置文件
 $('#saveNginxConf').click(() => {
-    if ($("#filename").val() === 'nginx.conf') {
+    if ($("#filename").val() === 'nginx') {
         $.post('/nginx', {
             action: "saveConfig",
             name: $("#filename").val(),

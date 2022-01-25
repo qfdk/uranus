@@ -19,7 +19,7 @@
             <tr>
                 <th scope="row"><a href="https://{{$value.Name}}">{{$value.Name}}</a></th>
                 <td>
-                    <a href="/ssl/renew?domain={{$value.Name}}"><span class="tag is-info">续命</span></a>
+                    <a href="/ssl/renew?domains[]={{$value.Name}}"><span class="tag is-info">续命</span></a>
                     <a href="/ssl/delete?domain={{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
                 </td>
             </tr>

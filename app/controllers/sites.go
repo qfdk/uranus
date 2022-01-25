@@ -69,7 +69,7 @@ func EditSiteConf(ctx *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": name, "content": string(content)})
+	ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": strings.Split(name, ".conf")[0], "content": string(content)})
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
