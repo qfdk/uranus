@@ -166,7 +166,7 @@ $('#enableSSL').click(() => {
 });
 
 $('#getTemplate').click(() => {
-    const domains = $("#filename").split(",");
+    const domains = $("#filename").val().split(",");
     $.get('/sites/template', {domains}, (data) => {
         editor.getModel().setValue(data.content);
     });
