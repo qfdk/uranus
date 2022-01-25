@@ -38,7 +38,7 @@ func NewSite(ctx *gin.Context) {
 }
 
 func GetTemplate(ctx *gin.Context) {
-	domains := ctx.QueryArray("domains")
+	domains := ctx.QueryArray("domains[]")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
 	var templateConf = httpConf
 	if enableSSL {
