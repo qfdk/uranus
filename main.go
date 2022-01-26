@@ -28,7 +28,7 @@ func mustFS() http.FileSystem {
 }
 
 func main() {
-	//config.InitRedis()
+	config.InitRedis()
 	go tools.RenewSSL()
 	r := gin.Default()
 	t, _ := template.ParseFS(templates, "views/*")

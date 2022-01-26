@@ -22,17 +22,24 @@
 
     <div class="field has-addons">
         <p class="control">
-            <a class="button is-static"> 域名：</a>
+            <a class="button is-static">文件名：</a>
         </p>
-        <p class="control">
-            <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{ if
-                   .disabledChangeFileName }}readonly{{end}}>
-        </p>
+        <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control"
+               {{ if .disabledChangeFileName }}readonly{{end}}
+               {{ if .disabledChangeFileName }}disabled{{end}}
+        >
         <p class="control">
             <a class="button is-static">.conf</a>
         </p>
     </div>
-
+    {{ if not .disabledChangeFileName }}
+    <div class="field has-addons">
+        <p class="control">
+            <a class="button is-static">域名：</a>
+        </p>
+        <input class="input" type="text" value="{{.domains}}" id="domains" class="form-control">
+    </div>
+    {{end}}
     <div class="block">
         {{ if not .disabledChangeFileName }}
         <button class="button is-dark" id="enableSSL">Let's Encrypt</button>

@@ -2,11 +2,13 @@ package controllers
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
+	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -34,7 +36,8 @@ func GetConfig(ctx *gin.Context) {
 }
 
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"content": ""})
+	u1 := uuid.NewV4()
+	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": u1, "content": ""})
 }
 
 func GetTemplate(ctx *gin.Context) {
@@ -62,14 +65,23 @@ func GetSites(ctx *gin.Context) {
 }
 
 func EditSiteConf(ctx *gin.Context) {
-	name := ctx.Query("path")
-	path := filepath.Join(config.GetAppConfig().VhostPath, name)
+	idName := ctx.Param("id")
+	path := filepath.Join(config.GetAppConfig().VhostPath, idName)
 	content, err := ioutil.ReadFile(path)
+	filename := strings.Split(idName, ".conf")[0]
+	redisData, _ := config.GetRedisClient().Get("nginx:" + filename).Result()
+	var output gin.H
+	json.Unmarshal([]byte(redisData), &output)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	ctx.HTML(http.StatusOK, "edit.html", gin.H{"configFileName": strings.Split(name, ".conf")[0], "content": string(content)})
+	ctx.HTML(http.StatusOK, "edit.html",
+		gin.H{
+			"configFileName": output["fileName"],
+			"domains":        output["domains"],
+			"content":        string(content)},
+	)
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
@@ -80,8 +92,22 @@ func DeleteSiteConf(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/sites")
 }
 
+func SaveInRedis(fileName string, domains []string) {
+	data := make(gin.H)
+	data["fileName"] = fileName
+	data["domains"] = strings.Join(domains[:], ",")
+	res, _ := json.Marshal(data)
+	err := config.GetRedisClient().Set("nginx:"+fileName, res, 0).Err()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("键golang设置成功")
+}
+
 func SaveSiteConf(ctx *gin.Context) {
-	fileName := ctx.PostForm("name")
+	fileName := ctx.PostForm("filename")
+	domains := ctx.PostFormArray("domains[]")
+	SaveInRedis(fileName, domains)
 	content := ctx.PostForm("content")
 	if !strings.Contains(fileName, ".conf") {
 		fileName = fileName + ".conf"

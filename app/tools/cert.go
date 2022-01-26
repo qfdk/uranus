@@ -48,7 +48,7 @@ func IssueCert(domains []string) error {
 
 	config := lego.NewConfig(&myUser)
 
-	//config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
+	config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 	//config.CADirURL = "http://127.0.0.1:4001/directory"
 	config.Certificate.KeyType = certcrypto.RSA2048
 

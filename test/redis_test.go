@@ -19,6 +19,7 @@ func TestRedis(t *testing.T) {
 	var name = make(gin.H)
 	name["toto1"] = 1
 	name["toto2"] = "hello"
+	name["toto3"] = []string{}
 	res, _ := json.Marshal(name)
 	err = client.Set("npm:sites:golang", res, 0).Err()
 	if err != nil {
