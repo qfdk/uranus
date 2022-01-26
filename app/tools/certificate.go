@@ -49,7 +49,7 @@ func IssueCert(domains []string) error {
 
 	config := lego.NewConfig(&myUser)
 
-	if gin.EnvGinMode != "release" {
+	if gin.ReleaseMode != "release" {
 		config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 	}
 
