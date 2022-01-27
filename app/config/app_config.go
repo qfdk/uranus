@@ -6,11 +6,12 @@ import (
 )
 
 type AppConfig struct {
-	VhostPath string
-	Email     string
-	SSLPath   string
-	Username  string
-	Password  string
+	VhostPath  string
+	Email      string
+	SSLPath    string
+	Username   string
+	Password   string
+	MongodbUri string
 }
 
 var _appConfig *AppConfig = nil

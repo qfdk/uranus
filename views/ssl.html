@@ -10,17 +10,23 @@
         <table class="table is-fullwidth">
             <thead>
             <tr>
+                <th scope="col">配置名称</th>
                 <th scope="col">域名</th>
                 <th scope="col">操作</th>
             </tr>
             </thead>
             <tbody>
-            {{range $index, $value :=.files}}
+            {{range $key, $value :=.files}}
             <tr>
-                <th scope="row"><a href="https://{{$value.Name}}">{{$value.Name}}</a></th>
+                <th scope="row">{{$key}}</a></th>
                 <td>
-                    <a href="/ssl/renew?domains[]={{$value.Name}}"><span class="tag is-info">续命</span></a>
-                    <a href="/ssl/delete?domain={{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
+                    {{range $index, $val :=$value}}
+                    <a href="https://{{$val}}">{{$val}}</a>
+                    {{end}}
+                </td>
+                <td>
+                    <a href="/ssl/renew?configName={{$key}}"><span class="tag is-info">续命</span></a>
+                    <a href="/ssl/delete?configName={{$key}}"><span class="tag is-danger is-light">删除</span></a>
                 </td>
             </tr>
             {{end}}

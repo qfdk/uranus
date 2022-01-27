@@ -14,7 +14,9 @@ import (
 	npmConfig "github.com/qfdk/nginx-proxy-manager/app/config"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -34,12 +36,18 @@ func (u *MyUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-func IssueCert(domains []string) error {
+func IssueCert(domains []string, configName string) error {
 	// Create a user. New accounts need an email and private key to start.
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		panic(err)
 		return err
+	}
+
+	// 如果没有传入域名的话，默认是点击续签
+	// 需要读取保存的domains 列表 或者从redis中取出来
+	if len(domains) == 0 {
+		data, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().SSLPath, configName, "domains"))
+		domains = strings.Split(string(data), ",")
 	}
 
 	myUser := MyUser{
@@ -49,23 +57,19 @@ func IssueCert(domains []string) error {
 
 	config := lego.NewConfig(&myUser)
 
-	if gin.ReleaseMode != "release" {
+	// 不是生产环境用测试 URL
+	if gin.Mode() != gin.ReleaseMode {
 		config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 	}
 
 	config.Certificate.KeyType = certcrypto.RSA2048
 
 	// A client facilitates communication with the CA server.
-	client, err := lego.NewClient(config)
-	if err != nil {
-		panic(err)
-		return err
-	}
+	client, _ := lego.NewClient(config)
 
 	// 9999 端口为签名端口
 	err = client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "9999"))
 	if err != nil {
-		panic(err)
 		return err
 	}
 
@@ -84,25 +88,21 @@ func IssueCert(domains []string) error {
 	if err != nil {
 		return err
 	}
-	// nginx 根目录
-	saveDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, domains[0])
-	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
-		os.MkdirAll(saveDir, 0755)
+
+	// nginx 证书目录
+	certificateSavedDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, configName)
+	if _, err := os.Stat(certificateSavedDir); os.IsNotExist(err) {
+		os.MkdirAll(certificateSavedDir, 0755)
 	}
 
 	// Each certificate comes back with the cert bytes, the bytes of the client's
-	// private key, and a certificate URL. SAVE THESE TO DISK.
-	err = ioutil.WriteFile(filepath.Join(saveDir, "fullchain.cer"),
+	ioutil.WriteFile(filepath.Join(certificateSavedDir, "fullchain.cer"),
 		certificates.Certificate, 0644)
-	if err != nil {
-		panic(err)
-		return err
-	}
-	err = ioutil.WriteFile(filepath.Join(saveDir, "private.key"),
+	// private key, and a certificate URL. SAVE THESE TO DISK.
+	ioutil.WriteFile(filepath.Join(certificateSavedDir, "private.key"),
 		certificates.PrivateKey, 0644)
-	if err != nil {
-		panic(err)
-		return err
-	}
+	// 保存域名
+	ioutil.WriteFile(filepath.Join(certificateSavedDir, "domains"),
+		[]byte(strings.Join(domains, ",")), 0644)
 	return nil
 }

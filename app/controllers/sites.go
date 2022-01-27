@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -36,12 +35,12 @@ func GetConfig(ctx *gin.Context) {
 }
 
 func NewSite(ctx *gin.Context) {
-	u1 := uuid.NewV4()
-	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": u1, "content": ""})
+	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": "", "content": ""})
 }
 
 func GetTemplate(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
+	configName := ctx.Query("configName")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
 	var templateConf = httpConf
 	if enableSSL {
@@ -49,7 +48,7 @@ func GetTemplate(ctx *gin.Context) {
 	}
 	inputTemplate := templateConf
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains[:], " "))
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslKey}}", domains[0])
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", config.GetAppConfig().SSLPath)
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
@@ -65,17 +64,11 @@ func GetSites(ctx *gin.Context) {
 }
 
 func EditSiteConf(ctx *gin.Context) {
-	filename := ctx.Param("id")
-	//path := filepath.Join(config.GetAppConfig().VhostPath, idName)
-	//content, err := ioutil.ReadFile(path)
-	idName := strings.Split(filename, ".conf")[0]
-	redisData, _ := config.GetRedisClient().Get("nginx:" + idName).Result()
+	filename := ctx.Param("filename")
+	configName := strings.Split(filename, ".conf")[0]
+	redisData, _ := config.GetRedisClient().Get("nginx:" + configName).Result()
 	var output gin.H
 	json.Unmarshal([]byte(redisData), &output)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
 	ctx.HTML(http.StatusOK, "edit.html",
 		gin.H{
 			"configFileName": output["fileName"],
@@ -86,16 +79,16 @@ func EditSiteConf(ctx *gin.Context) {
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
-	filename := ctx.Param("id")
-	idName := strings.Split(filename, ".conf")[0]
+	filename := ctx.Param("filename")
+	configName := strings.Split(filename, ".conf")[0]
 	path := filepath.Join(config.GetAppConfig().VhostPath, filename)
 	os.Remove(path)
-	config.GetRedisClient().Del("nginx:" + idName)
+	config.GetRedisClient().Del("nginx:" + configName)
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
 
-func SaveInRedis(fileName string, domains []string, content string) {
+func saveDataInRedis(fileName string, domains []string, content string) {
 	data := make(gin.H)
 	data["fileName"] = fileName
 	data["domains"] = strings.Join(domains[:], ",")
@@ -105,14 +98,13 @@ func SaveInRedis(fileName string, domains []string, content string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("键golang设置成功")
 }
 
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
-	SaveInRedis(fileName, domains, content)
+	saveDataInRedis(fileName, domains, content)
 	if !strings.Contains(fileName, ".conf") {
 		fileName = fileName + ".conf"
 	}

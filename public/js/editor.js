@@ -152,12 +152,13 @@ $('#enableSSL').click(() => {
     $("#alertSuccess").hide();
     $('#enableSSL').addClass("is-loading");
     const domains = $("#domains").val().split(",");
-    $.get('/ssl/renew', {domains}, (data) => {
+    const configName = $("#filename").val();
+    $.get('/ssl/renew', {domains, configName}, (data) => {
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
         $('#enableSSL').removeClass("is-loading");
         if (data.message === 'OK') {
-            $.get('/sites/template', {domains, ssl: true}, (data) => {
+            $.get('/sites/template', {domains, ssl: true, configName}, (data) => {
                 editor.getModel().setValue(data.content);
             });
         }
@@ -184,7 +185,7 @@ $('#saveNginxConf').click(() => {
     } else {
         $.post('/sites/save', {
             filename: $("#filename").val(),
-            domains : $("#domains").val().split(","),
+            domains: $("#domains").val().split(","),
             content: editor.getValue(),
         }, (data) => {
             processResponse(data);

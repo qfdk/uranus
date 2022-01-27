@@ -9,6 +9,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 )
@@ -37,7 +38,8 @@ func RenewSSL() {
 		sslPath := config.GetAppConfig().SSLPath
 		files, _ := ioutil.ReadDir(sslPath)
 		for _, file := range files {
-			domains := strings.Split(file.Name(), ",")
+			data, _ := ioutil.ReadFile(path.Join(config.GetAppConfig().SSLPath, file.Name(), "domains"))
+			var domains = strings.Split(string(data), ",")
 			var needRenew = false
 			for _, domain := range domains {
 				fmt.Printf("开始获取证书信息: %s\n", domain)
@@ -52,7 +54,7 @@ func RenewSSL() {
 				}
 			}
 			if needRenew {
-				IssueCert(domains)
+				IssueCert(domains, file.Name())
 				services.ReloadNginx()
 			}
 		}

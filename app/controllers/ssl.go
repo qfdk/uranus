@@ -8,23 +8,33 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 func SSLDirs(ctx *gin.Context) {
-	files, err := ioutil.ReadDir(config.GetAppConfig().SSLPath)
+	paths, err := ioutil.ReadDir(config.GetAppConfig().SSLPath)
+
+	var result = make(gin.H)
 	if err != nil {
 		log.Println(err)
 		ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": []string{}})
 		return
 	}
-	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": files})
+
+	for _, _path := range paths {
+		data, _ := ioutil.ReadFile(path.Join(config.GetAppConfig().SSLPath, _path.Name(), "domains"))
+		result[_path.Name()] = strings.Split(string(data), ",")
+	}
+	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": result})
 }
 
 func IssueCert(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
+	configName := ctx.Query("configName")
 	var message string
-	err := tools.IssueCert(domains)
+	err := tools.IssueCert(domains, configName)
 	if err != nil {
 		message = err.Error()
 	} else {
@@ -44,8 +54,8 @@ func CertInfo(ctx *gin.Context) {
 }
 
 func DeleteSSL(ctx *gin.Context) {
-	domain := ctx.Query("domain")
-	path := filepath.Join(config.GetAppConfig().SSLPath, domain)
+	configName := ctx.Query("configName")
+	path := filepath.Join(config.GetAppConfig().SSLPath, configName)
 	os.RemoveAll(path)
 	ctx.Redirect(http.StatusFound, "/ssl")
 }
