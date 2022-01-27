@@ -65,37 +65,41 @@ func GetSites(ctx *gin.Context) {
 }
 
 func EditSiteConf(ctx *gin.Context) {
-	idName := ctx.Param("id")
-	path := filepath.Join(config.GetAppConfig().VhostPath, idName)
-	content, err := ioutil.ReadFile(path)
-	filename := strings.Split(idName, ".conf")[0]
-	redisData, _ := config.GetRedisClient().Get("nginx:" + filename).Result()
+	filename := ctx.Param("id")
+	//path := filepath.Join(config.GetAppConfig().VhostPath, idName)
+	//content, err := ioutil.ReadFile(path)
+	idName := strings.Split(filename, ".conf")[0]
+	redisData, _ := config.GetRedisClient().Get("nginx:" + idName).Result()
 	var output gin.H
 	json.Unmarshal([]byte(redisData), &output)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return
+	//}
 	ctx.HTML(http.StatusOK, "edit.html",
 		gin.H{
 			"configFileName": output["fileName"],
 			"domains":        output["domains"],
-			"content":        string(content)},
+			"content":        output["content"],
+		},
 	)
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
-	name := ctx.Query("path")
-	path := filepath.Join(config.GetAppConfig().VhostPath, name)
+	filename := ctx.Param("id")
+	idName := strings.Split(filename, ".conf")[0]
+	path := filepath.Join(config.GetAppConfig().VhostPath, filename)
 	os.Remove(path)
+	config.GetRedisClient().Del("nginx:" + idName)
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
 
-func SaveInRedis(fileName string, domains []string) {
+func SaveInRedis(fileName string, domains []string, content string) {
 	data := make(gin.H)
 	data["fileName"] = fileName
 	data["domains"] = strings.Join(domains[:], ",")
+	data["content"] = content
 	res, _ := json.Marshal(data)
 	err := config.GetRedisClient().Set("nginx:"+fileName, res, 0).Err()
 	if err != nil {
@@ -107,8 +111,8 @@ func SaveInRedis(fileName string, domains []string) {
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
-	SaveInRedis(fileName, domains)
 	content := ctx.PostForm("content")
+	SaveInRedis(fileName, domains, content)
 	if !strings.Contains(fileName, ".conf") {
 		fileName = fileName + ".conf"
 	}

@@ -23,7 +23,7 @@
                 <td>{{call $.humanizeBytes $value.Size}}</td>
                 <td>
                     <a href="/sites/edit/{{$value.Name}}"><span class="tag is-info">编辑</span></a>
-                    <a href="/sites/delete?path={{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
+                    <a href="/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
                 </td>
             </tr>
             {{end}}

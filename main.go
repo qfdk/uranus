@@ -30,13 +30,19 @@ func mustFS() http.FileSystem {
 func main() {
 	config.InitRedis()
 	go tools.RenewSSL()
-	r := gin.Default()
-	t, _ := template.ParseFS(templates, "views/*")
-	r.SetHTMLTemplate(t)
+	app := gin.Default()
+	template, _ := template.ParseFS(templates, "views/*")
+	app.SetHTMLTemplate(template)
+
 	// 静态文件路由
-	r.StaticFS("/public", mustFS())
-	r.SetTrustedProxies([]string{"127.0.0.1"})
-	routers.RegisterRoutes(r)
+	app.StaticFS("/public", mustFS())
+	app.GET("/favicon.ico", func(c *gin.Context) {
+		file, _ := staticFS.ReadFile("public/icon/favicon.ico")
+		c.Data(http.StatusOK, "image/x-icon", file)
+	})
+
+	app.SetTrustedProxies([]string{"127.0.0.1"})
+	routers.RegisterRoutes(app)
 	println("网站路径：" + config.GetAppConfig().VhostPath)
-	r.Run(":7777")
+	app.Run(":7777")
 }

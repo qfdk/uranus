@@ -10,6 +10,6 @@ func sitesRouter(engine *gin.Engine) {
 	engine.GET("/sites/new", controllers.NewSite)
 	engine.GET("/sites/template", controllers.GetTemplate)
 	engine.GET("/sites/edit/:id", controllers.EditSiteConf)
-	engine.GET("/sites/delete", controllers.DeleteSiteConf)
+	engine.GET("/sites/delete/:id", controllers.DeleteSiteConf)
 	engine.POST("/sites/save", controllers.SaveSiteConf)
 }
