@@ -4,7 +4,7 @@ import (
 	"embed"
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/routers"
+	"github.com/qfdk/nginx-proxy-manager/app/routes"
 	"github.com/qfdk/nginx-proxy-manager/app/tools"
 	"html/template"
 	"io/fs"
@@ -42,6 +42,6 @@ func main() {
 	})
 
 	app.SetTrustedProxies([]string{"127.0.0.1"})
-	routers.RegisterRoutes(app)
+	routes.RegisterRoutes(app)
 	app.Run(":7777")
 }
