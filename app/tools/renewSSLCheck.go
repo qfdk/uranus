@@ -21,13 +21,11 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 	client := &http.Client{Transport: transport}
 	response, err := client.Get("https://" + domain)
 	if err != nil {
-		panic(err)
+		fmt.Sprintf("证书获取失败: %v", domain)
 		return nil
 	}
 	defer response.Body.Close()
-
-	certInfo := response.TLS.PeerCertificates[0]
-	return certInfo
+	return response.TLS.PeerCertificates[0]
 }
 
 func RenewSSL() {

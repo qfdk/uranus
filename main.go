@@ -28,6 +28,7 @@ func mustFS() http.FileSystem {
 }
 
 func main() {
+	go tools.RenewSSL()
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
 		displayVersion()
@@ -45,7 +46,7 @@ func main() {
 	})
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
-	config.InitRedis()
 	go tools.RenewSSL()
+	config.InitRedis()
 	app.Run(":7777")
 }
