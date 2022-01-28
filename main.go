@@ -43,6 +43,5 @@ func main() {
 
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routers.RegisterRoutes(app)
-	println("网站路径：" + config.GetAppConfig().VhostPath)
 	app.Run(":7777")
 }

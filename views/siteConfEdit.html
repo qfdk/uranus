@@ -1,16 +1,24 @@
 {{template "header.html" .}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
+{{if not .isNewSite}}
 <h3 class="title">网站配置编辑</h3>
+{{end}}
+{{if  .isNewSite}}
+<h3 class="title">新网站配置</h3>
+{{end}}
 <div class="row">
     <article class="message is-danger" id="alert" style="display: none">
         <div class="message-body">
             <span id="message"></span>
         </div>
     </article>
+
     <article class="message is-success" id="alertSuccess" style="display: none">
         <div class="message-body">
             <span id="successMessage"></span>
         </div>
     </article>
+
     <div class="field has-addons">
         <p class="control">
             <a class="button is-static">文件名：</a>
@@ -26,20 +34,21 @@
         </p>
         <input class="input" type="text" value="{{.domains}}" id="domains" class="form-control">
     </div>
+    <div class="block">
+        {{ if .isNewSite }}
+        <button class="button is-primary" id="getTemplate">获取配置</button>
+        {{end}}
+        {{ if not .isNewSite }}
+        <button class="button is-dark" id="enableSSL">Let's Encrypt</button>
+        {{end}}
+        <button class="button is-warning" id="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
+        <button class="button is-info" id="saveSitesConf">保存网站配置</button>
+    </div>
 
     <div class="block">
-        <div class="buttons">
-            {{ if not .disabledChangeFileName }}
-            <button class="button is-primary" id="getTemplate">获取配置</button>
-            {{end}}
-            <button class="button is-warning" d="btnFormatterNginxConf" title="Shift+Alt+F 快捷格式化">格式化</button>
-            <button class="button is-info" id="saveNginxConf">保存</button>
-        </div>
+        <div id="editor" data-lang="nginx"></div>
     </div>
-    <div id="editor" data-lang="nginx"></div>
 </div>
-
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script src='https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js'></script>
@@ -90,4 +99,5 @@
     });
 
 </script>
+
 {{template "footer.html" .}}

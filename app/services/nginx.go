@@ -67,17 +67,16 @@ func StopNginx() string {
 	return result
 }
 
-func GetNginxConfPath() string {
+func getNginxConfPath() string {
 	configPath := config.GetNginxCompileInfo().NginxConfPath
 	regex, _ := regexp.Compile("(.*)/(.*.conf)")
 	confPath := regex.FindStringSubmatch(configPath)[1]
-	println("配置文件位置: " + confPath)
 	return confPath
 }
 
 func SaveNginxConf(content string) {
 	println("保存 Nginx 配置")
-	path := filepath.Join(GetNginxConfPath(), "nginx.conf")
+	path := filepath.Join(getNginxConfPath(), "nginx.conf")
 	ioutil.WriteFile(path, []byte(content), 0644)
 	ReloadNginx()
 }

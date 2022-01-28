@@ -22,20 +22,8 @@ var httpConf string
 //go:embed template/https.conf
 var httpsConf string
 
-// GetConfig  TODO /** 安全问题 ！！！跨目录
-func GetConfig(ctx *gin.Context) {
-	name := ctx.Query("name")
-	path := filepath.Join(services.GetNginxConfPath(), name)
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": name, "content": string(content)})
-}
-
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteEdit.html", gin.H{"configFileName": "", "content": ""})
+	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true})
 }
 
 func GetTemplate(ctx *gin.Context) {
@@ -66,10 +54,10 @@ func GetSites(ctx *gin.Context) {
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	redisData, _ := config.GetRedisClient().Get("nginx:" + configName).Result()
+	redisData := config.RedisGet(configName)
 	var output gin.H
 	json.Unmarshal([]byte(redisData), &output)
-	ctx.HTML(http.StatusOK, "edit.html",
+	ctx.HTML(http.StatusOK, "siteConfEdit.html",
 		gin.H{
 			"configFileName": output["fileName"],
 			"domains":        output["domains"],
@@ -83,28 +71,25 @@ func DeleteSiteConf(ctx *gin.Context) {
 	configName := strings.Split(filename, ".conf")[0]
 	path := filepath.Join(config.GetAppConfig().VhostPath, filename)
 	os.Remove(path)
-	config.GetRedisClient().Del("nginx:" + configName)
+	config.RedisDel(configName)
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
 
-func saveDataInRedis(fileName string, domains []string, content string) {
+func saveSiteDataInRedis(fileName string, domains []string, content string) {
 	data := make(gin.H)
 	data["fileName"] = fileName
 	data["domains"] = strings.Join(domains[:], ",")
 	data["content"] = content
 	res, _ := json.Marshal(data)
-	err := config.GetRedisClient().Set("nginx:"+fileName, res, 0).Err()
-	if err != nil {
-		fmt.Println(err)
-	}
+	config.RedisSet(fileName, res)
 }
 
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
-	saveDataInRedis(fileName, domains, content)
+	saveSiteDataInRedis(fileName, domains, content)
 	if !strings.Contains(fileName, ".conf") {
 		fileName = fileName + ".conf"
 	}

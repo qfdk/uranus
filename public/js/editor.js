@@ -173,24 +173,24 @@ $('#getTemplate').click(() => {
 });
 
 // 保存配置文件
+$('#saveSitesConf').click(() => {
+    $.post('/sites/save', {
+        filename: $("#filename").val(),
+        domains: $("#domains").val().split(","),
+        content: editor.getValue(),
+    }, (data) => {
+        processResponse(data);
+    });
+});
+
 $('#saveNginxConf').click(() => {
-    if ($("#filename").val() === 'nginx') {
-        $.post('/nginx', {
-            action: "saveConfig",
-            name: $("#filename").val(),
-            content: editor.getValue()
-        }, (data) => {
-            processResponse(data, "/");
-        });
-    } else {
-        $.post('/sites/save', {
-            filename: $("#filename").val(),
-            domains: $("#domains").val().split(","),
-            content: editor.getValue(),
-        }, (data) => {
-            processResponse(data);
-        });
-    }
+    $.post('/nginx', {
+        action: "saveConfig",
+        name: $("#filename").val(),
+        content: editor.getValue()
+    }, (data) => {
+        processResponse(data, "/");
+    });
 });
 
 $('#btnFormatterNginxConf').click(() => {
