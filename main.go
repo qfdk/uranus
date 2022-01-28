@@ -28,9 +28,12 @@ func mustFS() http.FileSystem {
 }
 
 func main() {
-	config.InitRedis()
-	go tools.RenewSSL()
-	app := gin.Default()
+	// 线上模式显示版本信息
+	if gin.Mode() == gin.ReleaseMode {
+		displayVersion()
+	}
+
+	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/*")
 	app.SetHTMLTemplate(template)
 
@@ -40,8 +43,9 @@ func main() {
 		file, _ := staticFS.ReadFile("public/icon/favicon.ico")
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
-
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
+	config.InitRedis()
+	go tools.RenewSSL()
 	app.Run(":7777")
 }
