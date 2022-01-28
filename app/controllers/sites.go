@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,15 +56,25 @@ func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
 	redisData := config.RedisGet(configName)
-	var output gin.H
-	json.Unmarshal([]byte(redisData), &output)
-	ctx.HTML(http.StatusOK, "siteConfEdit.html",
-		gin.H{
-			"configFileName": output["fileName"],
-			"domains":        output["domains"],
-			"content":        output["content"],
-		},
-	)
+	if filename != "default" {
+		var output gin.H
+		json.Unmarshal([]byte(redisData), &output)
+		ctx.HTML(http.StatusOK, "siteConfEdit.html",
+			gin.H{
+				"configFileName": output["fileName"],
+				"domains":        output["domains"],
+				"content":        output["content"],
+			},
+		)
+	} else {
+		content, _ := ioutil.ReadFile(path.Join(config.GetAppConfig().VhostPath, filename))
+		ctx.HTML(http.StatusOK, "siteConfEdit.html",
+			gin.H{
+				"configFileName": filename,
+				"content":        string(content),
+			},
+		)
+	}
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
@@ -90,7 +101,7 @@ func SaveSiteConf(ctx *gin.Context) {
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
 	saveSiteDataInRedis(fileName, domains, content)
-	if !strings.Contains(fileName, ".conf") {
+	if fileName != "default" {
 		fileName = fileName + ".conf"
 	}
 	//  检测 文件夹是否存在不存在建立
