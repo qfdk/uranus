@@ -1,6 +1,6 @@
 BUILD_VERSION   := v1.0.0
 BUILD_TIME      := $(shell date "+%F %T")
-BUILD_NAME      := nasi-campur-go_$(shell date "+%Y%m%d%H" )
+BUILD_NAME      := nginx-proxy-manager_$(shell date "+%Y%m%d%H" )
 COMMIT_SHA1     := $(shell git rev-parse HEAD )
 GO_VERSION      := $(shell go version)
 
