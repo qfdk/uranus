@@ -5,7 +5,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 )
 
-func sslRouter(engine *gin.Engine) {
+func sslRoute(engine *gin.Engine) {
 	engine.GET("/ssl", controllers.SSLDirs)
 	engine.GET("/ssl/renew", controllers.IssueCert)
 	engine.GET("/ssl/info", controllers.CertInfo)

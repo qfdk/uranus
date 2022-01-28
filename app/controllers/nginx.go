@@ -7,12 +7,11 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
 func Nginx(ctx *gin.Context) {
-	action, ok := ctx.GetPostForm("action")
+	action, ok := ctx.GetQuery("action")
 	if !ok {
 		// 参数不存在
 		fmt.Println("参数不存在")
@@ -25,8 +24,8 @@ func Nginx(ctx *gin.Context) {
 		nginxActionResult = services.ReloadNginx()
 	case "stop":
 		nginxActionResult = services.StopNginx()
-	case "parser":
-		log.Println("读取 nginx 配置文件")
+	case "config":
+		fmt.Println("读取 Nginx 配置文件")
 		content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
 		ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{"configFileName": "nginx", "content": string(content), "isNginxDefaultConf": true})
 		return
@@ -37,4 +36,10 @@ func Nginx(ctx *gin.Context) {
 		return
 	}
 	ctx.Redirect(http.StatusMovedPermanently, "/?message="+base64.StdEncoding.EncodeToString([]byte(nginxActionResult)))
+}
+
+func SaveNginxConf(ctx *gin.Context) {
+	content, _ := ctx.GetPostForm("content")
+	services.SaveNginxConf(content)
+	ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
 }

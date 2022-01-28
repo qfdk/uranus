@@ -29,7 +29,7 @@ func readAppConfig() {
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Fatalf("read config failed: %v", err)
+		log.Fatalf("读取配置文件失败: %v", err)
 	}
 	_appConfig = &AppConfig{}
 	viper.Unmarshal(&_appConfig)

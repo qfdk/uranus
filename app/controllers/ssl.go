@@ -5,7 +5,6 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/tools"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -18,7 +17,6 @@ func SSLDirs(ctx *gin.Context) {
 
 	var result = make(gin.H)
 	if err != nil {
-		log.Println(err)
 		ctx.HTML(http.StatusOK, "ssl.html", gin.H{"files": []string{}})
 		return
 	}

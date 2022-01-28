@@ -17,7 +17,7 @@ var upGrader = websocket.Upgrader{
 	},
 }
 
-//webSocket请求ping 返回pong
+// Websocket 请求ping 返回pong
 func Websocket(c *gin.Context) {
 	//升级get请求为webSocket协议
 	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)

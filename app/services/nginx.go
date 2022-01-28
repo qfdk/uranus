@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"io/ioutil"
 	"os/exec"
@@ -22,13 +23,13 @@ func NginxStatus() string {
 }
 
 func StartNginx() string {
-	println("启动 nginx")
+	fmt.Println("启动 Nginx")
 	out, err := exec.Command("nginx").CombinedOutput()
 	var result string
 	if err != nil {
-		println("启动出错")
+		fmt.Println("启动出错")
 		result = string(out)
-		println(result)
+		fmt.Println(result)
 	} else {
 		result = "OK"
 	}
@@ -36,30 +37,30 @@ func StartNginx() string {
 }
 
 func ReloadNginx() string {
-	println("重载 nginx 配置文件")
+	fmt.Println("重载 Nginx 配置文件")
 	if NginxStatus() != "KO" {
 		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
 		var result string
 		if err != nil {
-			println("重载配置出现错误")
+			fmt.Println("重载配置出现错误")
 			result = string(out)
 		} else {
 			result = "OK"
 		}
 		return result
 	} else {
-		println("Nginx 没有启动,不用重载配置 !")
+		fmt.Println("Nginx 没有启动,不用重载配置 !")
 		return "OK"
 	}
 }
 
 func StopNginx() string {
-	println("关闭 nginx")
+	fmt.Println("停止 Nginx")
 	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
 	var result string
 	if err != nil {
-		println("停止出现错误")
-		println(err)
+		fmt.Println("停止出现错误")
+		fmt.Println(err)
 		result = "KO"
 	} else {
 		result = "OK"
@@ -75,8 +76,8 @@ func getNginxConfPath() string {
 }
 
 func SaveNginxConf(content string) {
-	println("保存 Nginx 配置")
 	path := filepath.Join(getNginxConfPath(), "nginx.conf")
 	ioutil.WriteFile(path, []byte(content), 0644)
+	fmt.Println("保存 Nginx 配置成功")
 	ReloadNginx()
 }

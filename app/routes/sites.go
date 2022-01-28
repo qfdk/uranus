@@ -5,7 +5,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 )
 
-func sitesRouter(engine *gin.Engine) {
+func sitesRoute(engine *gin.Engine) {
 	engine.GET("/sites", controllers.GetSites)
 	engine.GET("/sites/new", controllers.NewSite)
 	engine.GET("/sites/template", controllers.GetTemplate)

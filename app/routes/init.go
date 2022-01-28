@@ -11,11 +11,10 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 错误中间件
 	//engine.Use(middlewares.ErrorHttp)
 	// 初始化路由
-	engine.GET("/ws-status", controllers.Websocket)
+	websocketRoute(engine)
 	engine.Use(gin.BasicAuth(gin.Accounts{config.GetAppConfig().Username: config.GetAppConfig().Password}))
 	engine.GET("/", controllers.Index)
-	engine.GET("/config", controllers.GetNginxCompileInfo)
-	engine.POST("/nginx", controllers.Nginx)
-	sitesRouter(engine)
-	sslRouter(engine)
+	nginxRoute(engine)
+	sitesRoute(engine)
+	sslRoute(engine)
 }
