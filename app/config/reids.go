@@ -20,12 +20,12 @@ func InitRedis() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Redis 连接回复: " + pong)
+	fmt.Println("Redis : " + pong)
 }
 
-func getRedisClient() *redis.Client {
-	return client
-}
+//func getRedisClient() *redis.Client {
+//	return client
+//}
 
 func RedisGet(key string) string {
 	redisData, _ := client.Get(RedisPrefix + key).Result()

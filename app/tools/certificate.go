@@ -44,7 +44,7 @@ func IssueCert(domains []string, configName string) error {
 	}
 
 	// 如果没有传入域名的话，默认是点击续签
-	// 需要读取保存的domains 列表 或者从redis中取出来
+	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
 		data, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().SSLPath, configName, "domains"))
 		domains = strings.Split(string(data), ",")

@@ -27,13 +27,16 @@ func TestRedis(t *testing.T) {
 	}
 	fmt.Println("键golang设置成功")
 
-	value, err := client.Get("npm:sites:golang").Result()
+	keys, err := client.Keys("nginx:*").Result()
 	if err != nil {
 		fmt.Println("获取key失败")
 		return
 	}
-	var output gin.H
-	json.Unmarshal([]byte(value), &output)
-	fmt.Println(output["toto1"])
-	fmt.Println(output["toto2"])
+	for _, key := range keys {
+		value, _ := client.Get(key).Result()
+		var output gin.H
+		json.Unmarshal([]byte(value), &output)
+		fmt.Println(output["fileName"])
+	}
+
 }
