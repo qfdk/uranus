@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -111,12 +112,19 @@ func IssueCert(domains []string, configName string) error {
 	// 更新 redis 信息
 
 	if isRenew {
-		var output gin.H
+		var output RedisData
 		redisData := npmConfig.RedisGet(configName)
 		json.Unmarshal([]byte(redisData), &output)
-		output["expire"] = time.Second * 60 * 60 * 24 * 80
-		res, _ := json.Marshal(output)
-		npmConfig.RedisSet(configName, res)
+		if redisData != "" {
+			dd, _ := time.ParseDuration("24h")
+			output.Expired = time.Now().Add(dd * 80).Unix()
+			res, _ := json.Marshal(output)
+			npmConfig.RedisSet(configName, res)
+		} else {
+			fmt.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
+			content, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().VhostPath, configName+".conf"))
+			npmConfig.SaveSiteDataInRedis(configName, domains, string(content))
+		}
 	}
 	return nil
 }

@@ -86,21 +86,11 @@ func DeleteSiteConf(ctx *gin.Context) {
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
-
-func saveSiteDataInRedis(fileName string, domains []string, content string) {
-	data := make(gin.H)
-	data["fileName"] = fileName
-	data["domains"] = strings.Join(domains[:], ",")
-	data["content"] = content
-	res, _ := json.Marshal(data)
-	config.RedisSet(fileName, res)
-}
-
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
-	saveSiteDataInRedis(fileName, domains, content)
+	config.SaveSiteDataInRedis(fileName, domains, content)
 	if fileName != "default" {
 		fileName = fileName + ".conf"
 	}

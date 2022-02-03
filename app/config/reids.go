@@ -1,14 +1,23 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"
+	"strings"
 	"sync"
 	"time"
 )
 
 var client *redis.Client
 var once sync.Once
+
+type RedisData struct {
+	Content  string `json:"content"`
+	Expired  int64  `json:"expired"`
+	Domains  string `json:"domains"`
+	FileName string `json:"fileName"`
+}
 
 const redisPrefix = "nginx:"
 
@@ -35,10 +44,28 @@ func RedisGet(key string) string {
 func RedisDel(key string) {
 	client.Del(redisPrefix + key)
 }
+
 func RedisSet(key string, content []byte) {
 	client.Set(redisPrefix+key, content, 0)
 }
 
 func RedisSetWithTTL(key string, content string, expiration time.Duration) {
 	client.Set(redisPrefix+key, content, expiration)
+}
+
+func RedisKeys() []string {
+	keys, _ := client.Keys(redisPrefix + "*").Result()
+	return keys
+}
+
+func SaveSiteDataInRedis(fileName string, domains []string, content string) {
+	dd, _ := time.ParseDuration("24h")
+	data := RedisData{
+		FileName: fileName,
+		Domains:  strings.Join(domains[:], ","),
+		Content:  content,
+		Expired:  time.Now().Add(dd * 80).Unix(),
+	}
+	res, _ := json.Marshal(data)
+	RedisSet(fileName, res)
 }
