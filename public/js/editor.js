@@ -184,7 +184,7 @@ $('#saveSitesConf').click(() => {
 });
 
 $('#saveNginxConf').click(() => {
-    $.post('/nginx', {
+    $.post('/nginx/save', {
         action: "saveConfig",
         name: $("#filename").val(),
         content: editor.getValue()

@@ -11,7 +11,7 @@ import (
 )
 
 func Nginx(ctx *gin.Context) {
-	action, ok := ctx.GetQuery("action")
+	action, ok := ctx.GetPostForm("action")
 	if !ok {
 		// 参数不存在
 		fmt.Println("参数不存在")

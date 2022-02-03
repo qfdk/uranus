@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -17,6 +18,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -42,12 +44,13 @@ func IssueCert(domains []string, configName string) error {
 	if err != nil {
 		return err
 	}
-
+	var isRenew = false
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
 		data, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().SSLPath, configName, "domains"))
 		domains = strings.Split(string(data), ",")
+		isRenew = true
 	}
 
 	myUser := MyUser{
@@ -104,5 +107,16 @@ func IssueCert(domains []string, configName string) error {
 	// 保存域名
 	ioutil.WriteFile(filepath.Join(certificateSavedDir, "domains"),
 		[]byte(strings.Join(domains, ",")), 0644)
+
+	// 更新 redis 信息
+
+	if isRenew {
+		var output gin.H
+		redisData := npmConfig.RedisGet(configName)
+		json.Unmarshal([]byte(redisData), &output)
+		output["expire"] = time.Second * 60 * 60 * 24 * 80
+		res, _ := json.Marshal(output)
+		npmConfig.RedisSet(configName, res)
+	}
 	return nil
 }
