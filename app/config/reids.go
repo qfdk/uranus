@@ -17,6 +17,7 @@ type RedisData struct {
 	Expired  int64  `json:"expired"`
 	Domains  string `json:"domains"`
 	FileName string `json:"fileName"`
+	Proxy    string `json:"proxy"`
 }
 
 const redisPrefix = "nginx:"
@@ -58,13 +59,14 @@ func RedisKeys() []string {
 	return keys
 }
 
-func SaveSiteDataInRedis(fileName string, domains []string, content string) {
+func SaveSiteDataInRedis(fileName string, domains []string, content string, proxy string) {
 	dd, _ := time.ParseDuration("24h")
 	data := RedisData{
 		FileName: fileName,
 		Domains:  strings.Join(domains[:], ","),
 		Content:  content,
 		Expired:  time.Now().Add(dd * 80).Unix(),
+		Proxy:    proxy,
 	}
 	res, _ := json.Marshal(data)
 	RedisSet(fileName, res)

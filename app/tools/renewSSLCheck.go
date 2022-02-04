@@ -32,6 +32,7 @@ type RedisData struct {
 	Expired  int64  `json:"expired"`
 	Domains  string `json:"domains"`
 	FileName string `json:"fileName"`
+	Proxy    string `json:"proxy"`
 }
 
 func RenewSSL() {
@@ -58,29 +59,6 @@ func RenewSSL() {
 				services.ReloadNginx()
 			}
 		}
-		//sslPath := config.GetAppConfig().SSLPath
-		//files, _ := ioutil.ReadDir(sslPath)
-		//for _, file := range files {
-		//	data, _ := ioutil.ReadFile(path.Join(config.GetAppConfig().SSLPath, file.Name(), "domains"))
-		//	var domains = strings.Split(string(data), ",")
-		//	var need2Renew = false
-		//	for _, domain := range domains {
-		//		fmt.Printf("开始获取证书信息: %s\n", domain)
-		//		certInfo := GetCertificateInfo(domain)
-		//		if certInfo != nil {
-		//			if certInfo.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
-		//				fmt.Printf("%s 证书过期，需要续签！\n", domain)
-		//				need2Renew = true
-		//			} else {
-		//				fmt.Printf("%s => 证书OK.\n", domain)
-		//			}
-		//		}
-		//	}
-		//	if need2Renew {
-		//		IssueCert(domains, file.Name())
-		//		services.ReloadNginx()
-		//	}
-		//}
 	})
 	go c.Start()
 	defer c.Stop()

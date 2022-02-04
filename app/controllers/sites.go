@@ -30,6 +30,7 @@ func NewSite(ctx *gin.Context) {
 func GetTemplate(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
 	configName := ctx.Query("configName")
+	proxy := ctx.Query("proxy")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
 	var templateConf = httpConf
 	if enableSSL {
@@ -39,6 +40,7 @@ func GetTemplate(ctx *gin.Context) {
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains[:], " "))
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", config.GetAppConfig().SSLPath)
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{proxy}}", proxy)
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
@@ -64,6 +66,7 @@ func EditSiteConf(ctx *gin.Context) {
 				"configFileName": output["fileName"],
 				"domains":        output["domains"],
 				"content":        output["content"],
+				"proxy":          output["proxy"],
 			},
 		)
 	} else {
@@ -80,17 +83,19 @@ func EditSiteConf(ctx *gin.Context) {
 func DeleteSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	path := filepath.Join(config.GetAppConfig().VhostPath, filename)
-	os.Remove(path)
+	os.Remove(filepath.Join(config.GetAppConfig().VhostPath, filename))
+	os.RemoveAll(filepath.Join(config.GetAppConfig().SSLPath, configName))
 	config.RedisDel(configName)
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
+
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
-	config.SaveSiteDataInRedis(fileName, domains, content)
+	proxy := ctx.PostForm("proxy")
+	config.SaveSiteDataInRedis(fileName, domains, content, proxy)
 	if fileName != "default" {
 		fileName = fileName + ".conf"
 	}

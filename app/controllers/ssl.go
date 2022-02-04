@@ -53,7 +53,6 @@ func CertInfo(ctx *gin.Context) {
 
 func DeleteSSL(ctx *gin.Context) {
 	configName := ctx.Query("configName")
-	path := filepath.Join(config.GetAppConfig().SSLPath, configName)
-	os.RemoveAll(path)
+	os.RemoveAll(filepath.Join(config.GetAppConfig().SSLPath, configName))
 	ctx.Redirect(http.StatusFound, "/ssl")
 }

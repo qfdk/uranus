@@ -123,7 +123,7 @@ func IssueCert(domains []string, configName string) error {
 		} else {
 			fmt.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
 			content, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().VhostPath, configName+".conf"))
-			npmConfig.SaveSiteDataInRedis(configName, domains, string(content))
+			npmConfig.SaveSiteDataInRedis(configName, domains, string(content), "")
 		}
 	}
 	return nil

@@ -3,7 +3,7 @@
 {{if not .isNewSite}}
 <h3 class="title">网站配置编辑</h3>
 {{end}}
-{{if  .isNewSite}}
+{{if .isNewSite}}
 <h3 class="title">新网站配置</h3>
 {{end}}
 <div class="row">
@@ -21,7 +21,7 @@
 
     <div class="field has-addons">
         <p class="control">
-            <a class="button is-static">文件名：</a>
+            <a class="button is-static">文件名:</a>
         </p>
         <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control">
         <p class="control">
@@ -30,9 +30,20 @@
     </div>
     <div class="field has-addons">
         <p class="control">
-            <a class="button is-static">域名：</a>
+            <a class="button is-static">域名:</a>
         </p>
         <input class="input" type="text" value="{{.domains}}" id="domains" class="form-control">
+    </div>
+    <div class="field has-addons">
+        <p class="control">
+            <a class="button is-static">反代地址:</a>
+        </p>
+        {{ if .isNewSite }}
+        <input class="input" type="text" value="http://localhost:3000" id="proxy" class="form-control">
+        {{end}}
+        {{ if not .isNewSite }}
+        <input class="input" type="text" value="{{.proxy}}" id="proxy" class="form-control">
+        {{end}}
     </div>
     <div class="block">
         {{ if .isNewSite }}
@@ -65,7 +76,7 @@
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {{.content}};
+        var codeContent = {{.content}}
         editor = monaco.editor.create(document.getElementById('editor'),
             {
                 value: codeContent,
