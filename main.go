@@ -30,14 +30,15 @@ func mustFS() http.FileSystem {
 
 func headersByRequestURI() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.RequestURI, "/public/") {
+		if strings.HasPrefix(c.Request.RequestURI, "/public/icon") {
 			c.Header("Cache-Control", "max-age=86400")
 			c.Header("Content-Description", "File Transfer")
 			c.Header("Content-Type", "application/octet-stream")
 			c.Header("Content-Transfer-Encoding", "binary")
-		} else if strings.HasPrefix(c.Request.RequestURI, "/icon/") {
-			c.Header("Cache-Control", "max-age=86400")
 		}
+		//else if strings.HasPrefix(c.Request.RequestURI, "/icon/") {
+		//	c.Header("Cache-Control", "max-age=86400")
+		//}
 	}
 }
 
