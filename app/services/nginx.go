@@ -12,12 +12,9 @@ import (
 func NginxStatus() string {
 	pidPath := config.GetNginxCompileInfo().NginxPidPath
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
-	var result string
+	var result = string(out)
 	if err != nil {
 		result = "KO"
-	} else {
-		// 运行成功会读取 pid
-		result = string(out)
 	}
 	return result
 }
@@ -25,45 +22,38 @@ func NginxStatus() string {
 func StartNginx() string {
 	fmt.Println("启动 Nginx")
 	out, err := exec.Command("nginx").CombinedOutput()
-	var result string
+	var result = "OK"
 	if err != nil {
 		fmt.Println("启动出错")
 		result = string(out)
 		fmt.Println(result)
-	} else {
-		result = "OK"
 	}
 	return result
 }
 
 func ReloadNginx() string {
 	fmt.Println("重载 Nginx 配置文件")
+	var result = "OK"
 	if NginxStatus() != "KO" {
 		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
-		var result string
 		if err != nil {
 			fmt.Println("重载配置出现错误")
 			result = string(out)
-		} else {
-			result = "OK"
 		}
-		return result
 	} else {
 		fmt.Println("Nginx 没有启动,不用重载配置 !")
-		return "OK"
 	}
+	return result
 }
 
 func StopNginx() string {
 	fmt.Println("停止 Nginx")
 	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
-	var result string
+	var result = "OK"
 	if err != nil {
 		fmt.Println("停止出现错误")
 		fmt.Println(err)
 		result = "KO"
-	} else {
-		result = "OK"
 	}
 	return result
 }

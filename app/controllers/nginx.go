@@ -24,18 +24,14 @@ func Nginx(ctx *gin.Context) {
 		nginxActionResult = services.ReloadNginx()
 	case "stop":
 		nginxActionResult = services.StopNginx()
-	case "config":
-		fmt.Println("读取 Nginx 配置文件")
-		content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
-		ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{"configFileName": "nginx", "content": string(content), "isNginxDefaultConf": true})
-		return
-	case "saveConfig":
-		content, _ := ctx.GetPostForm("content")
-		services.SaveNginxConf(content)
-		ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
-		return
 	}
 	ctx.Redirect(http.StatusMovedPermanently, "/?message="+base64.StdEncoding.EncodeToString([]byte(nginxActionResult)))
+}
+
+func GetNginxConf(ctx *gin.Context) {
+	fmt.Println("读取 Nginx 配置文件")
+	content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
+	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{"configFileName": "nginx", "content": string(content), "isNginxDefaultConf": true})
 }
 
 func SaveNginxConf(ctx *gin.Context) {

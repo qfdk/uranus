@@ -84,11 +84,11 @@ func IssueCert(domains []string, configName string) error {
 	}
 	myUser.Registration = reg
 
-	request := certificate.ObtainRequest{
+	certificates, err := client.Certificate.Obtain(certificate.ObtainRequest{
 		Domains: domains,
 		Bundle:  true,
-	}
-	certificates, err := client.Certificate.Obtain(request)
+	})
+
 	if err != nil {
 		return err
 	}

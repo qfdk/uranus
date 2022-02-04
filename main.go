@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 //go:embed views
@@ -27,18 +28,18 @@ func mustFS() http.FileSystem {
 	return http.FS(sub)
 }
 
-//func headersByRequestURI() gin.HandlerFunc {
-//	return func(c *gin.Context) {
-//		if strings.HasPrefix(c.Request.RequestURI, "/public/") {
-//			c.Header("Cache-Control", "max-age=86400")
-//			c.Header("Content-Description", "File Transfer")
-//			c.Header("Content-Type", "application/octet-stream")
-//			c.Header("Content-Transfer-Encoding", "binary")
-//		} else if strings.HasPrefix(c.Request.RequestURI, "/icon/") {
-//			c.Header("Cache-Control", "max-age=86400")
-//		}
-//	}
-//}
+func headersByRequestURI() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.RequestURI, "/public/") {
+			c.Header("Cache-Control", "max-age=86400")
+			c.Header("Content-Description", "File Transfer")
+			c.Header("Content-Type", "application/octet-stream")
+			c.Header("Content-Transfer-Encoding", "binary")
+		} else if strings.HasPrefix(c.Request.RequestURI, "/icon/") {
+			c.Header("Cache-Control", "max-age=86400")
+		}
+	}
+}
 
 func main() {
 	// 线上模式显示版本信息
@@ -51,7 +52,7 @@ func main() {
 	app.SetHTMLTemplate(template)
 
 	// 静态文件路由
-	//app.Use(headersByRequestURI())
+	app.Use(headersByRequestURI())
 	app.StaticFS("/public", mustFS())
 	app.GET("/favicon.ico", func(c *gin.Context) {
 		file, _ := staticFS.ReadFile("public/icon/favicon.ico")
