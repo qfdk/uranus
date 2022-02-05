@@ -36,8 +36,8 @@ type RedisData struct {
 
 func RenewSSL() {
 	// 每天 00:05 进行检测
-	spec := "* * * * * *"
-	c := cron.New(cron.WithSeconds())
+	spec := "5 0 * * *"
+	c := cron.New()
 	c.AddFunc(spec, func() {
 		keys := config.RedisKeys()
 		for _, key := range keys {
