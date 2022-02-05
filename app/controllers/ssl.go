@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/tools"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -32,7 +32,7 @@ func IssueCert(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
 	configName := ctx.Query("configName")
 	var message string
-	err := tools.IssueCert(domains, configName)
+	err := services.IssueCert(domains, configName)
 	if err != nil {
 		message = err.Error()
 	} else {
@@ -43,7 +43,7 @@ func IssueCert(ctx *gin.Context) {
 
 func CertInfo(ctx *gin.Context) {
 	domain := ctx.Query("domain")
-	certInfo := tools.GetCertificateInfo(domain)
+	certInfo := services.GetCertificateInfo(domain)
 	ctx.JSON(http.StatusOK, gin.H{
 		"domain":    certInfo.Subject.CommonName,
 		"issuer":    certInfo.Issuer.CommonName,

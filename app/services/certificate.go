@@ -1,4 +1,4 @@
-package tools
+package services
 
 import (
 	"crypto"
@@ -19,7 +19,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -98,7 +97,6 @@ func IssueCert(domains []string, configName string) error {
 	if _, err := os.Stat(certificateSavedDir); os.IsNotExist(err) {
 		os.MkdirAll(certificateSavedDir, 0755)
 	}
-
 	// Each certificate comes back with the cert bytes, the bytes of the client's
 	ioutil.WriteFile(filepath.Join(certificateSavedDir, "fullchain.cer"),
 		certificates.Certificate, 0644)
@@ -108,16 +106,15 @@ func IssueCert(domains []string, configName string) error {
 	// 保存域名
 	ioutil.WriteFile(filepath.Join(certificateSavedDir, "domains"),
 		[]byte(strings.Join(domains, ",")), 0644)
-
+	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
 	// 更新 redis 信息
-
 	if isRenew {
 		var output RedisData
 		redisData := npmConfig.RedisGet(configName)
 		json.Unmarshal([]byte(redisData), &output)
+		fmt.Println(pCert.NotAfter)
 		if redisData != "" {
-			dd, _ := time.ParseDuration("24h")
-			output.Expired = time.Now().Add(dd * 80).Unix()
+			output.NotAfter = pCert.NotAfter
 			res, _ := json.Marshal(output)
 			npmConfig.RedisSet(configName, res)
 		} else {

@@ -1,4 +1,4 @@
-package tools
+package services
 
 import (
 	"crypto/tls"
@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/robfig/cron/v3"
 	"net/http"
 	"strings"
@@ -28,17 +27,17 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 }
 
 type RedisData struct {
-	Content  string `json:"content"`
-	Expired  int64  `json:"expired"`
-	Domains  string `json:"domains"`
-	FileName string `json:"fileName"`
-	Proxy    string `json:"proxy"`
+	Content  string    `json:"content"`
+	NotAfter time.Time `json:"notAfter"`
+	Domains  string    `json:"domains"`
+	FileName string    `json:"fileName"`
+	Proxy    string    `json:"proxy"`
 }
 
 func RenewSSL() {
 	// 每天 00:05 进行检测
-	spec := "5 0 * * *"
-	c := cron.New()
+	spec := "* * * * * *"
+	c := cron.New(cron.WithSeconds())
 	c.AddFunc(spec, func() {
 		keys := config.RedisKeys()
 		for _, key := range keys {
@@ -46,17 +45,17 @@ func RenewSSL() {
 			var need2Renew = false
 			var output RedisData
 			json.Unmarshal([]byte(redisData), &output)
-			if output.Expired != 0 {
-				if (output.Expired - time.Now().Unix()) < 0 {
-					fmt.Printf("%v 证书过期，需要续签！\n", output.Domains)
+			if output.NotAfter.Unix() != -62135596800 {
+				if output.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
+					fmt.Printf("%v => 需要续期\n", output.Domains)
 					need2Renew = true
 				} else {
-					fmt.Printf("%v => 证书续期时间: %v\n", output.Domains, time.Unix(output.Expired, 0).Format("2006-01-02 15:04:05"))
+					fmt.Printf("%v => 证书续期时间: %v\n", output.Domains, output.NotAfter.Format("2006-01-02 15:04:05"))
 				}
 			}
 			if need2Renew {
 				IssueCert(strings.Split(output.Domains, ","), output.FileName)
-				services.ReloadNginx()
+				ReloadNginx()
 			}
 		}
 	})

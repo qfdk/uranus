@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/routes"
-	"github.com/qfdk/nginx-proxy-manager/app/tools"
+	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -62,6 +62,6 @@ func main() {
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
 	config.InitRedis()
-	go tools.RenewSSL()
+	go services.RenewSSL()
 	app.Run(":7777")
 }
