@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/qfdk/nginx-proxy-manager/app/config"
+	. "github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/robfig/cron/v3"
 	"net/http"
 	"strings"
@@ -26,22 +26,14 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 	return response.TLS.PeerCertificates[0]
 }
 
-type RedisData struct {
-	Content  string    `json:"content"`
-	NotAfter time.Time `json:"notAfter"`
-	Domains  string    `json:"domains"`
-	FileName string    `json:"fileName"`
-	Proxy    string    `json:"proxy"`
-}
-
 func RenewSSL() {
 	// 每天 00:05 进行检测
 	spec := "5 0 * * *"
 	c := cron.New()
 	c.AddFunc(spec, func() {
-		keys := config.RedisKeys()
+		keys, _ := RedisClient.Keys(RedisPrefix + "*").Result()
 		for _, key := range keys {
-			redisData := config.RedisGet(strings.Split(key, ":")[1])
+			redisData, _ := RedisClient.Get(strings.Split(key, ":")[1]).Result()
 			var need2Renew = false
 			var output RedisData
 			json.Unmarshal([]byte(redisData), &output)

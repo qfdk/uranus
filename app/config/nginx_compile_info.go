@@ -18,26 +18,22 @@ type NginxCompileInfo struct {
 
 var _nci *NginxCompileInfo = nil
 
-func GetNginxCompileInfo() *NginxCompileInfo {
+func ReadNginxCompileInfo() *NginxCompileInfo {
 	if _nci == nil {
 		initNginxCompileInfo()
 	}
 	return _nci
 }
 
-func getNginxCompileInfo() string {
+func initNginxCompileInfo() {
 	out, err := exec.Command("nginx", "-V").CombinedOutput()
 	if err != nil {
 		println("获取nginx配置出现错误,%v", err)
 		panic("nginx 似乎没有安装, " + err.Error())
 	}
-	output := string(out)
-	return output
-}
-
-func initNginxCompileInfo() {
-	nginxCompileInfo := getNginxCompileInfo()
+	nginxCompileInfo := string(out)
 	arr := strings.Split(nginxCompileInfo, "\n")
+
 	var nci = &NginxCompileInfo{}
 	nci.Version = strings.Split(arr[0], "nginx version: ")[1]
 

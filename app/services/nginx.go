@@ -10,7 +10,7 @@ import (
 )
 
 func NginxStatus() string {
-	pidPath := config.GetNginxCompileInfo().NginxPidPath
+	pidPath := config.ReadNginxCompileInfo().NginxPidPath
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
 	var result = string(out)
 	if err != nil {
@@ -59,7 +59,7 @@ func StopNginx() string {
 }
 
 func getNginxConfPath() string {
-	configPath := config.GetNginxCompileInfo().NginxConfPath
+	configPath := config.ReadNginxCompileInfo().NginxConfPath
 	regex, _ := regexp.Compile("(.*)/(.*.conf)")
 	confPath := regex.FindStringSubmatch(configPath)[1]
 	return confPath

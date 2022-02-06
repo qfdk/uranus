@@ -30,7 +30,7 @@ func Nginx(ctx *gin.Context) {
 
 func GetNginxConf(ctx *gin.Context) {
 	fmt.Println("读取 Nginx 配置文件")
-	content, _ := ioutil.ReadFile(config.GetNginxCompileInfo().NginxConfPath)
+	content, _ := ioutil.ReadFile(config.ReadNginxCompileInfo().NginxConfPath)
 	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{"configFileName": "nginx", "content": string(content), "isNginxDefaultConf": true})
 }
 
@@ -38,4 +38,8 @@ func SaveNginxConf(ctx *gin.Context) {
 	content, _ := ctx.GetPostForm("content")
 	services.SaveNginxConf(content)
 	ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
+}
+
+func GetNginxCompileInfo(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "config.html", gin.H{"nginxCompileInfo": config.ReadNginxCompileInfo()})
 }

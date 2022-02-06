@@ -13,7 +13,7 @@ import (
 	"github.com/go-acme/lego/v4/challenge/http01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	npmConfig "github.com/qfdk/nginx-proxy-manager/app/config"
+	. "github.com/qfdk/nginx-proxy-manager/app/config"
 	"io/ioutil"
 	"os"
 	"path"
@@ -48,13 +48,13 @@ func IssueCert(domains []string, configName string) error {
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
-		data, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().SSLPath, configName, "domains"))
+		data, _ := ioutil.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
 		domains = strings.Split(string(data), ",")
 		isRenew = true
 	}
 
 	myUser := MyUser{
-		Email: npmConfig.GetAppConfig().Email,
+		Email: GetAppConfig().Email,
 		key:   privateKey,
 	}
 
@@ -93,7 +93,7 @@ func IssueCert(domains []string, configName string) error {
 	}
 
 	// nginx 证书目录
-	certificateSavedDir := filepath.Join(npmConfig.GetAppConfig().SSLPath, configName)
+	certificateSavedDir := filepath.Join(GetAppConfig().SSLPath, configName)
 	if _, err := os.Stat(certificateSavedDir); os.IsNotExist(err) {
 		os.MkdirAll(certificateSavedDir, 0755)
 	}
@@ -110,18 +110,18 @@ func IssueCert(domains []string, configName string) error {
 	// 更新 redis 信息
 	if isRenew {
 		var output RedisData
-		redisData := npmConfig.RedisGet(configName)
+		redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
 		json.Unmarshal([]byte(redisData), &output)
-		fmt.Println(pCert.NotAfter)
 		if redisData != "" {
 			output.NotAfter = pCert.NotAfter
 			res, _ := json.Marshal(output)
-			npmConfig.RedisSet(configName, res)
+			RedisClient.Set(RedisPrefix+configName, res, 0)
 		} else {
 			fmt.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
-			content, _ := ioutil.ReadFile(path.Join(npmConfig.GetAppConfig().VhostPath, configName+".conf"))
-			npmConfig.SaveSiteDataInRedis(configName, domains, string(content), "")
+			content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, configName+".conf"))
+			SaveSiteDataInRedis(configName, domains, string(content), "")
 		}
+		fmt.Printf("续签完成 SSL 证书到期时间 : %v\n", pCert.NotAfter)
 	}
 	return nil
 }
