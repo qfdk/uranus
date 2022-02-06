@@ -4,12 +4,12 @@ import (
 	"embed"
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
+	"github.com/qfdk/nginx-proxy-manager/app/middlewares"
 	"github.com/qfdk/nginx-proxy-manager/app/routes"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"html/template"
 	"io/fs"
 	"net/http"
-	"strings"
 )
 
 //go:embed views
@@ -27,21 +27,6 @@ func mustFS() http.FileSystem {
 
 	return http.FS(sub)
 }
-
-func headersByRequestURI() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.RequestURI, "/public/icon") {
-			c.Header("Cache-Control", "max-age=86400")
-			c.Header("Content-Description", "File Transfer")
-			c.Header("Content-Type", "application/octet-stream")
-			c.Header("Content-Transfer-Encoding", "binary")
-		}
-		//else if strings.HasPrefix(c.Request.RequestURI, "/icon/") {
-		//	c.Header("Cache-Control", "max-age=86400")
-		//}
-	}
-}
-
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
@@ -49,11 +34,11 @@ func main() {
 	}
 
 	app := gin.New()
-	template, _ := template.ParseFS(templates, "views/*")
+	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
 	app.SetHTMLTemplate(template)
 
+	app.Use(middlewares.CacheMiddleware())
 	// 静态文件路由
-	app.Use(headersByRequestURI())
 	app.StaticFS("/public", mustFS())
 	app.GET("/favicon.ico", func(c *gin.Context) {
 		file, _ := staticFS.ReadFile("public/icon/favicon.ico")
