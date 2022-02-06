@@ -9,5 +9,5 @@ func nginxRoute(engine *gin.Engine) {
 	engine.POST("/nginx", controllers.Nginx)
 	engine.POST("/nginx/save", controllers.SaveNginxConf)
 	engine.GET("/nginx/config", controllers.GetNginxConf)
-	engine.GET("/nginx/compile-info", controllers.GetNginxCompileInfo)
+	engine.GET("/nginx/config-info", controllers.GetNginxCompileInfo)
 }
