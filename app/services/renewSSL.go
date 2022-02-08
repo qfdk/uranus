@@ -28,7 +28,7 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 
 func RenewSSL() {
 	// 每天 00:05 进行检测
-	spec := "*/30 * * * *"
+	spec := "5 0 * * *"
 	c := cron.New()
 	c.AddFunc(spec, func() {
 		keys, _ := RedisClient.Keys(RedisPrefix + "*").Result()
