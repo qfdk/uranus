@@ -6,8 +6,7 @@
   "env": {
     "GIN_MODE": "release"
   },
-  "error": "./logs/app-err.log",
-  "output": "./logs/app-out.log",
+  "log_file": "./logs/app.log",
   "log_date_format": "YYYY-MM-DD HH:mm:ss.SSS",
   "merge_logs": true
 }
