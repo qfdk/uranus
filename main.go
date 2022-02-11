@@ -32,11 +32,16 @@ func main() {
 	if gin.Mode() == gin.ReleaseMode {
 		displayVersion()
 	}
+	// 初始化配置文件
+	config.InitAppConfig()
+	// 初始化redis
+	config.InitRedis()
+	defer config.CloseRedis()
 
 	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
 	app.SetHTMLTemplate(template)
-
+	// 缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 	// 静态文件路由
 	app.StaticFS("/public", mustFS())
@@ -46,7 +51,6 @@ func main() {
 	})
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
-	config.InitRedis()
 	go services.RenewSSL()
 	app.Run(":7777")
 }

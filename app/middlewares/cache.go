@@ -9,7 +9,7 @@ import (
 // to prevent the client from caching the HTTP response.
 func CacheMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.RequestURI, "/public/icon") || strings.HasPrefix(c.Request.RequestURI, "favicon.ico") {
+		if strings.HasPrefix(c.Request.RequestURI, "/public") || strings.HasPrefix(c.Request.RequestURI, "/favicon.ico") {
 			c.Header("Cache-Control", "max-age=86400")
 			c.Header("Content-Description", "File Transfer")
 			c.Header("Content-Type", "application/octet-stream")

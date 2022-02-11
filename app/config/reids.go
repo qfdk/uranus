@@ -23,6 +23,7 @@ type RedisData struct {
 const RedisPrefix = "nginx:"
 
 func InitRedis() {
+	fmt.Println("[+] 初始化 Redis ...")
 	once.Do(func() {
 		RedisClient = redis.NewClient(&redis.Options{})
 	})
@@ -30,7 +31,11 @@ func InitRedis() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Redis : " + pong)
+	fmt.Printf("[+] 初始化 Redis 成功 : %v\n", pong)
+}
+
+func CloseRedis() {
+	RedisClient.Close()
 }
 
 func SaveSiteDataInRedis(fileName string, domains []string, content string, proxy string) {
