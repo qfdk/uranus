@@ -26,13 +26,9 @@
 <div class="block">
     <div class="buttons">
         <form action="/nginx" method="post">
-            <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus
-            "KO" }}disabled{{end}} >开始服务</button>
-            <button type="submit" name="action" value="reload" class="button is-warning is-outlined" {{ if eq
-                    .nginxStatus
-            "KO" }}disabled{{end}}>重载配置</button>
-            <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus
-            "KO" }}disabled{{end}}>停止服务</button>
+            <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus "KO" }}disabled{{end}} >开始服务</button>
+            <button type="submit" name="action" value="reload" class="button is-warning is-outlined" {{ if eq .nginxStatus "KO" }}disabled{{end}}>重载配置</button>
+            <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus "KO" }}disabled{{end}}>停止服务</button>
             <a type="link" href="/nginx/config" class="button is-dark">Nginx配置文件</a>
         </form>
     </div>
@@ -59,7 +55,6 @@
             <tr>
                 <th scope="row">内存</th>
                 <td>{{.memInfo}}</td>
-<!--                <td><progress id="ram" class="progress is-info is-medium" value="0" max="100">0%</progress></td>-->
             </tr>
             <tr>
                 <th scope="row">Nginx 版本</th>
@@ -80,138 +75,5 @@
             </tbody>
         </table>
     </div>
-<!--    <div class="column is-one-quarter">-->
-<!--        <div id="cpuChart" style="height:250px;"></div>-->
-<!--    </div>-->
-<!--    <div class="column is-one-quarter">-->
-<!--        <div id="ramChart" style="height:250px;"></div>-->
-<!--    </div>-->
 </div>
 {{template "footer.html" .}}
-<!--<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>-->
-<!--<script type="text/javascript">-->
-<!--    function createChart(id, title) {-->
-<!--        var myChart = echarts.init(document.getElementById(id), null, {renderer: 'svg'});-->
-<!--        var option;-->
-<!--        const gaugeData = [-->
-<!--            {-->
-<!--                value: 0,-->
-<!--                name: title,-->
-<!--                title: {-->
-<!--                    offsetCenter: ['0%', '-10%']-->
-<!--                },-->
-<!--                detail: {-->
-<!--                    valueAnimation: true,-->
-<!--                    offsetCenter: ['0%', '20%']-->
-<!--                }-->
-<!--            }-->
-<!--        ];-->
-<!--        option = {-->
-<!--            series: [-->
-<!--                {-->
-<!--                    type: 'gauge',-->
-<!--                    startAngle: 90,-->
-<!--                    endAngle: -270,-->
-<!--                    pointer: {-->
-<!--                        show: false-->
-<!--                    },-->
-<!--                    progress: {-->
-<!--                        show: true,-->
-<!--                        overlap: false,-->
-<!--                        roundCap: true,-->
-<!--                        clip: false,-->
-<!--                        itemStyle: {-->
-<!--                            borderWidth: 10,-->
-<!--                            borderColor: '#fffff'-->
-<!--                        }-->
-<!--                    },-->
-<!--                    axisLine: {-->
-<!--                        lineStyle: {-->
-<!--                            width: 8,-->
-<!--                        }-->
-<!--                    },-->
-<!--                    splitLine: {-->
-<!--                        show: false,-->
-<!--                        distance: 0,-->
-<!--                        length: 5-->
-<!--                    },-->
-<!--                    axisTick: {-->
-<!--                        show: false-->
-<!--                    },-->
-<!--                    axisLabel: {-->
-<!--                        show: false,-->
-<!--                        distance: 50-->
-<!--                    },-->
-<!--                    data: gaugeData,-->
-<!--                    title: {-->
-<!--                        fontSize: 20-->
-<!--                    },-->
-<!--                    itemStyle: {-->
-<!--                        color: '#4FA349'-->
-<!--                    },-->
-<!--                    detail: {-->
-<!--                        width: 50,-->
-<!--                        height: 15,-->
-<!--                        fontSize: 14,-->
-<!--                        color: 'auto',-->
-<!--                        borderColor: 'auto',-->
-<!--                        borderRadius: 10,-->
-<!--                        borderWidth: 1,-->
-<!--                        formatter: '{value}%'-->
-<!--                    }-->
-<!--                }-->
-<!--            ]-->
-<!--        };-->
-<!--        if (option && typeof option === 'object') {-->
-<!--            myChart.setOption(option);-->
-<!--        }-->
-<!--        return myChart;-->
-<!--    }-->
-
-<!--    function setValue(element, title, value) {-->
-<!--        element.setOption({-->
-<!--            series: [-->
-<!--                {-->
-<!--                    data: [-->
-<!--                        {-->
-<!--                            value: parseFloat(value).toFixed(2),-->
-<!--                            name: title,-->
-<!--                            title: {-->
-<!--                                offsetCenter: ['0%', '-10%']-->
-<!--                            },-->
-<!--                            detail: {-->
-<!--                                valueAnimation: true,-->
-<!--                                offsetCenter: ['0%', '20%']-->
-<!--                            }-->
-<!--                        }-->
-<!--                    ],-->
-<!--                    pointer: {-->
-<!--                        show: false-->
-<!--                    }-->
-<!--                }-->
-<!--            ]-->
-<!--        });-->
-<!--    }-->
-<!--</script>-->
-<script>
-    const protocol = window.location.protocol === 'http:' ? "ws://" : "wss://";
-    const ws = new WebSocket(protocol + window.location.host + "/ws-status");
-    // const cpu = createChart("cpuChart", "CPU");
-    // const ram = createChart("ramChart", "RAM");
-    //连接打开时触发
-    ws.onopen = function (evt) {
-        console.log("Connection open ...");
-        ws.send("ping");
-    };
-    //接收到消息时触发
-    ws.onmessage = function (evt) {
-        const data = JSON.parse(evt.data);
-        setValue(cpu, "CPU", data.cpu);
-        setValue(ram, "RAM", data.ram);
-    };
-    //连接关闭时触发
-    ws.onclose = function (evt) {
-        console.log("Connection closed.");
-    };
-
-</script>

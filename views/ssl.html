@@ -25,8 +25,8 @@
                     {{end}}
                 </td>
                 <td>
-                    <a href="/ssl/renew?configName={{$key}}"><span class="tag is-info">续命</span></a>
-                    <a href="/ssl/delete?configName={{$key}}"><span class="tag is-danger is-light">删除</span></a>
+                    <button class="button is-info is-small" data-config="{{$key}}">续命</button>
+                    <a class="button is-danger is-small" href="/ssl/delete?configName={{$key}}">删除</a>
                 </td>
             </tr>
             {{end}}
@@ -35,3 +35,16 @@
     </div>
 </div>
 {{template "footer.html" .}}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script>
+    $(".button.is-info").on('click', (e) => {
+        const ele = $(e.target);
+        const configName = ele.data('config');
+        ele.addClass("is-loading");
+        $.get(`/ssl/renew?configName=${configName}`).then(response => {
+            if (response.message === "OK") {
+                ele.removeClass("is-loading");
+            }
+        });
+    });
+</script>
