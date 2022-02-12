@@ -199,6 +199,7 @@ $('#saveNginxConf').click(() => {
 $('#btnFormatterNginxConf').click(() => {
     editor.trigger('a', 'editor.action.formatDocument')
 });
+
 /**
  * 格式化 nginx
  * @param text

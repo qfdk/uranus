@@ -35,8 +35,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.32.1/min/vs/loader.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js'></script>
-<script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/min/vs/loader.js'></script>
 <script src="/public/js/editor.js"></script>
 <script>
     require(['vs/editor/editor.main'], function () {
@@ -46,14 +46,17 @@
                 {open: '{', close: '}'},
                 {open: '"', close: '"'},
             ],
+            comments: {
+                lineComment: "#"
+            }
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {{.content}}
+        var codeContent = {{.content}};
         editor = monaco.editor.create(document.getElementById('editor'),
             {
                 value: codeContent,
-                language: "nginx",
+                language: defaultLang,
                 theme: defaultTheme,
                 fontSize: 18,
                 automaticLayout: true,
@@ -67,7 +70,7 @@
             });
 
         //格式化
-        monaco.languages.registerDocumentFormattingEditProvider('nginx', {
+        monaco.languages.registerDocumentFormattingEditProvider(defaultLang, {
             provideDocumentFormattingEdits: function (model, _options, _token) {
                 return [{
                     text: nginxFormatter(model.getValue()),
