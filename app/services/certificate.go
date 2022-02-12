@@ -108,20 +108,22 @@ func IssueCert(domains []string, configName string) error {
 		[]byte(strings.Join(domains, ",")), 0644)
 	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
 	// 更新 redis 信息
+	redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
+	var output RedisData
+	json.Unmarshal([]byte(redisData), &output)
+	if redisData != "" {
+		output.NotAfter = pCert.NotAfter
+		res, _ := json.Marshal(output)
+		RedisClient.Set(RedisPrefix+configName, res, 0)
+	} else {
+		fmt.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
+		content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, configName+".conf"))
+		SaveSiteDataInRedis(configName, domains, string(content), "")
+	}
 	if isRenew {
-		var output RedisData
-		redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
-		json.Unmarshal([]byte(redisData), &output)
-		if redisData != "" {
-			output.NotAfter = pCert.NotAfter
-			res, _ := json.Marshal(output)
-			RedisClient.Set(RedisPrefix+configName, res, 0)
-		} else {
-			fmt.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
-			content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, configName+".conf"))
-			SaveSiteDataInRedis(configName, domains, string(content), "")
-		}
-		fmt.Printf("续签完成 SSL 证书到期时间 : %v\n", pCert.NotAfter)
+		fmt.Printf("[+] 续签SSL完成, 证书到期时间 : %v\n", pCert.NotAfter)
+	} else {
+		fmt.Printf("[+] 申请SSL完成, 证书到期时间 : %v\n", pCert.NotAfter)
 	}
 	return nil
 }
