@@ -44,13 +44,11 @@ func IssueCert(domains []string, configName string) error {
 	if err != nil {
 		return err
 	}
-	var isRenew = false
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
 		data, _ := ioutil.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
 		domains = strings.Split(string(data), ",")
-		isRenew = true
 	}
 
 	myUser := MyUser{
@@ -122,11 +120,6 @@ func IssueCert(domains []string, configName string) error {
 	output.NotAfter = pCert.NotAfter
 	res, _ := json.Marshal(output)
 	RedisClient.Set(RedisPrefix+configName, res, 0)
-
-	if isRenew {
-		fmt.Printf("[+] 续签SSL完成, 证书到期时间 : %v\n", pCert.NotAfter)
-	} else {
-		fmt.Printf("[+] 申请SSL完成, 证书到期时间 : %v\n", pCert.NotAfter)
-	}
+	fmt.Printf("[+] SSL任务完成, 证书到期时间 : %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
 	return nil
 }

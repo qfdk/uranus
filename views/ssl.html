@@ -12,21 +12,25 @@
             <tr>
                 <th scope="col">配置名称</th>
                 <th scope="col">域名</th>
+                <th scope="col">到期时间</th>
                 <th scope="col">操作</th>
             </tr>
             </thead>
             <tbody>
-            {{range $key, $value :=.files}}
+            {{range $key, $value :=.results}}
             <tr>
-                <th scope="row">{{$key}}</a></th>
+                <th scope="row">{{$value.configName}}</a></th>
                 <td>
-                    {{range $index, $val :=$value}}
-                    <a href="https://{{$val}}">{{$val}}</a>
+                    {{range $key, $domain :=$value.domains}}
+                        <a href="https://{{$domain}}">{{$domain}}</a>
                     {{end}}
                 </td>
                 <td>
-                    <button class="button is-info is-small" data-config="{{$key}}">续命</button>
-                    <a class="button is-danger is-small" href="/ssl/delete?configName={{$key}}">删除</a>
+                    {{$value.expiredAt}}
+                </td>
+                <td>
+                    <button class="button is-info is-small" data-config="{{$value.configName}}">续命</button>
+                    <a class="button is-danger is-small" href="/ssl/delete?configName={{$value.configName}}">删除</a>
                 </td>
             </tr>
             {{end}}

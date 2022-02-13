@@ -39,12 +39,13 @@ func CloseRedis() {
 }
 
 func SaveSiteDataInRedis(fileName string, domains []string, content string, proxy string) {
-	data := RedisData{
-		FileName: fileName,
-		Domains:  strings.Join(domains[:], ","),
-		Content:  content,
-		Proxy:    proxy,
-	}
-	res, _ := json.Marshal(data)
+	var redisData RedisData
+	output, _ := RedisClient.Get(RedisPrefix + fileName).Result()
+	json.Unmarshal([]byte(output), &redisData)
+	redisData.FileName = fileName
+	redisData.Domains = strings.Join(domains[:], ",")
+	redisData.Content = content
+	redisData.Proxy = proxy
+	res, _ := json.Marshal(redisData)
 	RedisClient.Set(RedisPrefix+fileName, res, 0)
 }
