@@ -73,6 +73,9 @@
                 {open: '{', close: '}'},
                 {open: '"', close: '"'},
             ],
+            comments: {
+                lineComment: "#"
+            }
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
