@@ -2,8 +2,8 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-redis/redis"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,15 +23,15 @@ type RedisData struct {
 const RedisPrefix = "nginx:"
 
 func InitRedis() {
-	fmt.Println("[+] 初始化 Redis ...")
+	log.Println("[+] 初始化 Redis ...")
 	once.Do(func() {
 		RedisClient = redis.NewClient(&redis.Options{})
 	})
 	pong, err := RedisClient.Ping().Result()
 	if err != nil {
-		panic(err)
+		log.Fatal("[-] Redis 初始化失败 !")
 	}
-	fmt.Printf("[+] 初始化 Redis 成功 : %v\n", pong)
+	log.Printf("[+] 初始化 Redis 成功 : %v\n", pong)
 }
 
 func CloseRedis() {

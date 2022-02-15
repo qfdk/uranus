@@ -3,12 +3,12 @@ package controllers
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	. "github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -47,7 +47,7 @@ func GetTemplate(ctx *gin.Context) {
 func GetSites(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(filepath.Join(GetAppConfig().VhostPath))
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": []string{}})
 		return
 	}

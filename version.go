@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "log"
 
 var (
 	BuildVersion string
@@ -13,9 +11,9 @@ var (
 )
 
 func displayVersion() {
-	fmt.Printf("Build name:\t%s\n", BuildName)
-	fmt.Printf("Build ver:\t%s\n", BuildVersion)
-	fmt.Printf("Build time:\t%s\n", BuildTime)
-	fmt.Printf("Git commit:\t%s\n", CommitID)
-	fmt.Printf("Go version:\t%s\n", GoVersion)
+	log.Printf("Build name:\t%s\n", BuildName)
+	log.Printf("Build ver:\t%s\n", BuildVersion)
+	log.Printf("Build time:\t%s\n", BuildTime)
+	log.Printf("Git commit:\t%s\n", CommitID)
+	log.Printf("Go version:\t%s\n", GoVersion)
 }

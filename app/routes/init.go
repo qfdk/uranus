@@ -12,6 +12,10 @@ func RegisterRoutes(engine *gin.Engine) {
 	//engine.Use(middlewares.ErrorHttp)
 	// 初始化路由
 	websocketRoute(engine)
+	engine.GET("/api/info", func(context *gin.Context) {
+		config := config.GetAppConfig()
+		context.JSON(200, gin.H{"url": config.Url, "id": config.Id})
+	})
 	engine.Use(gin.BasicAuth(gin.Accounts{config.GetAppConfig().Username: config.GetAppConfig().Password}))
 	engine.GET("/", controllers.Index)
 	nginxRoute(engine)

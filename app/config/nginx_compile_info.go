@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -28,8 +29,8 @@ func ReadNginxCompileInfo() *NginxCompileInfo {
 func initNginxCompileInfo() {
 	out, err := exec.Command("nginx", "-V").CombinedOutput()
 	if err != nil {
-		println("获取nginx配置出现错误,%v", err)
-		panic("nginx 似乎没有安装, " + err.Error())
+		log.Printf("获取nginx配置出现错误,%v\n", err)
+		log.Fatalf("[-] nginx 似乎没有安装, " + err.Error())
 	}
 	nginxCompileInfo := string(out)
 	arr := strings.Split(nginxCompileInfo, "\n")
