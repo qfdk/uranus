@@ -33,10 +33,11 @@ func main() {
 		displayVersion()
 	}
 	// 初始化配置文件
-	config.InitAppConfig()
-	// 初始化redis
-	config.InitRedis()
-	defer config.CloseRedis()
+	if config.GetAppConfig().Redis {
+		// 初始化redis
+		config.InitRedis()
+		defer config.CloseRedis()
+	}
 
 	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")

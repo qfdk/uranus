@@ -57,8 +57,8 @@ func GetSites(ctx *gin.Context) {
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
-	if filename != "default" {
+	if filename != "default" && GetAppConfig().Redis {
+		redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
 		var output gin.H
 		json.Unmarshal([]byte(redisData), &output)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
@@ -67,6 +67,7 @@ func EditSiteConf(ctx *gin.Context) {
 				"domains":        output["domains"],
 				"content":        output["content"],
 				"proxy":          output["proxy"],
+				"infoPlus":       true,
 			},
 		)
 	} else {
@@ -75,6 +76,7 @@ func EditSiteConf(ctx *gin.Context) {
 			gin.H{
 				"configFileName": filename,
 				"content":        string(content),
+				"infoPlus":       false,
 			},
 		)
 	}
@@ -95,7 +97,9 @@ func SaveSiteConf(ctx *gin.Context) {
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
-	SaveSiteDataInRedis(fileName, domains, content, proxy)
+	if GetAppConfig().Redis {
+		SaveSiteDataInRedis(fileName, domains, content, proxy)
+	}
 	if fileName != "default" {
 		fileName = fileName + ".conf"
 	}

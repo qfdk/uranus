@@ -14,6 +14,7 @@ type AppConfig struct {
 	Password  string
 	Id        string
 	Url       string
+	Redis     bool
 }
 
 var _appConfig *AppConfig = nil
@@ -38,6 +39,7 @@ func InitAppConfig() {
 			Email:     "root@qfdk.me",
 			Username:  "admin",
 			Password:  "admin",
+			Redis:     false,
 		}
 	} else {
 		viper.SetConfigName("config")

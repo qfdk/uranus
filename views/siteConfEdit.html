@@ -23,11 +23,14 @@
         <p class="control">
             <a class="button is-static">文件名:</a>
         </p>
-        <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{if not .isNewSite}}readonly{{end}}>
+        <input class="input" type="text" value="{{.configFileName}}" id="filename" class="form-control" {{if not
+               .isNewSite}}readonly{{end}}>
         <p class="control">
             <a class="button is-static">.conf</a>
         </p>
     </div>
+
+    {{ if .infoPlus}}
     <div class="field has-addons">
         <p class="control">
             <a class="button is-static">域名:</a>
@@ -45,6 +48,8 @@
         <input class="input" type="text" value="{{.proxy}}" id="proxy" class="form-control">
         {{end}}
     </div>
+    {{ end }}
+
     <div class="block">
         {{ if .isNewSite }}
         <button class="button is-primary" id="getTemplate">获取配置</button>
@@ -79,7 +84,7 @@
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {{.content}}
+        var codeContent = {{.content}};
         editor = monaco.editor.create(document.getElementById('editor'),
             {
                 value: codeContent,

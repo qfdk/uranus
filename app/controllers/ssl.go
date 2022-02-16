@@ -12,21 +12,29 @@ import (
 )
 
 func Certificates(ctx *gin.Context) {
-	keys := config.RedisClient.Keys(config.RedisPrefix + "*")
 	var results []gin.H
-	for _, key := range keys.Val() {
-		if !strings.Contains(key, "default") {
-			var output config.RedisData
-			redisResult, _ := config.RedisClient.Get(key).Result()
-			json.Unmarshal([]byte(redisResult), &output)
-			if output.NotAfter.Unix() != -62135596800 {
-				results = append(results, gin.H{
-					"configName": output.FileName,
-					"domains":    strings.Split(output.Domains, ","),
-					"expiredAt":  output.NotAfter.Format("2006-01-02 15:04:05"),
-				})
+	if config.GetAppConfig().Redis {
+		keys := config.RedisClient.Keys(config.RedisPrefix + "*")
+		for _, key := range keys.Val() {
+			if !strings.Contains(key, "default") {
+				var output config.RedisData
+				redisResult, _ := config.RedisClient.Get(key).Result()
+				json.Unmarshal([]byte(redisResult), &output)
+				if output.NotAfter.Unix() != -62135596800 {
+					results = append(results, gin.H{
+						"configName": output.FileName,
+						"domains":    strings.Split(output.Domains, ","),
+						"expiredAt":  output.NotAfter.Format("2006-01-02 15:04:05"),
+					})
+				}
 			}
 		}
+	} else {
+		results = append(results, gin.H{
+			"configName": "未开启 redis",
+			"domains":    []string{},
+			"expiredAt":  "-",
+		})
 	}
 	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"results": results})
 }
@@ -34,12 +42,12 @@ func Certificates(ctx *gin.Context) {
 func IssueCert(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
 	configName := ctx.Query("configName")
-	var message string
-	err := services.IssueCert(domains, configName)
-	if err != nil {
-		message = err.Error()
-	} else {
-		message = "OK"
+	message := "OK"
+	if config.GetAppConfig().Redis {
+		err := services.IssueCert(domains, configName)
+		if err != nil {
+			message = err.Error()
+		}
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": message})
 }
@@ -56,7 +64,9 @@ func CertInfo(ctx *gin.Context) {
 
 func DeleteSSL(ctx *gin.Context) {
 	configName := ctx.Query("configName")
+	if config.GetAppConfig().Redis {
+		config.RedisClient.Del(config.RedisPrefix + configName)
+	}
 	os.RemoveAll(filepath.Join(config.GetAppConfig().SSLPath, configName))
-	config.RedisClient.Del(config.RedisPrefix + configName)
 	ctx.Redirect(http.StatusFound, "/ssl")
 }

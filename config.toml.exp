@@ -7,6 +7,8 @@ Email = "qfdk2010@gmail.com"
 # 访问配置
 Username = "admin"
 Password = "admin"
+# 使用Redis
+Redis = "false"
 #### 通讯配置
 # Id
 Id = "# 10000"
