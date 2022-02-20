@@ -36,8 +36,7 @@ func GetNginxConf(ctx *gin.Context) {
 
 func SaveNginxConf(ctx *gin.Context) {
 	content, _ := ctx.GetPostForm("content")
-	services.SaveNginxConf(content)
-	ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
+	ctx.JSON(http.StatusOK, gin.H{"message": services.SaveNginxConf(content)})
 }
 
 func GetNginxCompileInfo(ctx *gin.Context) {

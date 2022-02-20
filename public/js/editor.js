@@ -167,8 +167,8 @@ $('#enableSSL').click(() => {
 });
 
 $('#getTemplate').click(() => {
-    const domains = $("#domains").val().split(",");
-    const proxy = $("#proxy").val();
+    const domains = $("#domains").val() ? $("#domains").val().split(",") : ["localhost"];
+    const proxy = $("#proxy").val() ? $("#proxy").val() : "http://localhost";
     $.get('/sites/template', {domains, proxy}, (data) => {
         editor.getModel().setValue(data.content);
     });
@@ -177,7 +177,7 @@ $('#getTemplate').click(() => {
 // 保存配置文件
 $('#saveSitesConf').click(() => {
     let json = {
-        filename: $("#filename").val(),
+        filename: $("#filename").val().split('.conf')[0],
         content: editor.getValue()
     };
 

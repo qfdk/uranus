@@ -65,9 +65,9 @@ func getNginxConfPath() string {
 	return confPath
 }
 
-func SaveNginxConf(content string) {
+func SaveNginxConf(content string) string {
 	path := filepath.Join(getNginxConfPath(), "nginx.conf")
 	ioutil.WriteFile(path, []byte(content), 0644)
 	log.Println("保存 Nginx 配置成功")
-	ReloadNginx()
+	return ReloadNginx()
 }

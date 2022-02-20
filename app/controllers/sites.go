@@ -24,7 +24,7 @@ var httpConf string
 var httpsConf string
 
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true})
+	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true, "infoPlus": GetAppConfig().Redis})
 }
 
 func GetTemplate(ctx *gin.Context) {
@@ -74,7 +74,7 @@ func EditSiteConf(ctx *gin.Context) {
 		content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
 			gin.H{
-				"configFileName": filename,
+				"configFileName": configName,
 				"content":        string(content),
 				"infoPlus":       false,
 			},
@@ -87,7 +87,9 @@ func DeleteSiteConf(ctx *gin.Context) {
 	configName := strings.Split(filename, ".conf")[0]
 	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
 	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
-	RedisClient.Del(RedisPrefix + configName)
+	if GetAppConfig().Redis {
+		RedisClient.Del(RedisPrefix + configName)
+	}
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
 }
