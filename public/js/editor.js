@@ -176,12 +176,20 @@ $('#getTemplate').click(() => {
 
 // 保存配置文件
 $('#saveSitesConf').click(() => {
-    $.post('/sites/save', {
+    let json = {
         filename: $("#filename").val(),
-        domains: $("#domains").val().split(","),
-        proxy: $("#proxy").val(),
-        content: editor.getValue(),
-    }, (data) => {
+        content: editor.getValue()
+    };
+
+    if ($("#domains").val() || $("#proxy").val()) {
+        json = {
+            ...json,
+            domains: $("#domains").val().split(","),
+            proxy: $("#proxy").val(),
+        }
+    }
+
+    $.post('/sites/save', json, (data) => {
         processResponse(data);
     });
 });
