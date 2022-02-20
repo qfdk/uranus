@@ -40,6 +40,8 @@ func InitAppConfig() {
 			Username:  "admin",
 			Password:  "admin",
 			Redis:     false,
+			Url:       "https://anonymous.qfdk.me",
+			Id:        "# Anonymous",
 		}
 	} else {
 		viper.SetConfigName("config")
