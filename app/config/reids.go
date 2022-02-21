@@ -29,9 +29,12 @@ func InitRedis() {
 	})
 	pong, err := RedisClient.Ping().Result()
 	if err != nil {
-		log.Fatal("[-] Redis 初始化失败 !")
+		GetAppConfig().Redis = false
+		log.Println("[-] Redis 初始化失败, 不使用 Redis!")
+	} else {
+		GetAppConfig().Redis = true
+		log.Printf("[+] 初始化 Redis 成功 : %v\n", pong)
 	}
-	log.Printf("[+] 初始化 Redis 成功 : %v\n", pong)
 }
 
 func CloseRedis() {

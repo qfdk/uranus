@@ -39,7 +39,6 @@ func InitAppConfig() {
 			Email:     "root@qfdk.me",
 			Username:  "admin",
 			Password:  "admin",
-			Redis:     false,
 			Url:       "https://anonymous.qfdk.me",
 			Id:        "# Anonymous",
 		}
