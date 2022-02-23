@@ -5,6 +5,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
+	"time"
 )
 
 // RegisterRoutes /** 路由组*/
@@ -14,7 +15,7 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 初始化路由
 	websocketRoute(engine)
 	engine.GET("/info", func(context *gin.Context) {
-		context.JSON(200, gin.H{"key": "OK"})
+		context.JSON(200, gin.H{"date": time.Now()})
 	})
 	engine.GET("/api/info", func(context *gin.Context) {
 		config := config.GetAppConfig()
