@@ -11,7 +11,9 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/version"
 	"html/template"
 	"io/fs"
+	"log"
 	"net/http"
+	"syscall"
 )
 
 //go:embed views
@@ -54,6 +56,9 @@ func main() {
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
 	go services.RenewSSL()
-	s := endless.NewServer(":7777", app)
-	s.ListenAndServe()
+	server := endless.NewServer("0.0.0.0:7777", app)
+	server.BeforeBegin = func(add string) {
+		log.Printf("[+] 服务器启动, PID: %d", syscall.Getpid())
+	}
+	server.ListenAndServe()
 }
