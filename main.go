@@ -8,6 +8,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/middlewares"
 	"github.com/qfdk/nginx-proxy-manager/app/routes"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
+	"github.com/qfdk/nginx-proxy-manager/version"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -31,7 +32,7 @@ func mustFS() http.FileSystem {
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
-		displayVersion()
+		version.DisplayVersion()
 	}
 	// 初始化配置文件
 	config.InitAppConfig()

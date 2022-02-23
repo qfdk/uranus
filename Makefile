@@ -1,15 +1,13 @@
-BUILD_VERSION   := v1.0.0
-BUILD_TIME      := $(shell date "+%F %T")
-BUILD_NAME      := nginx-proxy-manager_$(shell date "+%Y%m%d%H" )
-COMMIT_SHA1     := $(shell git rev-parse HEAD )
-GO_VERSION      := $(shell go version)
+BUILD_VERSION:=v1.0.0
+BUILD_TIME:=$(shell date "+%F %T")
+BUILD_NAME:=nginx-proxy-manager
+COMMIT_SHA1:=$(shell git rev-parse HEAD )
+CONFIG_PATH=github.com/qfdk/nginx-proxy-manager/version
 
-LDFLAGS=-ldflags \
-"-X 'main.BuildName=${BUILD_NAME}' \
--X 'main.BuildVersion=${BUILD_VERSION}' \
--X 'main.BuildTime=${BUILD_TIME}' \
--X 'main.CommitID=${COMMIT_SHA1}' \
--X 'main.GoVersion=${GO_VERSION}'"
+LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
+-X ${CONFIG_PATH}.CommitID=${COMMIT_SHA1} \
+-X '${CONFIG_PATH}.BuildTime=${BUILD_TIME}' \
+-X ${CONFIG_PATH}.BuildVersion=${BUILD_VERSION}"
 
 .PHONY: build clean help
 
