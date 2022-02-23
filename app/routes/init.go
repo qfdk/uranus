@@ -22,6 +22,7 @@ func RegisterRoutes(engine *gin.Engine) {
 			"BuildVersion": version.BuildVersion,
 			"GitCommit":    version.CommitID,
 			"GoVersion":    runtime.Version(),
+			"OS":           runtime.GOOS,
 		})
 	})
 	engine.GET("/api/info", func(context *gin.Context) {
