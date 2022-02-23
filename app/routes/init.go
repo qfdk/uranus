@@ -31,7 +31,10 @@ func RegisterRoutes(engine *gin.Engine) {
 	})
 	engine.GET("/update", func(context *gin.Context) {
 		services.ToUpdateProgram("https://fr.qfdk.me/nginx-proxy-manager")
-		context.JSON(200, gin.H{"message": "更新成功"})
+		context.JSON(200, gin.H{
+			"status":       "OK",
+			"BuildTime":    version.BuildTime,
+			"BuildVersion": version.BuildVersion})
 	})
 	engine.Use(gin.BasicAuth(gin.Accounts{config.GetAppConfig().Username: config.GetAppConfig().Password}))
 	engine.GET("/", controllers.Index)
