@@ -6,6 +6,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/controllers"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/qfdk/nginx-proxy-manager/version"
+	"runtime"
 )
 
 // RegisterRoutes /** 路由组*/
@@ -16,7 +17,11 @@ func RegisterRoutes(engine *gin.Engine) {
 	websocketRoute(engine)
 	engine.GET("/info", func(context *gin.Context) {
 		context.JSON(200, gin.H{
-			"buildName": version.BuildName,
+			"BuildName":    version.BuildName,
+			"BuildTime":    version.BuildTime,
+			"BuildVersion": version.BuildVersion,
+			"GitCommit":    version.CommitID,
+			"GoVersion":    runtime.Version(),
 		})
 	})
 	engine.GET("/api/info", func(context *gin.Context) {
