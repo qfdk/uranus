@@ -14,7 +14,7 @@ type AppConfig struct {
 	SSLPath   string
 	Username  string
 	Password  string
-	Id        string
+	Uid       string
 	Url       string
 	Redis     bool
 	Token     string
@@ -51,7 +51,7 @@ func InitAppConfig() {
 		viper.Set("Username", "admin")
 		viper.Set("Password", "admin")
 		viper.Set("Url", "https://misaka.qfdk.me")
-		viper.Set("Id", "# Anonymous")
+		viper.Set("Uid", "# Anonymous")
 		viper.Set("Token", "myToken")
 		viper.SafeWriteConfig()
 	}

@@ -9,7 +9,7 @@ Username = "admin"
 Password = "admin"
 
 #### 通讯配置
-# Id
-Id = "# 10000"
+# Uid
+Uid = "# 10000"
 # Url
 Url = "http://localhost:7777"
