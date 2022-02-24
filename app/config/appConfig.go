@@ -53,10 +53,9 @@ func InitAppConfig() {
 		viper.Set("Url", "https://misaka.qfdk.me")
 		viper.Set("Id", "# Anonymous")
 		viper.Set("Token", "myToken")
-		viper.WriteConfig()
-	} else {
-		loadConfig()
+		viper.SafeWriteConfig()
 	}
+	loadConfig()
 	viper.WatchConfig()
 	viper.OnConfigChange(func(in fsnotify.Event) {
 		log.Println("[+] 配置文件更新了")
