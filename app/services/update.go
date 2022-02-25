@@ -68,6 +68,8 @@ func ToUpdateProgram(url string) {
 
 		log.Printf("[+] 重启 ing...")
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		// 以后准备删掉 pm2 利用 service 或者 nohup 来启动
+		//syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 		log.Printf("[+] [%s] 重启更新完成", projectName)
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", projectName)
