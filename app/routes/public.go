@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/qfdk/nginx-proxy-manager/version"
 	"github.com/spf13/viper"
@@ -13,12 +14,13 @@ func publicRoute(engine *gin.Engine) {
 
 	engine.GET("/info", func(context *gin.Context) {
 		context.JSON(200, gin.H{
-			"BuildName":    version.BuildName,
-			"BuildTime":    version.BuildTime,
-			"BuildVersion": version.BuildVersion,
-			"GitCommit":    version.CommitID,
-			"GoVersion":    runtime.Version(),
-			"OS":           runtime.GOOS,
+			"buildName":    version.BuildName,
+			"buildTime":    version.BuildTime,
+			"buildVersion": version.BuildVersion,
+			"gitCommit":    version.CommitID,
+			"goVersion":    runtime.Version(),
+			"os":           runtime.GOOS,
+			"uid":          config.GetAppConfig().Uid,
 		})
 	})
 
@@ -26,8 +28,8 @@ func publicRoute(engine *gin.Engine) {
 		services.ToUpdateProgram("https://fr.qfdk.me/nginx-proxy-manager")
 		context.JSON(200, gin.H{
 			"status":       "OK",
-			"BuildTime":    version.BuildTime,
-			"BuildVersion": version.BuildVersion})
+			"buildTime":    version.BuildTime,
+			"buildVersion": version.BuildVersion})
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {
