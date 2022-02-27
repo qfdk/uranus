@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"syscall"
 )
 
@@ -31,6 +32,7 @@ func mustFS() http.FileSystem {
 
 	return http.FS(sub)
 }
+
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
@@ -57,8 +59,27 @@ func main() {
 	routes.RegisterRoutes(app)
 	go services.RenewSSL()
 	server := endless.NewServer("0.0.0.0:7777", app)
+
 	server.BeforeBegin = func(add string) {
-		log.Printf("[+] 服务器启动, PID: %d", syscall.Getpid())
+		log.Printf("[%d]: 服务器启动, [PPID]: %d", syscall.Getpid(), syscall.Getppid())
 	}
-	server.ListenAndServe()
+
+	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP] = append(
+		server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP],
+		func() {
+			log.Printf("[%d]: 发送重启信号, 重启 ing...", syscall.Getpid())
+		})
+
+	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP] = append(
+		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP],
+		func() {
+			log.Printf("[+] 重启更新完毕")
+		})
+
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Println(err)
+	}
+	log.Printf("[%d]: 服务器关闭", syscall.Getpid())
+	os.Exit(0)
 }

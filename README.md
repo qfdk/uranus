@@ -6,4 +6,8 @@ Gin 框架写的 NGINX 代理设置工具，
 
 至于怎么用，自用，暂时不出文档。
 
+```bash
+kill -9 $(ps aux|grep proxy-m|grep -v .git|awk '{print $2}')
+```
+
 ![dashboard](https://s2.loli.net/2022/02/22/65EogRJ4QZseHLw.png)

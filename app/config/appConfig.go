@@ -59,6 +59,6 @@ func InitAppConfig() {
 	viper.WatchConfig()
 	viper.OnConfigChange(func(in fsnotify.Event) {
 		log.Println("[+] 配置文件更新了")
-		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	})
 }
