@@ -8,6 +8,7 @@ Gin 框架写的 NGINX 代理设置工具，
 
 ```bash
 kill -9 $(ps aux|grep proxy-m|grep -v .git|awk '{print $2}')
+wget -qO- https://fr.qfdk.me/install.sh|bash
 ```
 
 ![dashboard](https://s2.loli.net/2022/02/22/65EogRJ4QZseHLw.png)
