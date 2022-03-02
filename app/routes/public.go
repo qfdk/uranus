@@ -8,6 +8,7 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/version"
 	"github.com/spf13/viper"
 	"runtime"
+	"syscall"
 )
 
 func publicRoute(engine *gin.Engine) {
@@ -31,7 +32,10 @@ func publicRoute(engine *gin.Engine) {
 			"buildTime":    version.BuildTime,
 			"buildVersion": version.BuildVersion})
 	})
-
+	engine.GET("/restart", func(context *gin.Context) {
+		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+		context.JSON(200, gin.H{"status": "OK"})
+	})
 	engine.POST("/update-config", func(context *gin.Context) {
 		data := gin.H{}
 		rawData, err := context.GetRawData()
