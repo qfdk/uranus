@@ -1,5 +1,13 @@
 {{template "header.html" .}}
 <h3 class="title">SSL</h3>
+{{if not .redis}}
+<article class="message is-warning">
+    <div class="message-body">
+        没有开启 Redis
+    </div>
+</article>
+{{end}}
+{{if .redis}}
 <article class="message is-info">
     <div class="message-body">
         SSL 证书签名列表
@@ -22,15 +30,16 @@
                 <th scope="row">{{$value.configName}}</a></th>
                 <td>
                     {{range $key, $domain :=$value.domains}}
-                        <a href="https://{{$domain}}">{{$domain}}</a>
+                    <a href="https://{{$domain}}">{{$domain}}</a>
                     {{end}}
                 </td>
                 <td>
                     {{$value.expiredAt}}
                 </td>
                 <td>
-                    <button class="button is-info is-small" data-config="{{$value.configName}}">续命</button>
-                    <a class="button is-danger is-small" href="/ssl/delete?configName={{$value.configName}}">删除</a>
+                    <a href="#" id="renew"><span class="tag is-info" data-config="{{$value.configName}}">续命</span></a>
+                    <a href="/ssl/delete?configName={{$value.configName}}"><span
+                            class="tag is-danger is-light">删除</span></a>
                 </td>
             </tr>
             {{end}}
@@ -38,16 +47,17 @@
         </table>
     </div>
 </div>
+{{end}}
 {{template "footer.html" .}}
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
-    $(".button.is-info").on('click', (e) => {
+    $("#renew").on('click', (e) => {
         const ele = $(e.target);
         const configName = ele.data('config');
-        ele.addClass("is-loading");
+        ele.hide();
         $.get(`/ssl/renew?configName=${configName}`).then(response => {
             if (response.message === "OK") {
-                ele.removeClass("is-loading");
+                ele.show();
             }
         });
     });

@@ -36,7 +36,7 @@ func Certificates(ctx *gin.Context) {
 			"expiredAt":  "-",
 		})
 	}
-	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"results": results})
+	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"results": results, "redis": config.GetAppConfig().Redis})
 }
 
 func IssueCert(ctx *gin.Context) {
