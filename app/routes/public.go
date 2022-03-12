@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/qfdk/nginx-proxy-manager/version"
 	"github.com/spf13/viper"
 	"runtime"
 	"syscall"
@@ -15,10 +14,10 @@ func publicRoute(engine *gin.Engine) {
 
 	engine.GET("/info", func(context *gin.Context) {
 		context.JSON(200, gin.H{
-			"buildName":    version.BuildName,
-			"buildTime":    version.BuildTime,
-			"buildVersion": version.BuildVersion,
-			"gitCommit":    version.CommitID,
+			"buildName":    config.BuildName,
+			"buildTime":    config.BuildTime,
+			"buildVersion": config.BuildVersion,
+			"gitCommit":    config.CommitID,
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
 			"uid":          config.GetAppConfig().Uid,
@@ -29,8 +28,8 @@ func publicRoute(engine *gin.Engine) {
 		services.ToUpdateProgram("https://fr.qfdk.me/nginx-proxy-manager")
 		context.JSON(200, gin.H{
 			"status":       "OK",
-			"buildTime":    version.BuildTime,
-			"buildVersion": version.BuildVersion})
+			"buildTime":    config.BuildTime,
+			"buildVersion": config.BuildVersion})
 	})
 	engine.GET("/restart", func(context *gin.Context) {
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)

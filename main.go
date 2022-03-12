@@ -8,7 +8,6 @@ import (
 	"github.com/qfdk/nginx-proxy-manager/app/middlewares"
 	"github.com/qfdk/nginx-proxy-manager/app/routes"
 	"github.com/qfdk/nginx-proxy-manager/app/services"
-	"github.com/qfdk/nginx-proxy-manager/version"
 	"html/template"
 	"io/fs"
 	"log"
@@ -20,23 +19,21 @@ import (
 //go:embed views
 var templates embed.FS
 
-//go:embed public
+//go:embed views/public
 var staticFS embed.FS
 
 func mustFS() http.FileSystem {
-	sub, err := fs.Sub(staticFS, "public")
-
+	sub, err := fs.Sub(staticFS, "views/public")
 	if err != nil {
 		panic(err)
 	}
-
 	return http.FS(sub)
 }
 
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
-		version.DisplayVersion()
+		config.DisplayVersion()
 	}
 	// 初始化配置文件
 	config.InitAppConfig()
@@ -52,7 +49,7 @@ func main() {
 	// 静态文件路由
 	app.StaticFS("/public", mustFS())
 	app.GET("/favicon.ico", func(c *gin.Context) {
-		file, _ := staticFS.ReadFile("public/icon/favicon.ico")
+		file, _ := staticFS.ReadFile("views/public/icon/favicon.ico")
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
 	app.SetTrustedProxies([]string{"127.0.0.1"})
