@@ -3,9 +3,9 @@ package routes
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/spf13/viper"
+	"nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/services"
 	"runtime"
 	"syscall"
 )

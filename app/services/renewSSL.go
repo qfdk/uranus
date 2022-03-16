@@ -4,10 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	. "github.com/qfdk/nginx-proxy-manager/app/config"
 	"github.com/robfig/cron/v3"
 	"log"
 	"net/http"
+	. "nginx-proxy-manager/app/config"
 	"strings"
 	"time"
 )

@@ -2,7 +2,7 @@ package config
 
 import (
 	"log"
-	"runtime"
+	"strings"
 )
 
 var (
@@ -10,6 +10,7 @@ var (
 	BuildTime    string
 	BuildName    string
 	CommitID     string
+	GoVersion    string
 )
 
 func DisplayVersion() {
@@ -17,5 +18,5 @@ func DisplayVersion() {
 	log.Printf("Build ver:\t%s\n", BuildVersion)
 	log.Printf("Build time:\t%s\n", BuildTime)
 	log.Printf("Git commit:\t%s\n", CommitID)
-	log.Printf("Go version:\t%s\n", runtime.Version())
+	log.Printf("Go version:\t%s\n", strings.Split(GoVersion, "go version ")[1])
 }

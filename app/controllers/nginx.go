@@ -3,11 +3,11 @@ package controllers
 import (
 	"encoding/base64"
 	"github.com/gin-gonic/gin"
-	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/services"
 )
 
 func Nginx(ctx *gin.Context) {

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
-	. "github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
+	"nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/services"
 )
 
 func Index(ctx *gin.Context) {
@@ -40,6 +40,6 @@ func Index(ctx *gin.Context) {
 			"memInfo":            humanize.Bytes(memInfo.Total),
 			"nginxStatus":        services.NginxStatus(),
 			"nginxActionMessage": string(actionMessageDec),
-			"nginxCompileInfo":   ReadNginxCompileInfo(),
+			"nginxCompileInfo":   config.ReadNginxCompileInfo(),
 		})
 }

@@ -3,9 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/qfdk/nginx-proxy-manager/app/config"
-	"github.com/qfdk/nginx-proxy-manager/app/services"
 	"net/http"
+	"nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/services"
 	"os"
 	"path/filepath"
 	"strings"
