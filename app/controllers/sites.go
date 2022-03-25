@@ -2,13 +2,13 @@ package controllers
 
 import (
 	_ "embed"
-	"encoding/json"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
 	"net/http"
 	. "nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/models"
 	"nginx-proxy-manager/app/services"
 	"os"
 	"path"
@@ -24,7 +24,7 @@ var httpConf string
 var httpsConf string
 
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true, "infoPlus": GetAppConfig().Redis})
+	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true, "infoPlus": true})
 }
 
 func GetTemplate(ctx *gin.Context) {
@@ -57,16 +57,14 @@ func GetSites(ctx *gin.Context) {
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	if filename != "default" && GetAppConfig().Redis {
-		redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
-		var output gin.H
-		json.Unmarshal([]byte(redisData), &output)
+	if filename != "default" {
+		cert := models.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
 			gin.H{
-				"configFileName": output["fileName"],
-				"domains":        output["domains"],
-				"content":        output["content"],
-				"proxy":          output["proxy"],
+				"configFileName": cert.FileName,
+				"domains":        cert.Domains,
+				"content":        cert.Content,
+				"proxy":          cert.Proxy,
 				"infoPlus":       true,
 			},
 		)
@@ -87,8 +85,11 @@ func DeleteSiteConf(ctx *gin.Context) {
 	configName := strings.Split(filename, ".conf")[0]
 	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
 	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
-	if GetAppConfig().Redis {
-		RedisClient.Del(RedisPrefix + configName)
+
+	cert := models.GetCertByFilename(configName)
+	err := cert.Remove()
+	if err != nil {
+		log.Println(err)
 	}
 	services.ReloadNginx()
 	ctx.Redirect(http.StatusFound, "/sites")
@@ -99,9 +100,14 @@ func SaveSiteConf(ctx *gin.Context) {
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
-	if GetAppConfig().Redis {
-		SaveSiteDataInRedis(fileName, domains, content, proxy)
-	}
+
+	cert := models.GetCertByFilename(fileName)
+	cert.Content = content
+	cert.Domains = strings.Join(domains, ",")
+	cert.FileName = fileName
+	cert.Proxy = proxy
+	GetDbClient().Save(&cert)
+
 	if fileName != "default" {
 		fileName = fileName + ".conf"
 	}

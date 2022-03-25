@@ -16,7 +16,6 @@ type AppConfig struct {
 	Password  string
 	Uid       string
 	Url       string
-	Redis     bool
 	Token     string
 }
 

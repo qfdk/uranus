@@ -1,13 +1,5 @@
 {{template "header.html" .}}
 <h3 class="title">SSL</h3>
-{{if not .redis}}
-<article class="message is-warning">
-    <div class="message-body">
-        没有开启 Redis
-    </div>
-</article>
-{{end}}
-{{if .redis}}
 <article class="message is-info">
     <div class="message-body">
         SSL 证书签名列表
@@ -47,7 +39,6 @@
         </table>
     </div>
 </div>
-{{end}}
 {{template "footer.html" .}}
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>

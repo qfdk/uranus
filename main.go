@@ -37,10 +37,8 @@ func main() {
 	}
 	// 初始化配置文件
 	config.InitAppConfig()
-	// 初始化redis
-	config.InitRedis()
-	defer config.CloseRedis()
-
+	// 初始化 SQLite 数据库
+	config.Init()
 	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
 	app.SetHTMLTemplate(template)

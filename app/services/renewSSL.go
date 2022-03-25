@@ -3,11 +3,10 @@ package services
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"github.com/robfig/cron/v3"
 	"log"
 	"net/http"
-	. "nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/models"
 	"strings"
 	"time"
 )
@@ -31,25 +30,19 @@ func RenewSSL() {
 	spec := "5 0 * * *"
 	c := cron.New()
 	c.AddFunc(spec, func() {
-		if GetAppConfig().Redis {
-			keys, _ := RedisClient.Keys(RedisPrefix + "*").Result()
-			for _, key := range keys {
-				redisData, _ := RedisClient.Get(key).Result()
-				var need2Renew = false
-				var output RedisData
-				json.Unmarshal([]byte(redisData), &output)
-				if output.NotAfter.Unix() != -62135596800 {
-					if output.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
-						log.Printf("%v => 需要续期\n", output.Domains)
-						need2Renew = true
-					} else {
-						log.Printf("%v => 证书续期时间: %v\n", output.Domains, output.NotAfter.Format("2006-01-02 15:04:05"))
-					}
+		for _, cert := range models.GetCertificates() {
+			var need2Renew = false
+			if cert.NotAfter.Unix() != -62135596800 {
+				if cert.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
+					log.Printf("%v => 需要续期\n", cert.Domains)
+					need2Renew = true
+				} else {
+					log.Printf("%v => 证书续期时间: %v\n", cert.Domains, cert.NotAfter.Format("2006-01-02 15:04:05"))
 				}
-				if need2Renew {
-					IssueCert(strings.Split(output.Domains, ","), output.FileName)
-					ReloadNginx()
-				}
+			}
+			if need2Renew {
+				IssueCert(strings.Split(cert.Domains, ","), cert.FileName)
+				ReloadNginx()
 			}
 		}
 	})

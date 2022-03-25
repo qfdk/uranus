@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -15,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	. "nginx-proxy-manager/app/config"
+	"nginx-proxy-manager/app/models"
 	"os"
 	"path"
 	"path/filepath"
@@ -106,20 +106,10 @@ func IssueCert(domains []string, configName string) error {
 		[]byte(strings.Join(domains, ",")), 0644)
 	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
 
-	// 更新 redis 信息
-	redisData, _ := RedisClient.Get(RedisPrefix + configName).Result()
-	if redisData == "" {
-		log.Printf("没有找到 %v 的配置文件，需要保存新记录\n", configName)
-		content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, configName+".conf"))
-		SaveSiteDataInRedis(configName, domains, string(content), "")
-	}
+	cert := models.GetCertByFilename(configName)
+	cert.NotAfter = pCert.NotAfter
+	GetDbClient().Save(cert)
 
-	var output RedisData
-	json.Unmarshal([]byte(redisData), &output)
-	// update 续期时间
-	output.NotAfter = pCert.NotAfter
-	res, _ := json.Marshal(output)
-	RedisClient.Set(RedisPrefix+configName, res, 0)
 	log.Printf("[+] SSL任务完成, 证书到期时间 : %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
 	return nil
 }
