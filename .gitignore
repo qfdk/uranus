@@ -149,3 +149,4 @@ tmp/
 # End of https://www.toptal.com/developers/gitignore/api/macos,goland,visualstudiocode,go
 /config.toml
 /nginx-proxy-manager
+/data.db
