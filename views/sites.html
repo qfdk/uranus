@@ -5,7 +5,8 @@
         已添加的网站列表
     </div>
 </article>
-<a class="button is-info" href="/sites/new" type="link">添加新配置</a>
+<a class="button is-info" href="/sites/new" type="link">
+    <i class="fa fa-plus" aria-hidden="true"></i>&nbsp;添加新配置</a>
 <div class="columns is-centered">
     <div class="column">
         <table class="table is-fullwidth">
@@ -22,8 +23,9 @@
                 <th scope="row">{{$value.Name}}</th>
                 <td>{{call $.humanizeBytes $value.Size}}</td>
                 <td>
-                    <a href="/sites/edit/{{$value.Name}}"><span class="tag is-info">编辑</span></a>
-                    <a href="/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">删除</span></a>
+                    <a href="/sites/edit/{{$value.Name}}"><span class="tag is-info"><i class="fa fa-file-text-o" aria-hidden="true"></i>&nbsp;编辑</span></a>
+                    <a href="/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">
+                        <i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;删除</span></a>
                 </td>
             </tr>
             {{end}}

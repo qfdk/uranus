@@ -29,9 +29,12 @@
                     {{$value.expiredAt}}
                 </td>
                 <td>
-                    <a href="#" id="renew"><span class="tag is-info" data-config="{{$value.configName}}">续命</span></a>
+                    <a href="#" id="renew">
+                        <i class="fa fa-spinner fa-spin" style="display: none" aria-hidden="true"></i>
+                        <span class="tag is-info" data-config="{{$value.configName}}"><i class="fa fa-random" aria-hidden="true"></i>&nbsp;续命</span>
+                    </a>
                     <a href="/ssl/delete?configName={{$value.configName}}"><span
-                            class="tag is-danger is-light">删除</span></a>
+                            class="tag is-danger is-light"><i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;删除</span></a>
                 </td>
             </tr>
             {{end}}
@@ -46,9 +49,11 @@
         const ele = $(e.target);
         const configName = ele.data('config');
         ele.hide();
+        $('.fa-spinner').show();
         $.get(`/ssl/renew?configName=${configName}`).then(response => {
             if (response.message === "OK") {
                 ele.show();
+                $('.fa-spinner').hide();
             }
         });
     });
