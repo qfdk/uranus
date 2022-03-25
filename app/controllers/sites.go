@@ -85,7 +85,7 @@ func DeleteSiteConf(ctx *gin.Context) {
 	configName := strings.Split(filename, ".conf")[0]
 	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
 	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
-
+	// 数据库删除
 	cert := models.GetCertByFilename(configName)
 	err := cert.Remove()
 	if err != nil {
@@ -106,7 +106,7 @@ func SaveSiteConf(ctx *gin.Context) {
 	cert.Domains = strings.Join(domains, ",")
 	cert.FileName = fileName
 	cert.Proxy = proxy
-	GetDbClient().Save(&cert)
+	models.GetDbClient().Save(&cert)
 
 	if fileName != "default" {
 		fileName = fileName + ".conf"

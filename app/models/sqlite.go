@@ -1,10 +1,9 @@
-package config
+package models
 
 import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"log"
-	"nginx-proxy-manager/app/models"
 )
 
 var db *gorm.DB
@@ -20,7 +19,7 @@ func Init() {
 		log.Println("[-] 初始化 SQLite 失败")
 	}
 	// Migrate the schema
-	AutoMigrate(&models.Cert{})
+	AutoMigrate(&Cert{})
 	log.Println("[+] 初始化 SQLite 成功")
 }
 

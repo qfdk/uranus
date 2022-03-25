@@ -108,7 +108,7 @@ func IssueCert(domains []string, configName string) error {
 
 	cert := models.GetCertByFilename(configName)
 	cert.NotAfter = pCert.NotAfter
-	GetDbClient().Save(cert)
+	models.GetDbClient().Save(cert)
 
 	log.Printf("[+] SSL任务完成, 证书到期时间 : %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
 	return nil

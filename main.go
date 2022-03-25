@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"nginx-proxy-manager/app/config"
 	"nginx-proxy-manager/app/middlewares"
+	"nginx-proxy-manager/app/models"
 	"nginx-proxy-manager/app/routes"
 	"nginx-proxy-manager/app/services"
 	"os"
@@ -38,7 +39,7 @@ func main() {
 	// 初始化配置文件
 	config.InitAppConfig()
 	// 初始化 SQLite 数据库
-	config.Init()
+	models.Init()
 	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
 	app.SetHTMLTemplate(template)
