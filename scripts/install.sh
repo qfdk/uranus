@@ -16,10 +16,13 @@ Description=Nginx proxy manager
 After=network.target
 [Service]
 Type=simple
-ExecStart=/etc/nginx-proxy-manager/$APP_NAME
+ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
 Restart=on-failure
+User=root
+Environment="GIN_MODE=release"
 TimeoutStopSec=5
 KillMode=mixed
+Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
