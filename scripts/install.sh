@@ -16,8 +16,8 @@ Description=Nginx proxy manager
 After=network.target
 [Service]
 Type=simple
+WorkingDirectory=/etc/nginx-proxy-manager
 ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
-Restart=on-failure
 User=root
 Environment="GIN_MODE=release"
 TimeoutStopSec=5

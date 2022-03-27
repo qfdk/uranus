@@ -66,7 +66,6 @@ func ToUpdateProgram(url string) {
 		_ = os.Chmod(newProjectName, os.ModePerm)
 		_ = os.Remove(projectName)
 		_ = os.Rename(newProjectName, path.Join(config.GetAppConfig().InstallPath, projectName))
-		//syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", projectName)
