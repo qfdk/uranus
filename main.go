@@ -72,10 +72,10 @@ func main() {
 	//		log.Printf("[+] 重启更新完毕")
 	//	})
 
-	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM] = append(
-		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM],
+	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM] = append(
+		server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM],
 		func() {
-			log.Printf("[+] 服务器关闭信号")
+			log.Printf("[%d]: 收到服务器关闭信号", syscall.Getpid())
 		})
 	err := server.ListenAndServe()
 	if err != nil {
