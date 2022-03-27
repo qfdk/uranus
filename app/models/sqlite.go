@@ -4,6 +4,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"log"
+	"nginx-proxy-manager/app/config"
+	"path"
 )
 
 var db *gorm.DB
@@ -11,7 +13,8 @@ var db *gorm.DB
 func Init() {
 	log.Println("[+] 初始化 SQLite ...")
 	var err error
-	db, err = gorm.Open(sqlite.Open("data.db"), &gorm.Config{
+	dataDir := path.Join(config.GetAppConfig().InstallPath, "data.db")
+	db, err = gorm.Open(sqlite.Open(dataDir), &gorm.Config{
 		//Logger:      logger.Default.LogMode(logger.Info),
 		PrepareStmt: true,
 	})

@@ -5,18 +5,20 @@ import (
 	"github.com/spf13/viper"
 	"log"
 	"os"
+	"path"
 	"syscall"
 )
 
 type AppConfig struct {
-	VhostPath string
-	Email     string
-	SSLPath   string
-	Username  string
-	Password  string
-	Uid       string
-	Url       string
-	Token     string
+	VhostPath   string
+	Email       string
+	SSLPath     string
+	Username    string
+	Password    string
+	Uid         string
+	Url         string
+	Token       string
+	InstallPath string
 }
 
 var _appConfig *AppConfig = nil
@@ -42,7 +44,7 @@ func InitAppConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
-	if _, err := os.Stat("./config.toml"); os.IsNotExist(err) {
+	if _, err := os.Stat(path.Join(GetAppConfig().InstallPath, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
 		viper.Set("VhostPath", "/etc/nginx/sites-enabled")
 		viper.Set("SSLPath", "/etc/nginx/ssl")
@@ -52,6 +54,7 @@ func InitAppConfig() {
 		viper.Set("Url", "https://misaka.qfdk.me")
 		viper.Set("Uid", "# Anonymous")
 		viper.Set("Token", "myToken")
+		viper.Set("InstallPath", "/etc/nginx-proxy-manager")
 		viper.SafeWriteConfig()
 	}
 	loadConfig()

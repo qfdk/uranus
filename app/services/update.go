@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"nginx-proxy-manager/app/config"
 	"os"
+	"path"
 	"strconv"
 	"syscall"
 	"time"
@@ -33,7 +35,7 @@ func ToUpdateProgram(url string) {
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		newProjectName := projectName + "_new"
+		newProjectName := path.Join(config.GetAppConfig().InstallPath, projectName+"_new")
 		log.Printf("[INFO] 正在更新: [%s]", projectName)
 		downFile, err := os.Create(newProjectName)
 		checkIfError(err)
@@ -63,7 +65,7 @@ func ToUpdateProgram(url string) {
 		log.Printf("[INFO] [%s] 下载成功,准备重启程序", projectName)
 		_ = os.Chmod(newProjectName, os.ModePerm)
 		_ = os.Remove(projectName)
-		_ = os.Rename(newProjectName, projectName)
+		_ = os.Rename(newProjectName, path.Join(config.GetAppConfig().InstallPath, projectName))
 		//syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 	} else {
