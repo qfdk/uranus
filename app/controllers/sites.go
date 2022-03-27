@@ -64,7 +64,7 @@ func EditSiteConf(ctx *gin.Context) {
 			gin.H{
 				"configFileName": configName,
 				"domains":        cert.Domains,
-				"content":        string(content),
+				"content":        cert.Content,
 				"proxy":          cert.Proxy,
 				"infoPlus":       true,
 			},
