@@ -57,19 +57,19 @@ func GetSites(ctx *gin.Context) {
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
+	content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
 	if filename != "default" {
 		cert := models.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
 			gin.H{
-				"configFileName": cert.FileName,
+				"configFileName": configName,
 				"domains":        cert.Domains,
-				"content":        cert.Content,
+				"content":        string(content),
 				"proxy":          cert.Proxy,
 				"infoPlus":       true,
 			},
 		)
 	} else {
-		content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
 			gin.H{
 				"configFileName": configName,
