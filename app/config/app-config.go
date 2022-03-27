@@ -44,7 +44,8 @@ func InitAppConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
-	if _, err := os.Stat(path.Join(GetAppConfig().InstallPath, "config.toml")); os.IsNotExist(err) {
+	cwd, _ := os.Getwd()
+	if _, err := os.Stat(path.Join(".", "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
 		viper.Set("VhostPath", "/etc/nginx/sites-enabled")
 		viper.Set("SSLPath", "/etc/nginx/ssl")
@@ -54,7 +55,7 @@ func InitAppConfig() {
 		viper.Set("Url", "https://misaka.qfdk.me")
 		viper.Set("Uid", "# Anonymous")
 		viper.Set("Token", "myToken")
-		viper.Set("InstallPath", "/etc/nginx-proxy-manager")
+		viper.Set("InstallPath", cwd)
 		viper.SafeWriteConfig()
 	}
 	loadConfig()
