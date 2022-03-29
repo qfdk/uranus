@@ -24,7 +24,9 @@ var httpConf string
 var httpsConf string
 
 func NewSite(ctx *gin.Context) {
-	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{"configFileName": "", "content": "", "isNewSite": true, "infoPlus": true})
+	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+		"configFileName": "", "content": "", "isNewSite": true, "infoPlus": true, "isDefaultConf": false,
+	})
 }
 
 func GetTemplate(ctx *gin.Context) {
@@ -67,6 +69,7 @@ func EditSiteConf(ctx *gin.Context) {
 				"content":        cert.Content,
 				"proxy":          cert.Proxy,
 				"infoPlus":       true,
+				"isDefaultConf":  false,
 			},
 		)
 	} else {
@@ -75,6 +78,7 @@ func EditSiteConf(ctx *gin.Context) {
 				"configFileName": configName,
 				"content":        string(content),
 				"infoPlus":       false,
+				"isDefaultConf":  true,
 			},
 		)
 	}
