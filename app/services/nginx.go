@@ -54,7 +54,7 @@ func StopNginx() string {
 	var result = "OK"
 	if err != nil {
 		log.Println("停止出现错误")
-		log.Println(out)
+		log.Println(string(out))
 		log.Println(err)
 		result = "KO"
 	}
