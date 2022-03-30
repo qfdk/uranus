@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"nginx-proxy-manager/app/config"
@@ -14,6 +15,7 @@ func NginxStatus() string {
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
 	var result = string(out)
 	if err != nil {
+		fmt.Println(result)
 		result = "KO"
 	}
 	return result
@@ -48,10 +50,11 @@ func ReloadNginx() string {
 
 func StopNginx() string {
 	log.Println("停止 Nginx")
-	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
+	out, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		log.Println("停止出现错误")
+		log.Println(out)
 		log.Println(err)
 		result = "KO"
 	}
