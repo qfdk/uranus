@@ -23,7 +23,7 @@ func NginxStatus() string {
 
 func StartNginx() string {
 	log.Println("启动 Nginx")
-	out, err := exec.Command("systemctl", "start", "nginx-proxy-manager").CombinedOutput()
+	out, err := exec.Command("systemctl", "start", "nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		log.Println("启动出错")
@@ -50,7 +50,7 @@ func ReloadNginx() string {
 
 func StopNginx() string {
 	log.Println("停止 Nginx")
-	out, err := exec.Command("systemctl", "stop", "nginx-proxy-manager").CombinedOutput()
+	out, err := exec.Command("systemctl", "stop", "nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		log.Println("停止出现错误")
