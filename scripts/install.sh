@@ -92,7 +92,6 @@ main() {
     fi
   fi
   #  ./$APP_NAME >app.log 2>&1 &
-  install_service
 }
 
 main
