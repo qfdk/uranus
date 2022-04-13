@@ -23,6 +23,9 @@ Environment="GIN_MODE=release"
 TimeoutStopSec=5
 KillMode=mixed
 Restart=always
+StandardOutput=file:/etc/nginx-proxy-manager/logs/app.log
+StandardError=file:/etc/nginx-proxy-manager/logs/app.log
+SyslogIdentifier=nginx-proxy-manager
 [Install]
 WantedBy=multi-user.target
 EOF

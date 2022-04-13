@@ -13,7 +13,7 @@ LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
 
 .PHONY: build clean help
 
-all: build
+all: clean build
 
 build:
 	go build ${LDFLAGS} -v .
