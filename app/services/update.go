@@ -70,8 +70,6 @@ func ToUpdateProgram(url string) {
 		StopNginx()
 		//syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
-		log.Printf("[INFO] 启动 nginx")
-		StartNginx()
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", projectName)
 		_ = os.Remove(projectName)

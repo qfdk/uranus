@@ -69,6 +69,8 @@ func main() {
 	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP] = append(
 		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP],
 		func() {
+			log.Printf("[INFO] 启动 nginx")
+			services.StartNginx()
 			log.Printf("[+] 重启更新完毕")
 		})
 

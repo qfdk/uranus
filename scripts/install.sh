@@ -82,20 +82,20 @@ main() {
     echo "installed: ${ServicePath}"
   fi
 
-#  if [[ "$NGINX_PROXY_MANAGER" -eq '1' ]]; then
-#    systemctl start ${APP_NAME}
-#  else
-#    systemctl start ${APP_NAME}
-#    systemctl enable ${APP_NAME}
-#    sleep 1s
-#
-#    if systemctl -q is-active ${APP_NAME}; then
-#      echo "info: Start and enable the Nginx proxy manager service."
-#    else
-#      echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
-#    fi
-#  fi
-  ./$APP_NAME >./logs/app.log 2>&1 &
+  if [[ "$NGINX_PROXY_MANAGER" -eq '1' ]]; then
+    systemctl start ${APP_NAME}
+  else
+    systemctl start ${APP_NAME}
+    systemctl enable ${APP_NAME}
+    sleep 1s
+
+    if systemctl -q is-active ${APP_NAME}; then
+      echo "info: Start and enable the Nginx proxy manager service."
+    else
+      echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
+    fi
+  fi
+#  ./$APP_NAME >./logs/app.log 2>&1 &
 }
 
 main
