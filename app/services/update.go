@@ -66,8 +66,12 @@ func ToUpdateProgram(url string) {
 		_ = os.Chmod(newProjectName, os.ModePerm)
 		_ = os.Remove(projectName)
 		_ = os.Rename(newProjectName, path.Join(config.GetAppConfig().InstallPath, projectName))
+		log.Printf("[INFO] 关闭 nginx")
+		StopNginx()
 		//syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+		log.Printf("[INFO] 启动 nginx")
+		StartNginx()
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", projectName)
 		_ = os.Remove(projectName)

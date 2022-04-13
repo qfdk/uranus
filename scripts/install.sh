@@ -23,9 +23,6 @@ Environment="GIN_MODE=release"
 TimeoutStopSec=5
 KillMode=mixed
 Restart=always
-StandardOutput=file:/etc/nginx-proxy-manager/logs/app.log
-StandardError=file:/etc/nginx-proxy-manager/logs/app.log
-SyslogIdentifier=nginx-proxy-manager
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -72,6 +69,10 @@ main() {
     rm ${INSTALL_PATH}/${APP_NAME}
   fi
 
+  if [ ! -d ${INSTALL_PATH}/logs ]; then
+    mkdir -p ${INSTALL_PATH}/logs
+  fi
+
   cd ${INSTALL_PATH}
   wget https://fr.qfdk.me/nginx-proxy-manager
   chmod +x $APP_NAME
@@ -81,20 +82,20 @@ main() {
     echo "installed: ${ServicePath}"
   fi
 
-  if [[ "$NGINX_PROXY_MANAGER" -eq '1' ]]; then
-    systemctl start ${APP_NAME}
-  else
-    systemctl start ${APP_NAME}
-    systemctl enable ${APP_NAME}
-    sleep 1s
-
-    if systemctl -q is-active ${APP_NAME}; then
-      echo "info: Start and enable the Nginx proxy manager service."
-    else
-      echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
-    fi
-  fi
-  #  ./$APP_NAME >app.log 2>&1 &
+#  if [[ "$NGINX_PROXY_MANAGER" -eq '1' ]]; then
+#    systemctl start ${APP_NAME}
+#  else
+#    systemctl start ${APP_NAME}
+#    systemctl enable ${APP_NAME}
+#    sleep 1s
+#
+#    if systemctl -q is-active ${APP_NAME}; then
+#      echo "info: Start and enable the Nginx proxy manager service."
+#    else
+#      echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
+#    fi
+#  fi
+  ./$APP_NAME >./logs/app.log 2>&1 &
 }
 
 main
