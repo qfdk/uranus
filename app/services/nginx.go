@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"syscall"
 )
 
 func NginxStatus() string {
@@ -21,7 +22,7 @@ func NginxStatus() string {
 }
 
 func StartNginx() string {
-	log.Println("启动 Nginx")
+	log.Printf("[PID][%d]: [Nginx] 启动", syscall.Getpid())
 	_, err := exec.Command("nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
@@ -33,26 +34,26 @@ func StartNginx() string {
 }
 
 func ReloadNginx() string {
-	log.Println("重载 Nginx 配置文件")
+	log.Println("[Nginx] 重载配置文件")
 	var result = "OK"
 	if NginxStatus() != "KO" {
 		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
 		if err != nil {
-			log.Println("重载配置出现错误")
+			log.Println("[Nginx] 重载配置出现错误")
 			result = string(out)
 		}
 	} else {
-		log.Println("Nginx 没有启动,不用重载配置 !")
+		log.Println("[Nginx] 没有启动,不用重载配置 !")
 	}
 	return result
 }
 
 func StopNginx() string {
-	log.Println("停止 Nginx")
+	log.Printf("[PID][%d]: [Nginx] 停止", syscall.Getpid())
 	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
 	var result = "OK"
 	if err != nil {
-		log.Println("停止出现错误")
+		log.Println("[Nginx] 停止出现错误")
 		log.Println(err)
 		result = "KO"
 	}
@@ -69,6 +70,6 @@ func getNginxConfPath() string {
 func SaveNginxConf(content string) string {
 	path := filepath.Join(getNginxConfPath(), "nginx.conf")
 	ioutil.WriteFile(path, []byte(content), 0644)
-	log.Println("保存 Nginx 配置成功")
+	log.Println("[Nginx] 保存配置成功")
 	return ReloadNginx()
 }

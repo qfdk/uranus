@@ -139,7 +139,7 @@
             </article>
             <article class="message is-success" id="upgrade-ok" style="display: none;">
                 <div class="message-header">
-                    <p>升级完成, 3s 后刷新页面...</p>
+                    <p>升级完成, 5s 后刷新页面...</p>
                 </div>
                 <div class="content">
                     <table>
@@ -183,7 +183,7 @@
                 $("#upgrade-ok").show();
                 setTimeout(() => {
                     location.reload();
-                }, 3000);
+                }, 5000);
             });
         });
         $(".delete").click(() => {

@@ -17,7 +17,7 @@ func publicRoute(engine *gin.Engine) {
 			"buildName":    config.BuildName,
 			"buildTime":    config.BuildTime,
 			"buildVersion": config.BuildVersion,
-			"gitCommit":    config.CommitID,
+			"gitCommit":    config.CommitID[0:16],
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
 			"uid":          config.GetAppConfig().Uid,

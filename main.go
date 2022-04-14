@@ -57,14 +57,14 @@ func main() {
 	server := endless.NewServer("0.0.0.0:7777", app)
 
 	server.BeforeBegin = func(add string) {
-		log.Printf("[%d]: 服务器启动, [PPID]: %d", syscall.Getpid(), syscall.Getppid())
+		log.Printf("[PID][%d]: 服务器启动, [PPID]: %d", syscall.Getpid(), syscall.Getppid())
 	}
 
 	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP] = append(
 		server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP],
 		func() {
 			services.StopNginx()
-			log.Printf("[%d]: 关闭 nginx 并发送重启信号, 重启 ing...", syscall.Getpid())
+			log.Printf("[PID][%d]: 关闭 nginx 并发送重启信号, 重启 ing...", syscall.Getpid())
 		})
 
 	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP] = append(
@@ -74,17 +74,21 @@ func main() {
 			log.Printf("[+] 启动 nginx, 重启更新完毕")
 		})
 
-	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM] = append(
-		server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM],
+	//server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM] = append(
+	//	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM],
+	//	func() {
+	//		services.StopNginx()
+	//		log.Printf("[PID][%d]: SIGTERM 信号收到, 关闭 nginx ...", syscall.Getpid())
+	//	})
+	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM] = append(
+		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM],
 		func() {
-			services.StopNginx()
-			log.Printf("[%d]: 收到服务器关闭信号, 同时关闭 nginx", syscall.Getpid())
-			services.StartNginx()
+			log.Printf("[PID][%d]: SIGTERM 信号收到", syscall.Getpid())
 		})
 	err := server.ListenAndServe()
 	if err != nil {
 		log.Println(err)
 	}
-	log.Printf("[%d]: 服务器完全关闭", syscall.Getpid())
+	log.Printf("[PID][%d]: 老服务器完全关闭", syscall.Getpid())
 	os.Exit(0)
 }
