@@ -49,7 +49,6 @@
     $("#renew").on('click', (e) => {
         const ele = $(e.target);
         const configName = ele.data('config');
-        // ele.hide();
         $('.fa-random').hide();
         $('.fa-spinner').show();
         $.get(`/ssl/renew?configName=${configName}`).then(response => {
