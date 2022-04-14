@@ -29,6 +29,7 @@ func publicRoute(engine *gin.Engine) {
 		context.JSON(200, gin.H{
 			"status":       "OK",
 			"buildTime":    config.BuildTime,
+			"gitCommit":    config.CommitID,
 			"buildVersion": config.BuildVersion})
 	})
 	engine.GET("/restart", func(context *gin.Context) {

@@ -83,6 +83,18 @@
                 <th scope="row"></th>
                 <td>{{.nginxCompileInfo.TLSSupport}}</td>
             </tr>
+            <tr>
+                <th scope="row">构建版本</th>
+                <td>{{.buildVersion}}</td>
+            </tr>
+            <tr>
+                <th scope="row">构建时间</th>
+                <td>{{.buildTime}}</td>
+            </tr>
+            <tr>
+                <th scope="row">CommitID</th>
+                <td>{{.commitID}}</td>
+            </tr>
             </tbody>
         </table>
     </div>
@@ -92,13 +104,37 @@
     <div class="modal-background"></div>
     <div class="modal-card" style="padding: 12px;">
         <header class="modal-card-head">
-            <p class="modal-card-title">升级</p>
+            <p class="modal-card-title">系统信息</p>
             <button class="delete" aria-label="close"></button>
         </header>
         <section class="modal-card-body">
             <article class="message is-warning" id="upgrade-message">
-                <div class="message-body">
-                    正在升级 ..
+                <div class="message-header">
+                    正在升级 ...
+                </div>
+                <div class="content">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>内容</th>
+                            <th>值</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <th scope="row">构建版本</th>
+                            <td>{{.buildVersion}}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">构建时间</th>
+                            <td>{{.buildTime}}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">CommitID</th>
+                            <td>{{.commitID}}</td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
             </article>
             <article class="message is-success" id="upgrade-ok" style="display: none;">
@@ -122,6 +158,10 @@
                             <td>构建版本</td>
                             <td id="buildVersion"></td>
                         </tr>
+                        <tr>
+                            <td>CommitID</td>
+                            <td id="commitID"></td>
+                        </tr>
                         </tbody>
                     </table>
                 </div>
@@ -136,9 +176,10 @@
             $("#upgrade-modal").addClass("is-active");
             $.get('/upgrade', (data) => {
                 $("#upgrade-message").hide();
-                const {buildTime, buildVersion} = data;
+                const {buildTime, buildVersion, gitCommit} = data;
                 $("#buildTime").html(buildTime);
                 $("#buildVersion").html(buildVersion);
+                $("#commitID").html(gitCommit);
                 $("#upgrade-ok").show();
                 setTimeout(() => {
                     location.reload();

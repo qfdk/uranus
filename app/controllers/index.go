@@ -41,5 +41,8 @@ func Index(ctx *gin.Context) {
 			"nginxStatus":        services.NginxStatus(),
 			"nginxActionMessage": string(actionMessageDec),
 			"nginxCompileInfo":   config.ReadNginxCompileInfo(),
+			"buildTime":          config.BuildTime,
+			"buildVersion":       config.BuildVersion,
+			"commitID":           config.CommitID,
 		})
 }
