@@ -79,6 +79,7 @@ func main() {
 		func() {
 			services.StopNginx()
 			log.Printf("[%d]: 收到服务器关闭信号, 同时关闭 nginx", syscall.Getpid())
+			services.StartNginx()
 		})
 	err := server.ListenAndServe()
 	if err != nil {
