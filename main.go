@@ -71,7 +71,7 @@ func main() {
 		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP],
 		func() {
 			services.StartNginx()
-			log.Printf("[+] 启动 nginx, 重启更新完毕")
+			log.Printf("[PID][%d]: 启动 nginx, 重启更新完毕", syscall.Getpid())
 		})
 
 	//server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM] = append(
@@ -83,7 +83,8 @@ func main() {
 	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM] = append(
 		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM],
 		func() {
-			log.Printf("[PID][%d]: SIGTERM 信号收到", syscall.Getpid())
+			services.StartNginx()
+			log.Printf("[PID][%d]: SIGTERM 信号收到, 启动 nginx, 重启更新完毕", syscall.Getpid())
 		})
 	err := server.ListenAndServe()
 	if err != nil {
