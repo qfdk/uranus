@@ -22,7 +22,6 @@ User=root
 Environment="GIN_MODE=release"
 TimeoutStopSec=5
 KillMode=mixed
-Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
