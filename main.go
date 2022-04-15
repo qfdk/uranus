@@ -54,7 +54,7 @@ func initRouter() *gin.Engine {
 }
 
 func Graceful() {
-	pidFile := "./nginx-proxy-manager.pid"
+	pidFile := "nginx-proxy-manager.pid"
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})
@@ -74,7 +74,7 @@ func Graceful() {
 				log.Printf("[PID][%d]: 收到升级信号, 升级开始", os.Getpid())
 				err := upg.Upgrade()
 				if err != nil {
-					log.Printf("[PID][%d]: 升级出错,%s", os.Getpid(), err)
+					log.Printf("[PID][%d]: 升级出错, %s", os.Getpid(), err)
 					continue
 				}
 				log.Printf("[PID][%d]: 升级成功", os.Getpid())
@@ -89,7 +89,7 @@ func Graceful() {
 
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
 	if err != nil {
-		log.Fatalln("Can't listen:", err)
+		log.Fatalln("无法监听:", err)
 	}
 
 	server := &http.Server{
