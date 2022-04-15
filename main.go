@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"embed"
-	"github.com/fvbock/endless"
+	"github.com/cloudflare/tableflip"
 	"github.com/gin-gonic/gin"
 	"html/template"
 	"io/fs"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"nginx-proxy-manager/app/config"
@@ -14,7 +16,10 @@ import (
 	"nginx-proxy-manager/app/routes"
 	"nginx-proxy-manager/app/services"
 	"os"
+	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 )
 
 //go:embed views
@@ -31,15 +36,7 @@ func mustFS() http.FileSystem {
 	return http.FS(sub)
 }
 
-func main() {
-	// 线上模式显示版本信息
-	if gin.Mode() == gin.ReleaseMode {
-		config.DisplayVersion()
-	}
-	// 初始化配置文件
-	config.InitAppConfig()
-	// 初始化 SQLite 数据库
-	models.Init()
+func initRouter() *gin.Engine {
 	app := gin.New()
 	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
 	app.SetHTMLTemplate(template)
@@ -53,43 +50,94 @@ func main() {
 	})
 	app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
-	go services.RenewSSL()
-	server := endless.NewServer("0.0.0.0:7777", app)
+	return app
+}
 
-	server.BeforeBegin = func(add string) {
-		services.StartNginx()
-		log.Printf("[PID][%d]: 服务器启动, [PPID]: %d", syscall.Getpid(), syscall.Getppid())
-	}
-
-	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP] = append(
-		server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGHUP],
-		func() {
-			services.StopNginx()
-			log.Printf("[PID][%d]: 关闭 nginx 并发送重启信号, 重启 ing...", syscall.Getpid())
-		})
-
-	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP] = append(
-		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGHUP],
-		func() {
-			log.Printf("[PID][%d]: 启动 nginx, 重启更新完毕", syscall.Getpid())
-		})
-
-	//server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM] = append(
-	//	server.SignalHooks[endless.PRE_SIGNAL][syscall.SIGTERM],
-	//	func() {
-	//		services.StopNginx()
-	//		log.Printf("[PID][%d]: SIGTERM 信号收到, 关闭 nginx ...", syscall.Getpid())
-	//	})
-	server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM] = append(
-		server.SignalHooks[endless.POST_SIGNAL][syscall.SIGTERM],
-		func() {
-			services.StopNginx()
-			log.Printf("[PID][%d]: SIGTERM 信号收到, 启动 nginx, 重启更新完毕", syscall.Getpid())
-		})
-	err := server.ListenAndServe()
+func Graceful() {
+	pidFile := "./nginx-proxy-manager.pid"
+	upg, err := tableflip.New(tableflip.Options{
+		PIDFile: pidFile,
+	})
 	if err != nil {
-		log.Println(err)
+		panic(err)
 	}
-	log.Printf("[PID][%d]: 老服务器完全关闭", syscall.Getpid())
-	os.Exit(0)
+	defer upg.Stop()
+
+	// Do an upgrade on SIGHUP
+	var exit bool
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+		for s := range sig {
+			switch s {
+			case syscall.SIGHUP, syscall.SIGUSR2:
+				log.Printf("[PID][%d]: 收到升级信号, 升级开始", os.Getpid())
+				err := upg.Upgrade()
+				if err != nil {
+					log.Printf("[PID][%d]: 升级出错,%s", os.Getpid(), err)
+					continue
+				}
+				log.Printf("[PID][%d]: 升级成功", os.Getpid())
+			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
+				log.Printf("[PID][%d]:收到关闭信号, 准备关闭服务器", os.Getpid())
+				exit = true
+				upg.Stop()
+				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
+			}
+		}
+	}()
+
+	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
+	if err != nil {
+		log.Fatalln("Can't listen:", err)
+	}
+
+	server := &http.Server{
+		Handler: initRouter(),
+	}
+
+	go func() {
+		err := server.Serve(ln)
+		if err != http.ErrServerClosed {
+			log.Println("HTTP server:", err)
+		}
+	}()
+	log.Printf("[PID][%d]: 服务器启动, [PPID]: %d", os.Getpid(), os.Getppid())
+	err = ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
+	if err != nil {
+		panic(err)
+	}
+	if err := upg.Ready(); err != nil {
+		panic(err)
+	}
+	<-upg.Exit()
+
+	// Make sure to set a deadline on exiting the process
+	// after upg.Exit() is closed. No new upgrades can be
+	// performed if the parent doesn't exit.
+	time.AfterFunc(10*time.Second, func() {
+		log.Println("平滑关闭超时 ...")
+		os.Exit(1)
+	})
+	// Wait for connections to drain.
+	server.Shutdown(context.Background())
+
+	if exit {
+		_ = os.Remove(pidFile)
+	}
+}
+
+func main() {
+	// 线上模式显示版本信息
+	if gin.Mode() == gin.ReleaseMode {
+		config.DisplayVersion()
+	}
+	// 初始化配置文件
+	config.InitAppConfig()
+	// 初始化 SQLite 数据库
+	models.Init()
+	// 初始化 自动签名
+	go services.RenewSSL()
+	initRouter()
+	Graceful()
 }

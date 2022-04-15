@@ -16,12 +16,11 @@ Description=Nginx proxy manager
 After=network.target
 [Service]
 Type=simple
-WorkingDirectory=/etc/nginx-proxy-manager
-ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
 User=root
+ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/etc/nginx-proxy-manager/nginx-proxy-manager.pid
 Environment="GIN_MODE=release"
-TimeoutStopSec=5
-KillMode=mixed
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -94,7 +93,7 @@ main() {
       echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
     fi
   fi
-#  ./$APP_NAME >./logs/app.log 2>&1 &
+  #  ./$APP_NAME >./logs/app.log 2>&1 &
 }
 
 main

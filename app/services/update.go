@@ -36,7 +36,7 @@ func ToUpdateProgram(url string) {
 
 	if resp.StatusCode == http.StatusOK {
 		newProjectName := path.Join(config.GetAppConfig().InstallPath, projectName+"_new")
-		log.Printf("[INFO] 正在更新: [%s]", projectName)
+		log.Printf("[INFO] 获取更新: [%s]", projectName)
 		downFile, err := os.Create(newProjectName)
 		checkIfError(err)
 		defer downFile.Close()
@@ -62,7 +62,7 @@ func ToUpdateProgram(url string) {
 			checkIfError(err)
 		}
 
-		log.Printf("[INFO] [%s] 下载成功,准备重启程序", projectName)
+		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", projectName)
 		_ = os.Chmod(newProjectName, os.ModePerm)
 		_ = os.Remove(projectName)
 		_ = os.Rename(newProjectName, path.Join(config.GetAppConfig().InstallPath, projectName))
