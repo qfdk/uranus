@@ -18,7 +18,7 @@ After=network.target
 Type=simple
 User=root
 ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP '$MAINPID'
 PIDFile=/etc/nginx-proxy-manager/nginx-proxy-manager.pid
 Environment="GIN_MODE=release"
 [Install]
