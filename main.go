@@ -54,7 +54,8 @@ func initRouter() *gin.Engine {
 }
 
 func Graceful() {
-	var pidFile = "nginx-proxy-manager.pid"
+	pwd, _ := os.Getwd()
+	var pidFile = pwd + "/nginx-proxy-manager.pid"
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})
