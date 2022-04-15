@@ -45,7 +45,10 @@ func InitAppConfig() {
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 	cwd, _ := os.Getwd()
-	if _, err := os.Stat(path.Join(".", "config.toml")); os.IsNotExist(err) {
+	if cwd != "/" {
+		cwd = "/etc/nginx-proxy-manager"
+	}
+	if _, err := os.Stat(path.Join(cwd, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
 		viper.Set("VhostPath", "/etc/nginx/sites-enabled")
 		viper.Set("SSLPath", "/etc/nginx/ssl")
