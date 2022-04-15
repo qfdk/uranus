@@ -26,7 +26,6 @@ func StartNginx() string {
 	_, err := exec.Command("nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
-		log.Println("启动出错")
 		result = err.Error()
 		log.Println(result)
 	}

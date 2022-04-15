@@ -81,7 +81,9 @@ func Graceful() {
 					log.Printf("[PID][%d]: 升级出错, %s", os.Getpid(), err)
 					continue
 				}
-				log.Printf("[PID][%d]: 升级成功", os.Getpid())
+				log.Printf("[PID][%d]: 升级成功 尝试启动 Nginx", os.Getpid())
+				services.StartNginx()
+				log.Printf("[PID][%d]: 升级完成", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
 				log.Printf("[PID][%d]: 收到关闭信号, 准备关闭服务器", os.Getpid())
 				exit = true
