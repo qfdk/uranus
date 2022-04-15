@@ -151,3 +151,5 @@ tmp/
 /nginx-proxy-manager
 /data.db
 /nginx-proxy-manager.pid
+
+dist/
