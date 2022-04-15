@@ -38,7 +38,7 @@
             <i class="fa fa-stop" aria-hidden="true"></i>&nbsp;停止服务</button>
             <a type="link" href="/nginx/config" class="button is-dark">
                 <i class="fa fa-wrench" aria-hidden="true"></i>&nbsp;Nginx配置文件</a>
-            <button type="button" href="javascript:void(0)" id="upgrade" class="button is-info">
+            <button type="button" id="openUpgradeModal" class="button is-info">
                 <i class="fa fa-arrow-circle-up" aria-hidden="true"></i>&nbsp;升级
             </button>
         </form>
@@ -103,77 +103,87 @@
 <div class="modal" id="upgrade-modal">
     <div class="modal-background"></div>
     <div class="modal-card" style="padding: 12px;">
-        <header class="modal-card-head">
-            <p class="modal-card-title">系统信息</p>
-            <button class="delete" aria-label="close"></button>
-        </header>
-        <section class="modal-card-body">
-            <article class="message is-warning" id="upgrade-message">
-                <div class="message-header">
-                    正在升级 ...
-                </div>
-                <div class="table-container">
-                    <table class="table">
-                        <thead>
-                        <tr>
-                            <th>内容</th>
-                            <th>值</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <th scope="row">构建版本</th>
-                            <td>{{.buildVersion}}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">构建时间</th>
-                            <td>{{.buildTime}}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">CommitID</th>
-                            <td>{{.commitID}}</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </article>
-            <article class="message is-success" id="upgrade-ok" style="display: none;">
-                <div class="message-header">
-                    <p>升级完成, 5s 后刷新页面...</p>
-                </div>
-                <div class="content">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>内容</th>
-                            <th>值</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>构建时间</td>
-                            <td id="buildTime"></td>
-                        </tr>
-                        <tr>
-                            <td>构建版本</td>
-                            <td id="buildVersion"></td>
-                        </tr>
-                        <tr>
-                            <td>CommitID</td>
-                            <td id="commitID"></td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </article>
-        </section>
+        <article class="message is-info" id="upgrade-message">
+            <div class="message-header">
+                系统信息
+                <button class="delete" aria-label="close"></button>
+            </div>
+            <div class="table-container">
+                <table class="table is-fullwidth">
+                    <thead>
+                    <tr>
+                        <th>内容</th>
+                        <th>值</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <th scope="row">构建版本</th>
+                        <td>{{.buildVersion}}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">构建时间</th>
+                        <td>{{.buildTime}}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">CommitID</th>
+                        <td>{{.commitID}}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"></th>
+                        <td>
+                            <button id="upgrade" class="button is-info is-pulled-right">
+                                <i class="fa fa-arrow-circle-up"
+                                   aria-hidden="true"></i>&nbsp;升级
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        <article class="message is-success" id="upgrade-ok" style="display: none;">
+            <div class="message-header">
+                升级完成, 5s 后刷新页面...
+                <button class="delete" aria-label="close"></button>
+            </div>
+            <div class="table-container">
+                <table class="table is-fullwidth">
+                    <thead>
+                    <tr>
+                        <th>内容</th>
+                        <th>值</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>构建时间</td>
+                        <td id="buildTime"></td>
+                    </tr>
+                    <tr>
+                        <td>构建版本</td>
+                        <td id="buildVersion"></td>
+                    </tr>
+                    <tr>
+                        <td>CommitID</td>
+                        <td id="commitID"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
     $(document).ready(function () {
-        $("#upgrade").click(() => {
+        $("#openUpgradeModal").click(() => {
             $("#upgrade-modal").addClass("is-active");
+        });
+        $(".delete").click(() => {
+            $("#upgrade-modal").removeClass("is-active");
+        });
+        $("#upgrade").click(()=>{
             $.get('/upgrade', (data) => {
                 $("#upgrade-message").hide();
                 const {buildTime, buildVersion, gitCommit} = data;
@@ -185,9 +195,6 @@
                     location.reload();
                 }, 5000);
             });
-        });
-        $(".delete").click(() => {
-            $("#upgrade-modal").removeClass("is-active");
         });
     });
 </script>
