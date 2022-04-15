@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -67,7 +66,7 @@ func ToUpdateProgram(url string) {
 		_ = os.Remove(projectName)
 		_ = os.Rename(newProjectName, path.Join(config.GetAppConfig().InstallPath, projectName))
 		//syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
-		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+		//syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", projectName)
 		_ = os.Remove(projectName)
