@@ -33,7 +33,7 @@ func publicRoute(engine *gin.Engine) {
 			"buildVersion": config.BuildVersion})
 	})
 	engine.GET("/restart", func(context *gin.Context) {
-		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 		context.JSON(200, gin.H{"status": "OK"})
 	})
 	engine.POST("/update-config", func(context *gin.Context) {

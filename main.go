@@ -79,7 +79,7 @@ func Graceful() {
 				}
 				log.Printf("[PID][%d]: 升级成功", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-				log.Printf("[PID][%d]:收到关闭信号, 准备关闭服务器", os.Getpid())
+				log.Printf("[PID][%d]: 收到关闭信号, 准备关闭服务器", os.Getpid())
 				exit = true
 				upg.Stop()
 				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
