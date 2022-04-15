@@ -36,8 +36,9 @@ func ToUpdateProgram(url string) {
 
 	if resp.StatusCode == http.StatusOK {
 		log.Printf("[INFO] 获取更新: [%s]", projectName)
-		_ = os.Rename(projectName, path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
+		_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, projectName), path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
 		newProjectName := path.Join(config.GetAppConfig().InstallPath, projectName)
+		log.Printf("[INFO] 下载位置 : %s", newProjectName)
 		downFile, err := os.Create(newProjectName)
 		checkIfError(err)
 		defer downFile.Close()
@@ -63,7 +64,7 @@ func ToUpdateProgram(url string) {
 			checkIfError(err)
 		}
 		_ = os.Chmod(newProjectName, os.ModePerm)
-		_ = os.Remove(projectName + "_back")
+		_ = os.Remove(path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
 		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", projectName)
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	} else {
