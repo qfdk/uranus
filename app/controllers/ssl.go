@@ -19,7 +19,7 @@ func Certificates(ctx *gin.Context) {
 			results = append(results, gin.H{
 				"configName": cert.FileName,
 				"domains":    strings.Split(cert.Domains, ","),
-				"expiredAt":  cert.NotAfter.Format("2006-01-02 15:04:05"),
+				"expiredAt":  cert.NotAfter.Format("2006-01-02"),
 			})
 		}
 	}

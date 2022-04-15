@@ -7,30 +7,29 @@
 </article>
 <a class="button is-info" href="/sites/new" type="link">
     <i class="fa fa-plus" aria-hidden="true"></i>&nbsp;添加新配置</a>
-<div class="columns is-centered">
-    <div class="column">
-        <table class="table is-fullwidth">
-            <thead>
-            <tr>
-                <th scope="col">配置文件</th>
-                <th scope="col">大小</th>
-                <th scope="col">操作</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{range $index, $value :=.files}}
-            <tr>
-                <th scope="row">{{$value.Name}}</th>
-                <td>{{call $.humanizeBytes $value.Size}}</td>
-                <td>
-                    <a href="/sites/edit/{{$value.Name}}"><span class="tag is-info"><i class="fa fa-file-text-o" aria-hidden="true"></i>&nbsp;编辑</span></a>
-                    <a href="/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">
+<div class="table-container">
+    <table class="table is-fullwidth">
+        <thead>
+        <tr>
+            <th scope="col">配置文件</th>
+            <th scope="col">大小</th>
+            <th scope="col">操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range $index, $value :=.files}}
+        <tr>
+            <th scope="row">{{$value.Name}}</th>
+            <td>{{call $.humanizeBytes $value.Size}}</td>
+            <td>
+                <a href="/sites/edit/{{$value.Name}}"><span class="tag is-info"><i class="fa fa-file-text-o"
+                                                                                   aria-hidden="true"></i>&nbsp;编辑</span></a>
+                <a href="/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">
                         <i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;删除</span></a>
-                </td>
-            </tr>
-            {{end}}
-            </tbody>
-        </table>
-    </div>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
 </div>
 {{template "footer.html" .}}

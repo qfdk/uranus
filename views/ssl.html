@@ -5,44 +5,44 @@
         SSL 证书签名列表
     </div>
 </article>
-<div class="columns is-centered">
-    <div class="column">
-        <table class="table is-fullwidth">
-            <thead>
-            <tr>
-                <th scope="col">配置名称</th>
-                <th scope="col">域名</th>
-                <th scope="col">到期时间</th>
-                <th scope="col">操作</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{range $key, $value :=.results}}
-            <tr>
-                <th scope="row">{{$value.configName}}</a></th>
-                <td>
-                    {{range $key, $domain :=$value.domains}}
-                    <a href="https://{{$domain}}">{{$domain}}</a>
-                    {{end}}
-                </td>
-                <td>
-                    {{$value.expiredAt}}
-                </td>
-                <td>
-                    <a href="#" id="renew">
+<div class="table-container">
+    <table class="table is-fullwidth">
+        <thead>
+        <tr>
+            <th scope="col">配置名称</th>
+            <th scope="col">域名</th>
+            <th scope="col">到期时间</th>
+            <th scope="col">操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{range $key, $value :=.results}}
+        <tr>
+            <th scope="row">{{$value.configName}}</a></th>
+            <td>
+                {{range $key, $domain :=$value.domains}}
+                <a href="https://{{$domain}}">{{$domain}}</a>
+                {{end}}
+            </td>
+            <td>
+                {{$value.expiredAt}}
+            </td>
+            <td>
+                <a href="#" id="renew">
                         <span class="tag is-info" data-config="{{$value.configName}}">
                             <i class="fa fa-spinner fa-spin" style="display: none" aria-hidden="true"></i>
                             <i class="fa fa-random" aria-hidden="true"></i>&nbsp;续命</span>
-                    </a>
-                    <a href="/ssl/delete?configName={{$value.configName}}"><span
-                            class="tag is-danger is-light"><i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;删除</span></a>
-                </td>
-            </tr>
-            {{end}}
-            </tbody>
-        </table>
-    </div>
+                </a>
+                <a href="/ssl/delete?configName={{$value.configName}}"><span
+                        class="tag is-danger is-light"><i class="fa fa-trash-o"
+                                                          aria-hidden="true"></i>&nbsp;删除</span></a>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
 </div>
+
 {{template "footer.html" .}}
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
