@@ -54,7 +54,7 @@ func initRouter() *gin.Engine {
 }
 
 func Graceful() {
-	pidFile := "nginx-proxy-manager.pid"
+	var pidFile = "nginx-proxy-manager.pid"
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})
@@ -102,11 +102,8 @@ func Graceful() {
 			log.Println("HTTP server:", err)
 		}
 	}()
-	log.Printf("[PID][%d]: 服务器启动, [PPID]: %d", os.Getpid(), os.Getppid())
-	err = ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
-	if err != nil {
-		panic(err)
-	}
+	log.Printf("[PID][%d]: 服务器启动成功并写入 PID 到文件", os.Getpid())
+	ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
@@ -123,6 +120,7 @@ func Graceful() {
 	server.Shutdown(context.Background())
 
 	if exit {
+		log.Println("退出并删除pid文件")
 		_ = os.Remove(pidFile)
 	}
 }
