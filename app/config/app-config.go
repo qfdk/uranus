@@ -39,15 +39,16 @@ func loadConfig() {
 	viper.Unmarshal(&_appConfig)
 	log.Println("[+] 配置文件载入成功")
 }
+
 func InitAppConfig() {
 	log.Println("[+] 初始化配置文件 ...")
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-	viper.AddConfigPath(".")
 	pwd, _ := os.Getwd()
 	if pwd == "/" {
 		pwd = "/etc/nginx-proxy-manager"
 	}
+	viper.AddConfigPath(pwd)
 	if _, err := os.Stat(path.Join(pwd, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
 		viper.Set("VhostPath", "/etc/nginx/sites-enabled")
