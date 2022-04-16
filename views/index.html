@@ -127,14 +127,15 @@
                     </tr>
                     <tr>
                         <th scope="row">CommitID</th>
-                        <td>{{.commitID}}</td>
+                        <td style="max-width: 250px;overflow-x: auto;">{{.commitID}}</td>
                     </tr>
                     <tr>
                         <th scope="row"></th>
                         <td>
                             <button id="upgrade" class="button is-info is-pulled-right">
-                                <i class="fa fa-arrow-circle-up"
-                                   aria-hidden="true"></i>&nbsp;升级
+                                <i class="fa fa-arrow-circle-up" aria-hidden="true"></i><i class="fa fa-spinner fa-spin"
+                                                                                           style="display: none"
+                                                                                           aria-hidden="true"></i>&nbsp;升级
                             </button>
                         </td>
                     </tr>
@@ -166,7 +167,7 @@
                     </tr>
                     <tr>
                         <td>CommitID</td>
-                        <td id="commitID"></td>
+                        <td style="max-width: 250px;overflow-x: auto;" id="commitID"></td>
                     </tr>
                     </tbody>
                 </table>
@@ -183,13 +184,18 @@
         $(".delete").click(() => {
             $("#upgrade-modal").removeClass("is-active");
         });
-        $("#upgrade").click(()=>{
+        $("#upgrade").click(() => {
+            $("#upgrade").attr("disabled", true);
+            $('.fa-arrow-circle-up').hide();
+            $('.fa-spinner').show();
             $.get('/upgrade', (data) => {
                 $("#upgrade-message").hide();
                 const {buildTime, buildVersion, gitCommit} = data;
                 $("#buildTime").html(buildTime);
                 $("#buildVersion").html(buildVersion);
                 $("#commitID").html(gitCommit);
+                $('.fa-arrow-circle-up').show();
+                $('.fa-spinner').hide();
                 $("#upgrade-ok").show();
                 setTimeout(() => {
                     location.reload();
