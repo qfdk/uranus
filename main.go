@@ -75,15 +75,17 @@ func Graceful() {
 		for s := range sig {
 			switch s {
 			case syscall.SIGHUP, syscall.SIGUSR2:
-				log.Printf("[PID][%d]: 收到升级信号, 升级开始", os.Getpid())
+				log.Printf("[PID][%d]: 收到升级信号, 升级开始,临时关闭nginx", os.Getpid())
+				services.StopNginx()
 				err := upg.Upgrade()
 				if err != nil {
 					log.Printf("[PID][%d]: 升级出错, %s", os.Getpid(), err)
 					continue
+				} else {
+					log.Printf("[PID][%d]: 升级成功 尝试启动 Nginx", os.Getpid())
+					services.StartNginx()
+					log.Printf("[PID][%d]: 升级完成", os.Getpid())
 				}
-				log.Printf("[PID][%d]: 升级成功 尝试启动 Nginx", os.Getpid())
-				services.StartNginx()
-				log.Printf("[PID][%d]: 升级完成", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
 				log.Printf("[PID][%d]: 收到关闭信号, 准备关闭服务器", os.Getpid())
 				exit = true
