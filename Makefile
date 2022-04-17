@@ -26,7 +26,7 @@ release:
 	mkdir dist
 	rm -rf *.gz
 	# Build for mac
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -v .
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -v .
 	tar czvf ${BUILD_NAME}-darwin-amd64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
 	# Build for mac arm64
 	go clean

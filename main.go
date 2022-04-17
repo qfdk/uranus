@@ -6,6 +6,7 @@ import (
 	"github.com/cloudflare/tableflip"
 	"github.com/gin-gonic/gin"
 	"html/template"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -27,6 +28,19 @@ var templates embed.FS
 
 //go:embed views/public
 var staticFS embed.FS
+
+func init() {
+	file := "./app.log"
+	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+	if err != nil {
+		panic(err)
+	}
+	wrt := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(wrt)
+	log.SetPrefix("[Uranus]>> ")
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	return
+}
 
 func mustFS() http.FileSystem {
 	sub, err := fs.Sub(staticFS, "views/public")
