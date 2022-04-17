@@ -153,3 +153,4 @@ tmp/
 /nginx-proxy-manager.pid
 
 dist/
+/app.log
