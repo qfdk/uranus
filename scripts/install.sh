@@ -35,9 +35,9 @@ start_service() {
     systemctl start ${APP_NAME}
     sleep 1s
     if systemctl -q is-active ${APP_NAME}; then
-      echo 'info: Start the Nginx proxy manager service.'
+      echo 'info: Start the Uranus service.'
     else
-      echo -e "${FontRed}error: Failed to start the Nginx proxy manager service.${FontSuffix}"
+      echo -e "${FontRed}error: Failed to start the Uranus service.${FontSuffix}"
       exit 1
     fi
   fi
@@ -45,10 +45,10 @@ start_service() {
 
 stop_service() {
   if ! systemctl stop ${APP_NAME}; then
-    echo -e "${FontRed}error: Failed to stop Nginx proxy manager service.${FontSuffix}"
+    echo -e "${FontRed}error: Failed to stop Uranus service.${FontSuffix}"
     exit 1
   fi
-  echo "info: Nginx proxy manager service Stopped."
+  echo "info: Uranus service Stopped."
 }
 
 main() {
@@ -56,7 +56,7 @@ main() {
   if systemctl list-unit-files | grep -qw ${APP_NAME}; then
     if [[ -n "$(pidof ${APP_NAME})" ]]; then
       stop_service
-      NGINX_PROXY_MANAGER='1'
+      URANUS='1'
     fi
   fi
 
@@ -80,7 +80,7 @@ main() {
     echo "installed: ${ServicePath}"
   fi
 
-  if [[ "$NGINX_PROXY_MANAGER" -eq '1' ]]; then
+  if [[ "$URANUS" -eq '1' ]]; then
     systemctl start ${APP_NAME}
   else
     systemctl start ${APP_NAME}
@@ -88,9 +88,9 @@ main() {
     sleep 1s
 
     if systemctl -q is-active ${APP_NAME}; then
-      echo "info: Start and enable the Nginx proxy manager service."
+      echo "info: Start and enable the Uranus service."
     else
-      echo -e "${FontYellow}warning: Failed to enable and start the Nginx proxy manager service.${FontSuffix}"
+      echo -e "${FontYellow}warning: Failed to enable and start the Uranus service.${FontSuffix}"
     fi
   fi
   #  ./$APP_NAME >./logs/app.log 2>&1 &

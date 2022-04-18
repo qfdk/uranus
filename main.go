@@ -32,7 +32,7 @@ var templates embed.FS
 var staticFS embed.FS
 
 func init() {
-	file := path.Join(tools.GetPWD(), "app.log")
+	file := path.Join(tools.GetPWD(), "logs", "app.log")
 	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 	if err != nil {
 		panic(err)
