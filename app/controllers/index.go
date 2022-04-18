@@ -9,8 +9,8 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
-	"nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/services"
+	"uranus/app/config"
+	"uranus/app/services"
 )
 
 func Index(ctx *gin.Context) {

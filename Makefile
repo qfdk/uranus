@@ -1,9 +1,9 @@
 BUILD_VERSION:=v1.0.0
 BUILD_TIME:=$(shell date "+%F %T")
-BUILD_NAME:=nginx-proxy-manager
+BUILD_NAME:=uranus
 COMMIT_SHA1:=$(shell git rev-parse HEAD )
 GoVersion:=$(shell go version)
-CONFIG_PATH=nginx-proxy-manager/app/config
+CONFIG_PATH=uranus/app/config
 
 LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
 -X ${CONFIG_PATH}.CommitID=${COMMIT_SHA1} \
@@ -40,7 +40,7 @@ release:
 	mv *.gz dist
 
 clean:
-	rm -rf nginx-proxy-manager
+	rm -rf uranus
 	go clean -i .
 
 help:

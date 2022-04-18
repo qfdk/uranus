@@ -4,8 +4,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"log"
-	"nginx-proxy-manager/app/config"
 	"path"
+	"uranus/app/config"
 )
 
 var db *gorm.DB
@@ -20,6 +20,7 @@ func Init() {
 	})
 	if err != nil {
 		log.Println("[-] 初始化 SQLite 失败")
+		panic(err)
 	}
 	// Migrate the schema
 	AutoMigrate(&Cert{})

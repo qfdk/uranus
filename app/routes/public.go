@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/services"
 	"runtime"
 	"syscall"
+	"uranus/app/config"
+	"uranus/app/services"
 )
 
 func publicRoute(engine *gin.Engine) {
@@ -25,7 +25,7 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.GET("/upgrade", func(context *gin.Context) {
-		services.ToUpdateProgram("https://fr.qfdk.me/nginx-proxy-manager")
+		services.ToUpdateProgram("https://fr.qfdk.me/uranus")
 		context.JSON(200, gin.H{
 			"status":       "OK",
 			"buildTime":    config.BuildTime,

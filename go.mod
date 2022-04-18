@@ -1,4 +1,4 @@
-module nginx-proxy-manager
+module uranus
 
 go 1.17
 

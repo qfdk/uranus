@@ -6,15 +6,15 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"nginx-proxy-manager/app/config"
 	"os"
 	"path"
 	"strconv"
 	"syscall"
 	"time"
+	"uranus/app/config"
 )
 
-var projectName = "nginx-proxy-manager"
+var projectName = "uranus"
 
 // CheckIfError ...
 func checkIfError(err error) {

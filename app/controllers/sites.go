@@ -7,14 +7,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	. "nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/models"
-	"nginx-proxy-manager/app/services"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+	. "uranus/app/config"
+	"uranus/app/models"
+	"uranus/app/services"
 )
 
 //go:embed template/http.conf

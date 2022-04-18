@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"syscall"
+	"uranus/app/tools"
 )
 
 type AppConfig struct {
@@ -44,10 +45,7 @@ func InitAppConfig() {
 	log.Println("[+] 初始化配置文件 ...")
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-	pwd, _ := os.Getwd()
-	if pwd == "/" {
-		pwd = "/etc/nginx-proxy-manager"
-	}
+	pwd := tools.GetPWD()
 	viper.AddConfigPath(pwd)
 	if _, err := os.Stat(path.Join(pwd, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")

@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/controllers"
+	"uranus/app/config"
+	"uranus/app/controllers"
 )
 
 // RegisterRoutes /** 路由组*/

@@ -4,12 +4,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
-	"nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/models"
-	"nginx-proxy-manager/app/services"
 	"os"
 	"path/filepath"
 	"strings"
+	"uranus/app/config"
+	"uranus/app/models"
+	"uranus/app/services"
 )
 
 func Certificates(ctx *gin.Context) {

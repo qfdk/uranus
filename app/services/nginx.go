@@ -3,11 +3,11 @@ package services
 import (
 	"io/ioutil"
 	"log"
-	"nginx-proxy-manager/app/config"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"syscall"
+	"uranus/app/config"
 )
 
 func NginxStatus() string {

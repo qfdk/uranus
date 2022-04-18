@@ -13,12 +13,12 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	"io/ioutil"
 	"log"
-	. "nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/models"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	. "uranus/app/config"
+	"uranus/app/models"
 )
 
 // MyUser You'll need a user or account type that implements acme.User

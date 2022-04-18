@@ -148,9 +148,8 @@ Temporary Items
 tmp/
 # End of https://www.toptal.com/developers/gitignore/api/macos,goland,visualstudiocode,go
 /config.toml
-/nginx-proxy-manager
+/uranus
 /data.db
-/nginx-proxy-manager.pid
-
-dist/
+/uranus.pid
 /app.log
+dist/

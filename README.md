@@ -1,4 +1,4 @@
-## Nginx Proxy Manager (NPM)
+## Οὐρανός (拉丁语：Uranus)
 
 Gin 框架写的 NGINX 管理工具，包括自升级
 
@@ -20,7 +20,7 @@ Gin 框架写的 NGINX 管理工具，包括自升级
 # 目前只测试过 ubuntu 20.04
 wget -qO- https://fr.qfdk.me/install.sh|bash
 # 自动杀死进程
-kill -9 $(ps aux|grep "nginx-proxy-manager"|grep -v grep|awk '{print $2}')
+kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 ```
 
 ### 截图预览

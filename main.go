@@ -11,16 +11,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"nginx-proxy-manager/app/config"
-	"nginx-proxy-manager/app/middlewares"
-	"nginx-proxy-manager/app/models"
-	"nginx-proxy-manager/app/routes"
-	"nginx-proxy-manager/app/services"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"syscall"
 	"time"
+	"uranus/app/config"
+	"uranus/app/middlewares"
+	"uranus/app/models"
+	"uranus/app/routes"
+	"uranus/app/services"
+	"uranus/app/tools"
 )
 
 //go:embed views
@@ -30,7 +32,7 @@ var templates embed.FS
 var staticFS embed.FS
 
 func init() {
-	file := "./app.log"
+	file := path.Join(tools.GetPWD(), "app.log")
 	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 	if err != nil {
 		panic(err)
@@ -68,11 +70,7 @@ func initRouter() *gin.Engine {
 }
 
 func Graceful() {
-	pwd, _ := os.Getwd()
-	if pwd == "/" {
-		pwd = "/etc/nginx-proxy-manager"
-	}
-	var pidFile = pwd + "/nginx-proxy-manager.pid"
+	var pidFile = path.Join(tools.GetPWD(), "/uranus.pid")
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})

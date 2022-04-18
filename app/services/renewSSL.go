@@ -6,9 +6,9 @@ import (
 	"github.com/robfig/cron/v3"
 	"log"
 	"net/http"
-	"nginx-proxy-manager/app/models"
 	"strings"
 	"time"
+	"uranus/app/models"
 )
 
 func GetCertificateInfo(domain string) *x509.Certificate {

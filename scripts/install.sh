@@ -1,8 +1,8 @@
 #!/bin/bash
 export GIN_MODE=release
-APP_NAME=nginx-proxy-manager
+APP_NAME=uranus
 ServicePath="/etc/systemd/system/${APP_NAME}.service"
-INSTALL_PATH="/etc/nginx-proxy-manager"
+INSTALL_PATH="/etc/uranus"
 
 FontGreen="\033[32m"
 FontRed="\033[31m"
@@ -12,14 +12,14 @@ FontSuffix="\033[0m"
 install_service() {
   cat >"$ServicePath" <<EOF
 [Unit]
-Description=Nginx proxy manager
+Description=Uranus - A Nginx manager UI
 After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=/etc/nginx-proxy-manager/nginx-proxy-manager
+ExecStart=/etc/uranus/uranus
 ExecReload=/bin/kill -HUP '$MAINPID'
-PIDFile=/etc/nginx-proxy-manager/nginx-proxy-manager.pid
+PIDFile=/etc/uranus/uranus.pid
 Environment="GIN_MODE=release"
 [Install]
 WantedBy=multi-user.target
@@ -72,7 +72,7 @@ main() {
   fi
 
   cd ${INSTALL_PATH}
-  wget https://fr.qfdk.me/nginx-proxy-manager
+  wget https://fr.qfdk.me/uranus
   chmod +x $APP_NAME
 
   install_service
