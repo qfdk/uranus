@@ -32,15 +32,21 @@ var templates embed.FS
 var staticFS embed.FS
 
 func init() {
-	file := path.Join(tools.GetPWD(), "logs", "app.log")
-	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
-	if err != nil {
-		panic(err)
+	// 生产模式写入日志
+	if gin.Mode() == gin.ReleaseMode {
+		if _, err := os.Stat(path.Join(tools.GetPWD(), "logs")); os.IsNotExist(err) {
+			os.MkdirAll(path.Join(tools.GetPWD(), "logs"), 0755)
+		}
+		file := path.Join(tools.GetPWD(), "logs", "app.log")
+		logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+		if err != nil {
+			panic(err)
+		}
+		wrt := io.MultiWriter(os.Stdout, logFile)
+		log.SetOutput(wrt)
+		log.SetPrefix("[Uranus]>> ")
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
-	wrt := io.MultiWriter(os.Stdout, logFile)
-	log.SetOutput(wrt)
-	log.SetPrefix("[Uranus]>> ")
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	return
 }
 
@@ -70,7 +76,7 @@ func initRouter() *gin.Engine {
 }
 
 func Graceful() {
-	var pidFile = path.Join(tools.GetPWD(), "/uranus.pid")
+	var pidFile = path.Join(tools.GetPWD(), "uranus.pid")
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})

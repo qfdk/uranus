@@ -153,3 +153,4 @@ tmp/
 /uranus.pid
 /app.log
 dist/
+logs/
