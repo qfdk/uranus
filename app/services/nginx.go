@@ -24,11 +24,12 @@ func NginxStatus() string {
 
 func StartNginx() string {
 	log.Printf("[PID][%d]: [Nginx] 启动", syscall.Getpid())
-	_, err := exec.Command("systemctl", "start", "nginx").CombinedOutput()
+	out, err := exec.Command("systemctl", "start", "nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		result = err.Error()
 		log.Println(result)
+		log.Println(out)
 	}
 	return result
 }
