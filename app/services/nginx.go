@@ -23,7 +23,7 @@ func NginxStatus() string {
 
 func StartNginx() string {
 	log.Printf("[PID][%d]: [Nginx] 启动", syscall.Getpid())
-	_, err := exec.Command("nginx").CombinedOutput()
+	_, err := exec.Command("systemctl", "start", "nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		result = err.Error()
@@ -36,7 +36,7 @@ func ReloadNginx() string {
 	log.Println("[Nginx] 重载配置文件")
 	var result = "OK"
 	if NginxStatus() != "KO" {
-		out, err := exec.Command("nginx", "-s", "reload").CombinedOutput()
+		out, err := exec.Command("systemctl", "reload", "nginx").CombinedOutput()
 		if err != nil {
 			log.Println("[Nginx] 重载配置出现错误")
 			result = string(out)
@@ -49,7 +49,7 @@ func ReloadNginx() string {
 
 func StopNginx() string {
 	log.Printf("[PID][%d]: [Nginx] 停止", syscall.Getpid())
-	_, err := exec.Command("nginx", "-s", "stop").CombinedOutput()
+	_, err := exec.Command("systemctl", "stop", "nginx").CombinedOutput()
 	var result = "OK"
 	if err != nil {
 		log.Println("[Nginx] 停止出现错误")
