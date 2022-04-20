@@ -15,7 +15,8 @@ func NginxStatus() string {
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
 	var result = string(out)
 	if err != nil {
-		//log.Println("PID 找不到")
+		log.Println("PID 找不到")
+		log.Println(err)
 		result = "KO"
 	}
 	return result
