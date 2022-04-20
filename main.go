@@ -44,7 +44,6 @@ func init() {
 		}
 		wrt := io.MultiWriter(os.Stdout, logFile)
 		log.SetOutput(wrt)
-		log.SetPrefix("[Uranus]>> ")
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
 	return
