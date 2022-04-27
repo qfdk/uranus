@@ -133,7 +133,7 @@
                         <th scope="row"></th>
                         <td>
                             <button id="upgrade" class="button is-info is-pulled-right">
-                                <i class="fa fa-arrow-circle-up" aria-hidden="true"></i><i class="fa fa-spinner fa-spin"
+                                <i id="upgrade_icon" class="fa fa-arrow-circle-up" aria-hidden="true"></i><i class="fa fa-spinner fa-spin"
                                                                                            style="display: none"
                                                                                            aria-hidden="true"></i>&nbsp;升级
                             </button>
@@ -187,6 +187,7 @@
         $("#upgrade").click(() => {
             $("#upgrade").attr("disabled", true);
             $('.fa-spinner').show();
+            $('#upgrade_icon').hide();
             $.get('/upgrade', (data) => {
                 $("#upgrade-message").hide();
                 const {buildTime, buildVersion, gitCommit} = data;
@@ -194,6 +195,7 @@
                 $("#buildVersion").html(buildVersion);
                 $("#commitID").html(gitCommit);
                 $('.fa-spinner').hide();
+                $('#upgrade_icon').show();
                 $("#upgrade-ok").show();
                 setTimeout(() => {
                     location.reload();
