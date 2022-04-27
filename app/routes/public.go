@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -18,7 +17,6 @@ func publicRoute(engine *gin.Engine) {
 	engine.GET("/", func(context *gin.Context) {
 		session := sessions.Default(context)
 		if session.Get("login") == true {
-			fmt.Println("已经登录了")
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
 			context.Abort()
 		} else {
@@ -42,10 +40,8 @@ func publicRoute(engine *gin.Engine) {
 		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
 			session.Set("login", true)
 			session.Save()
-			fmt.Println("登录成功")
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
 		} else {
-			fmt.Println("登录失败")
 			context.Redirect(http.StatusMovedPermanently, "/")
 		}
 		context.Abort()

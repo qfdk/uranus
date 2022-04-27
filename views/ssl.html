@@ -47,14 +47,18 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
     $("#renew").on('click', (e) => {
+        e.preventDefault();
         const ele = $(e.target);
         const configName = ele.data('config');
         $('.fa-random').hide();
         $('.fa-spinner').show();
         $.get(`/admin/ssl/renew?configName=${configName}`).then(response => {
+            $('.fa-spinner').hide();
+            $('.fa-random').show();
             if (response.message === "OK") {
-                $('.fa-spinner').hide();
-                $('.fa-random').show();
+                alert("续签成功");
+            } else {
+                alert(response.message);
             }
         });
     });

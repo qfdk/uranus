@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -12,7 +11,6 @@ import (
 func auth(context *gin.Context) {
 	session := sessions.Default(context)
 	if session.Get("login") == true {
-		fmt.Println("中间件,已经登录了")
 		context.Next()
 	} else {
 		context.Redirect(http.StatusMovedPermanently, "/")
