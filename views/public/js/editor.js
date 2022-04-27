@@ -133,7 +133,7 @@ require.config({
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
 
-const processResponse = (data, redirect = "/sites", successMessage) => {
+const processResponse = (data, redirect = "/admin/sites", successMessage) => {
     if (data.message === 'OK') {
         if (redirect) {
             window.location = redirect;
@@ -195,7 +195,7 @@ $('#saveSitesConf').click(() => {
 });
 
 $('#saveNginxConf').click(() => {
-    $.post('/nginx/save', {
+    $.post('/admin/nginx/save', {
         action: "saveConfig",
         name: $("#filename").val(),
         content: editor.getValue()

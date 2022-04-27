@@ -186,7 +186,6 @@
         });
         $("#upgrade").click(() => {
             $("#upgrade").attr("disabled", true);
-            $('.fa-arrow-circle-up').hide();
             $('.fa-spinner').show();
             $.get('/upgrade', (data) => {
                 $("#upgrade-message").hide();
@@ -194,7 +193,6 @@
                 $("#buildTime").html(buildTime);
                 $("#buildVersion").html(buildVersion);
                 $("#commitID").html(gitCommit);
-                $('.fa-arrow-circle-up').show();
                 $('.fa-spinner').hide();
                 $("#upgrade-ok").show();
                 setTimeout(() => {
