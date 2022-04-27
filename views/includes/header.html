@@ -35,10 +35,20 @@
 
     <div class="navbar-menu" id="navbarBasicExample">
         <div class="navbar-start">
-            <a class="navbar-item" href="/">服务器状态</a>
-            <a class="navbar-item" href="/nginx/config-info">配置</a>
-            <a class="navbar-item" href="/sites">网站管理</a>
-            <a class="navbar-item" href="/ssl">SSL证书管理</a>
+            <a class="navbar-item" href="/admin/dashboard">服务器状态</a>
+            <a class="navbar-item" href="/admin/nginx/config-info">配置</a>
+            <a class="navbar-item" href="/admin/sites">网站管理</a>
+            <a class="navbar-item" href="/admin/ssl">SSL证书管理</a>
+        </div>
+        <div class="navbar-end">
+            <div class="navbar-item">
+                <div class="buttons">
+                    <a class="button is-danger is-small" href="/logout">
+                        <strong><i class="fa fa-sign-out" aria-hidden="true"></i>
+                             退出</strong>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </nav>

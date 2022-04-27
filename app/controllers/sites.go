@@ -96,7 +96,7 @@ func DeleteSiteConf(ctx *gin.Context) {
 		log.Println(err)
 	}
 	services.ReloadNginx()
-	ctx.Redirect(http.StatusFound, "/sites")
+	ctx.Redirect(http.StatusFound, "/admin/sites")
 }
 
 func SaveSiteConf(ctx *gin.Context) {

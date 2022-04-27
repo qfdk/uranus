@@ -5,7 +5,7 @@ import (
 	"uranus/app/controllers"
 )
 
-func sitesRoute(engine *gin.Engine) {
+func sitesRoute(engine *gin.RouterGroup) {
 	engine.GET("/sites", controllers.GetSites)
 	engine.GET("/sites/new", controllers.NewSite)
 	engine.GET("/sites/template", controllers.GetTemplate)

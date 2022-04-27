@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"syscall"
 	"uranus/app/tools"
 )
 
@@ -63,7 +62,7 @@ func InitAppConfig() {
 	loadConfig()
 	viper.WatchConfig()
 	viper.OnConfigChange(func(in fsnotify.Event) {
-		log.Println("[+] 配置文件更新了")
-		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+		log.Println("[+] 配置文件更新了:", in.Name)
+		loadConfig()
 	})
 }

@@ -52,5 +52,5 @@ func DeleteSSL(ctx *gin.Context) {
 	cert := models.GetCertByFilename(configName)
 	models.GetDbClient().Model(&cert).Select("not_after").Updates(map[string]interface{}{"not_after": gorm.Expr("NULL")})
 	os.RemoveAll(filepath.Join(config.GetAppConfig().SSLPath, configName))
-	ctx.Redirect(http.StatusFound, "/ssl")
+	ctx.Redirect(http.StatusFound, "/admin/ssl")
 }

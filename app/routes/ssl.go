@@ -5,7 +5,7 @@ import (
 	"uranus/app/controllers"
 )
 
-func sslRoute(engine *gin.Engine) {
+func sslRoute(engine *gin.RouterGroup) {
 	engine.GET("/ssl", controllers.Certificates)
 	engine.GET("/ssl/renew", controllers.IssueCert)
 	engine.GET("/ssl/info", controllers.CertInfo)

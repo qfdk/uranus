@@ -5,7 +5,7 @@ import (
 	"uranus/app/controllers"
 )
 
-func nginxRoute(engine *gin.Engine) {
+func nginxRoute(engine *gin.RouterGroup) {
 	engine.POST("/nginx", controllers.Nginx)
 	engine.POST("/nginx/save", controllers.SaveNginxConf)
 	engine.GET("/nginx/config", controllers.GetNginxConf)

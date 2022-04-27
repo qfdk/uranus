@@ -25,7 +25,7 @@
 
 <div class="block">
     <div class="buttons">
-        <form action="/nginx" method="post">
+        <form action="/admin/nginx" method="post">
             <button type="submit" name="action" value="start" class="button is-info" {{ if ne .nginxStatus
             "KO" }}disabled{{end}} >
             <i class="fa fa-play" aria-hidden="true"></i>&nbsp;开始服务</button>
@@ -36,7 +36,7 @@
             <button type="submit" name="action" value="stop" class="button is-danger is-outlined" {{ if eq .nginxStatus
             "KO" }}disabled{{end}}>
             <i class="fa fa-stop" aria-hidden="true"></i>&nbsp;停止服务</button>
-            <a type="link" href="/nginx/config" class="button is-dark">
+            <a type="link" href="/admin/nginx/config" class="button is-dark">
                 <i class="fa fa-wrench" aria-hidden="true"></i>&nbsp;Nginx配置文件</a>
             <button type="button" id="openUpgradeModal" class="button is-info">
                 <i class="fa fa-arrow-circle-up" aria-hidden="true"></i>&nbsp;升级

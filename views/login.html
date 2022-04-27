@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          name="viewport">
+    <link href="/public/icon/favicon.ico" rel="shortcut icon">
+    <link href="/public/icon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
+    <link href="/public/icon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <title>Οὐρανός - A web UI for nginx</title>
+</head>
+<body>
+<section class="hero is-info is-fullheight" style="background-color: #f5f5f5;">
+    <div class="hero-body">
+        <div class="container">
+            <div class="columns is-centered">
+                <div class="column is-5-tablet is-4-desktop is-3-widescreen">
+                    <div class="box" style="background-color: #2196f359;">
+                        <h4 class="title is-4" style="text-align: center;color: black;">Οὐρανός 后台管理</h4>
+                    </div>
+                    <form action="/login" method="post" class="box">
+                        <div class="field">
+                            <label for="username" class="label">用户名:</label>
+                            <div class="control has-icons-left">
+                                <input type="text" name="username" id="username" class="input" required>
+                                <span class="icon is-small is-left">
+                                  <i class="fa fa-user"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="password" class="label">密码:</label>
+                            <div class="control has-icons-left">
+                                <input type="password" id="password" name="password" placeholder="*******" class="input"
+                                       required>
+                                <span class="icon is-small is-left">
+                                  <i class="fa fa-lock"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <button class="button is-success">
+                                登录
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+</body>
+</html>

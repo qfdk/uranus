@@ -154,12 +154,12 @@ $('#enableSSL').click(() => {
     const domains = $("#domains").val().split(",");
     const configName = $("#filename").val();
     const proxy = $("#proxy").val();
-    $.get('/ssl/renew', {domains, configName}, (data) => {
+    $.get('/admin/ssl/renew', {domains, configName}, (data) => {
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
         $('#enableSSL').text("Let's Encrypt");
         $('#enableSSL').removeClass("is-loading");
         if (data.message === 'OK') {
-            $.get('/sites/template', {domains, ssl: true, proxy, configName}, (data) => {
+            $.get('/admin/sites/template', {domains, ssl: true, proxy, configName}, (data) => {
                 editor.getModel().setValue(data.content);
             });
         }
@@ -169,7 +169,7 @@ $('#enableSSL').click(() => {
 $('#getTemplate').click(() => {
     const domains = $("#domains").val() ? $("#domains").val().split(",") : ["localhost"];
     const proxy = $("#proxy").val() ? $("#proxy").val() : "http://localhost";
-    $.get('/sites/template', {domains, proxy}, (data) => {
+    $.get('/admin/sites/template', {domains, proxy}, (data) => {
         editor.getModel().setValue(data.content);
     });
 });
@@ -189,7 +189,7 @@ $('#saveSitesConf').click(() => {
         }
     }
 
-    $.post('/sites/save', json, (data) => {
+    $.post('/admin/sites/save', json, (data) => {
         processResponse(data);
     });
 });
