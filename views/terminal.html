@@ -1,16 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Cloudshell</title>
-    <!--    <link rel="stylesheet" href="/assets/xterm/css/xterm.css"/>-->
+    <title>Οὐρανός - Terminal</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.18.0/css/xterm.min.css">
-    <!--    <script src="/assets/xterm/lib/xterm.js"></script>-->
-    <!--    <script src="/assets/xterm-addon-attach/lib/xterm-addon-attach.js"></script>-->
-    <!--    <script src="/assets/xterm-addon-fit/lib/xterm-addon-fit.js"></script>-->
-    <!--    <script src="/assets/xterm-addon-serialize/lib/xterm-addon-serialize.js"></script>-->
-    <!--    <script src="/assets/xterm-addon-unicode11/lib/xterm-addon-unicode11.js"></script>-->
-    <!--    <script src="/assets/xterm-addon-web-links/lib/xterm-addon-web-links.js"></script>-->
     <script src="https://cdn.jsdelivr.net/npm/xterm@4.18.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-attach@0.6.0/lib/xterm-addon-attach.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
@@ -50,13 +42,16 @@
             margin: 0;
             padding: 0;
         }
+
+        .terminal.xterm {
+            padding: 8px;
+        }
     </style>
 </head>
 
 <body>
 <div id="terminal"></div>
 <script src="/public/js/terminal.js"></script>
-
 </body>
 
 </html>
