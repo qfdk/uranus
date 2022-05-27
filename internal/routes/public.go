@@ -69,7 +69,7 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.GET("/upgrade", func(context *gin.Context) {
-		resp, err := http.Get("https://last.qfdk.me/version")
+		resp, err := http.Get("https://misaka.qfdk.me/version")
 		if err != nil {
 			// handle err
 		}
