@@ -5,11 +5,18 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"io/ioutil"
 	"net/http"
 	"runtime"
-	config2 "uranus/internal/config"
+	"uranus/internal/config"
 	"uranus/internal/services"
 )
+
+type VersionResponse struct {
+	ID        string `json:"_id"`
+	GitCommit string `json:"gitCommit"`
+	V         int    `json:"__v"`
+}
 
 func publicRoute(engine *gin.Engine) {
 
@@ -37,7 +44,7 @@ func publicRoute(engine *gin.Engine) {
 		session := sessions.Default(context)
 		username, _ := context.GetPostForm("username")
 		password, _ := context.GetPostForm("password")
-		if username == config2.GetAppConfig().Username && password == config2.GetAppConfig().Password {
+		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
 			session.Set("login", true)
 			session.Save()
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
@@ -49,23 +56,34 @@ func publicRoute(engine *gin.Engine) {
 
 	engine.GET("/info", func(context *gin.Context) {
 		context.JSON(200, gin.H{
-			"buildName":    config2.BuildName,
-			"buildTime":    config2.BuildTime,
-			"buildVersion": config2.BuildVersion,
-			"gitCommit":    config2.CommitID,
+			"buildName":    config.BuildName,
+			"buildTime":    config.BuildTime,
+			"buildVersion": config.BuildVersion,
+			"gitCommit":    config.CommitID,
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
-			"uid":          config2.GetAppConfig().Uid,
+			"uid":          config.GetAppConfig().Uid,
 		})
 	})
 
 	engine.GET("/upgrade", func(context *gin.Context) {
-		services.ToUpdateProgram("https://fr.qfdk.me/uranus")
+		resp, err := http.Get("https://last.qfdk.me/version")
+		if err != nil {
+			// handle err
+		}
+		defer resp.Body.Close()
+		body, _ := ioutil.ReadAll(resp.Body)
+		var response VersionResponse
+		json.Unmarshal(body, &response)
+		if response.GitCommit != config.CommitID {
+			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
+		}
 		context.JSON(200, gin.H{
 			"status":       "OK",
-			"buildTime":    config2.BuildTime,
-			"gitCommit":    config2.CommitID,
-			"buildVersion": config2.BuildVersion})
+			"buildTime":    config.BuildTime,
+			"gitCommit":    config.CommitID,
+			"buildVersion": config.BuildVersion,
+		})
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {
