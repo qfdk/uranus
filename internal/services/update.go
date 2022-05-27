@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	"uranus/app/config"
+	"uranus/internal/config"
 )
 
 var projectName = "uranus"

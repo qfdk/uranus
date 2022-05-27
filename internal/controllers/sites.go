@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	. "uranus/app/config"
-	"uranus/app/models"
-	"uranus/app/services"
+	. "uranus/internal/config"
+	models2 "uranus/internal/models"
+	"uranus/internal/services"
 )
 
 //go:embed template/http.conf
@@ -61,7 +61,7 @@ func EditSiteConf(ctx *gin.Context) {
 	configName := strings.Split(filename, ".conf")[0]
 	content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
 	if filename != "default" {
-		cert := models.GetCertByFilename(configName)
+		cert := models2.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
 			gin.H{
 				"configFileName": configName,
@@ -90,7 +90,7 @@ func DeleteSiteConf(ctx *gin.Context) {
 	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
 	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
 	// 数据库删除
-	cert := models.GetCertByFilename(configName)
+	cert := models2.GetCertByFilename(configName)
 	err := cert.Remove()
 	if err != nil {
 		log.Println(err)
@@ -105,12 +105,12 @@ func SaveSiteConf(ctx *gin.Context) {
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
 
-	cert := models.GetCertByFilename(fileName)
+	cert := models2.GetCertByFilename(fileName)
 	cert.Content = content
 	cert.Domains = strings.Join(domains, ",")
 	cert.FileName = fileName
 	cert.Proxy = proxy
-	models.GetDbClient().Save(&cert)
+	models2.GetDbClient().Save(&cert)
 
 	if fileName != "default" {
 		fileName = fileName + ".conf"

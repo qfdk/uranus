@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/creack/pty"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
-	"uranus/app/internal/log"
-
-	"github.com/creack/pty"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	"uranus/pkg/log"
 )
 
 const DefaultConnectionErrorLimit = 10
@@ -90,8 +89,6 @@ func GetHandler(opts HandlerOpts) func(ctx *gin.Context) {
 			return
 		}
 
-		//tty.Write([]byte("PS1=\"\\[\\033[01;31m\\]\\u\\[\\033[01;33m\\]@\\[\\033[01;36m\\]\\h \\[\\033[01;33m\\]\\w \\[\\033[01;35m\\]\\$ \\[\\033[00m\\]\"\n"))
-		//tty.Write([]byte("alias ls='ls --color'\n"))
 		defer func() {
 			clog.Info("gracefully stopping spawned tty...")
 			if err := cmd.Process.Kill(); err != nil {

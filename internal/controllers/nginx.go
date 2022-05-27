@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"uranus/app/config"
-	"uranus/app/services"
+	"uranus/internal/config"
+	"uranus/internal/services"
 )
 
 func Nginx(ctx *gin.Context) {

@@ -17,18 +17,18 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	"uranus/app/config"
-	"uranus/app/middlewares"
-	"uranus/app/models"
-	"uranus/app/routes"
-	"uranus/app/services"
-	"uranus/app/tools"
+	config2 "uranus/internal/config"
+	"uranus/internal/middlewares"
+	"uranus/internal/models"
+	"uranus/internal/routes"
+	"uranus/internal/services"
+	"uranus/internal/tools"
 )
 
-//go:embed views
+//go:embed web
 var templates embed.FS
 
-//go:embed views/public
+//go:embed web/public
 var staticFS embed.FS
 
 func init() {
@@ -50,7 +50,7 @@ func init() {
 }
 
 func mustFS() http.FileSystem {
-	sub, err := fs.Sub(staticFS, "views/public")
+	sub, err := fs.Sub(staticFS, "web/public")
 	if err != nil {
 		panic(err)
 	}
@@ -59,14 +59,14 @@ func mustFS() http.FileSystem {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
-	template, _ := template.ParseFS(templates, "views/includes/*.html", "views/*.html")
+	template, _ := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
 	app.SetHTMLTemplate(template)
 	// 缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 	// 静态文件路由
 	app.StaticFS("/public", mustFS())
 	app.GET("/favicon.ico", func(c *gin.Context) {
-		file, _ := staticFS.ReadFile("views/public/icon/favicon.ico")
+		file, _ := staticFS.ReadFile("web/public/icon/favicon.ico")
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
 	app.SetTrustedProxies([]string{"127.0.0.1"})
@@ -150,10 +150,10 @@ func Graceful() {
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
-		config.DisplayVersion()
+		config2.DisplayVersion()
 	}
 	// 初始化配置文件
-	config.InitAppConfig()
+	config2.InitAppConfig()
 	// 初始化 SQLite 数据库
 	models.Init()
 	// 初始化 自动签名

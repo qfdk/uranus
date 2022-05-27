@@ -3,7 +3,7 @@ BUILD_TIME:=$(shell date "+%F %T")
 BUILD_NAME:=uranus
 COMMIT_SHA1:=$(shell git rev-parse HEAD )
 GoVersion:=$(shell go version)
-CONFIG_PATH=uranus/app/config
+CONFIG_PATH=uranus/internal/config
 
 LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
 -X ${CONFIG_PATH}.CommitID=${COMMIT_SHA1} \

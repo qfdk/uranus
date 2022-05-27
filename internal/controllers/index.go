@@ -9,8 +9,8 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
-	"uranus/app/config"
-	"uranus/app/services"
+	config2 "uranus/internal/config"
+	"uranus/internal/services"
 )
 
 func Index(ctx *gin.Context) {
@@ -40,9 +40,9 @@ func Index(ctx *gin.Context) {
 			"memInfo":            humanize.Bytes(memInfo.Total),
 			"nginxStatus":        services.NginxStatus(),
 			"nginxActionMessage": string(actionMessageDec),
-			"nginxCompileInfo":   config.ReadNginxCompileInfo(),
-			"buildTime":          config.BuildTime,
-			"buildVersion":       config.BuildVersion,
-			"commitID":           config.CommitID,
+			"nginxCompileInfo":   config2.ReadNginxCompileInfo(),
+			"buildTime":          config2.BuildTime,
+			"buildVersion":       config2.BuildVersion,
+			"commitID":           config2.CommitID,
 		})
 }

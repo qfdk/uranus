@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
-	"uranus/app/tools"
+	"uranus/internal/tools"
 )
 
 type AppConfig struct {

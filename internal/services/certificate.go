@@ -17,8 +17,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	. "uranus/app/config"
-	"uranus/app/models"
+	. "uranus/internal/config"
+	models2 "uranus/internal/models"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -106,9 +106,9 @@ func IssueCert(domains []string, configName string) error {
 		[]byte(strings.Join(domains, ",")), 0644)
 	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
 
-	cert := models.GetCertByFilename(configName)
+	cert := models2.GetCertByFilename(configName)
 	cert.NotAfter = pCert.NotAfter
-	models.GetDbClient().Save(cert)
+	models2.GetDbClient().Save(cert)
 
 	log.Printf("[+] SSL任务完成, 证书到期时间 : %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
 	return nil

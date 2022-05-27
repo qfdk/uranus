@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/viper"
 	"net/http"
 	"runtime"
-	"uranus/app/config"
-	"uranus/app/services"
+	config2 "uranus/internal/config"
+	"uranus/internal/services"
 )
 
 func publicRoute(engine *gin.Engine) {
@@ -37,7 +37,7 @@ func publicRoute(engine *gin.Engine) {
 		session := sessions.Default(context)
 		username, _ := context.GetPostForm("username")
 		password, _ := context.GetPostForm("password")
-		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
+		if username == config2.GetAppConfig().Username && password == config2.GetAppConfig().Password {
 			session.Set("login", true)
 			session.Save()
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
@@ -49,13 +49,13 @@ func publicRoute(engine *gin.Engine) {
 
 	engine.GET("/info", func(context *gin.Context) {
 		context.JSON(200, gin.H{
-			"buildName":    config.BuildName,
-			"buildTime":    config.BuildTime,
-			"buildVersion": config.BuildVersion,
-			"gitCommit":    config.CommitID,
+			"buildName":    config2.BuildName,
+			"buildTime":    config2.BuildTime,
+			"buildVersion": config2.BuildVersion,
+			"gitCommit":    config2.CommitID,
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
-			"uid":          config.GetAppConfig().Uid,
+			"uid":          config2.GetAppConfig().Uid,
 		})
 	})
 
@@ -63,9 +63,9 @@ func publicRoute(engine *gin.Engine) {
 		services.ToUpdateProgram("https://fr.qfdk.me/uranus")
 		context.JSON(200, gin.H{
 			"status":       "OK",
-			"buildTime":    config.BuildTime,
-			"gitCommit":    config.CommitID,
-			"buildVersion": config.BuildVersion})
+			"buildTime":    config2.BuildTime,
+			"gitCommit":    config2.CommitID,
+			"buildVersion": config2.BuildVersion})
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {

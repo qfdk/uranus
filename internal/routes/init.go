@@ -5,7 +5,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"uranus/app/controllers"
+	"uranus/internal/controllers"
 )
 
 func auth(context *gin.Context) {

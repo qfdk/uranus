@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"uranus/app/models"
+	"uranus/internal/models"
 )
 
 func GetCertificateInfo(domain string) *x509.Certificate {

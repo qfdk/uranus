@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"path"
-	"uranus/app/config"
+	"uranus/internal/config"
 )
 
 var db *gorm.DB

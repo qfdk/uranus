@@ -111,6 +111,5 @@ func Init(
 		DisableSorting:   false,
 		FullTimestamp:    true,
 		QuoteEmptyFields: true,
-		//ForceQuote:       true,
 	})
 }

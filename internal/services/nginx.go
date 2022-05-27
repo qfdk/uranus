@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"syscall"
-	"uranus/app/config"
+	"uranus/internal/config"
 )
 
 var sysType = runtime.GOOS

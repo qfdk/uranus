@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"uranus/app/controllers"
-	"uranus/app/pkg/xtermjs"
+	"uranus/internal/controllers"
+	"uranus/pkg/xtermjs"
 )
 
 func terminalRoute(engine *gin.RouterGroup) {

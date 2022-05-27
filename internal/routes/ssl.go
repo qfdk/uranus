@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"uranus/app/controllers"
+	"uranus/internal/controllers"
 )
 
 func sslRoute(engine *gin.RouterGroup) {
