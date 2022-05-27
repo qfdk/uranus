@@ -13,9 +13,11 @@ import (
 )
 
 type VersionResponse struct {
-	ID        string `json:"_id"`
-	GitCommit string `json:"gitCommit"`
-	V         int    `json:"__v"`
+	ID           string `json:"_id"`
+	CommitID     string `json:"commitId"`
+	V            int    `json:"__v"`
+	BuildTime    string `json:"buildTime"`
+	BuildVersion string `json:"buildVersion"`
 }
 
 func publicRoute(engine *gin.Engine) {
@@ -59,7 +61,7 @@ func publicRoute(engine *gin.Engine) {
 			"buildName":    config.BuildName,
 			"buildTime":    config.BuildTime,
 			"buildVersion": config.BuildVersion,
-			"gitCommit":    config.CommitID,
+			"commitId":     config.CommitID,
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
 			"uid":          config.GetAppConfig().Uid,
@@ -75,15 +77,22 @@ func publicRoute(engine *gin.Engine) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
 		json.Unmarshal(body, &response)
-		if response.GitCommit != config.CommitID {
+		if response.CommitID != config.CommitID {
 			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
+			context.JSON(200, gin.H{
+				"status":       "OK",
+				"buildTime":    response.BuildTime,
+				"commitId":     response.CommitID,
+				"buildVersion": response.BuildVersion,
+			})
+		} else {
+			context.JSON(200, gin.H{
+				"status":       "KO",
+				"buildTime":    config.BuildTime,
+				"commitId":     config.CommitID,
+				"buildVersion": config.BuildVersion,
+			})
 		}
-		context.JSON(200, gin.H{
-			"status":       "OK",
-			"buildTime":    config.BuildTime,
-			"gitCommit":    config.CommitID,
-			"buildVersion": config.BuildVersion,
-		})
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {

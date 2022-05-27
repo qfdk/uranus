@@ -133,9 +133,10 @@
                         <th scope="row"></th>
                         <td>
                             <button id="upgrade" class="button is-info is-pulled-right">
-                                <i id="upgrade_icon" class="fa fa-arrow-circle-up" aria-hidden="true"></i><i class="fa fa-spinner fa-spin"
-                                                                                           style="display: none"
-                                                                                           aria-hidden="true"></i>&nbsp;升级
+                                <i id="upgrade_icon" class="fa fa-arrow-circle-up" aria-hidden="true"></i><i
+                                    class="fa fa-spinner fa-spin"
+                                    style="display: none"
+                                    aria-hidden="true"></i>&nbsp;升级
                             </button>
                         </td>
                     </tr>
@@ -143,9 +144,10 @@
                 </table>
             </div>
         </article>
-        <article class="message is-success" id="upgrade-ok" style="display: none;">
+        <article class="message is-success" id="upgradeFinish" style="display: none;">
             <div class="message-header">
-                升级完成, 5s 后刷新页面...
+                <span id="upgradeFinish-OK" style="display: none">升级完成, 5s 后刷新页面...</span>
+                <span id="upgradeFinish-KO" style="display: none">已经是最新版本, 不需要升级</span>
                 <button class="delete" aria-label="close"></button>
             </div>
             <div class="table-container">
@@ -189,17 +191,22 @@
             $('.fa-spinner').show();
             $('#upgrade_icon').hide();
             $.get('/upgrade', (data) => {
+                const {status, buildTime, buildVersion, commitId} = data;
                 $("#upgrade-message").hide();
-                const {buildTime, buildVersion, gitCommit} = data;
                 $("#buildTime").html(buildTime);
                 $("#buildVersion").html(buildVersion);
-                $("#commitID").html(gitCommit);
+                $("#commitID").html(commitId);
                 $('.fa-spinner').hide();
+                if (status === 'OK') {
+                    $("#upgradeFinish-OK").show()
+                    setTimeout(() => {
+                        location.reload();
+                    }, 5000);
+                } else {
+                    $("#upgradeFinish-KO").show()
+                }
                 $('#upgrade_icon').show();
-                $("#upgrade-ok").show();
-                setTimeout(() => {
-                    location.reload();
-                }, 5000);
+                $("#upgradeFinish").show();
             });
         });
     });
