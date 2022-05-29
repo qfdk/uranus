@@ -80,9 +80,9 @@ func publicRoute(engine *gin.Engine) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
 		json.Unmarshal(body, &response)
-		fmt.Println("response=====")
+		fmt.Println("=====response=====")
 		fmt.Println(response)
-		fmt.Println("response end=====")
+		fmt.Println("=====response end=====")
 
 		if config.CommitID != response.CommitID {
 			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
