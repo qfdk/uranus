@@ -157,7 +157,7 @@ func GetHandler(opts HandlerOpts) func(ctx *gin.Context) {
 					errorCounter++
 					continue
 				}
-				clog.Tracef("sent message of size %v bytes from tty to xterm.js", readLength)
+				//clog.Tracef("sent message of size %v bytes from tty to xterm.js", readLength)
 				errorCounter = 0
 			}
 		}()
@@ -175,11 +175,11 @@ func GetHandler(opts HandlerOpts) func(ctx *gin.Context) {
 				}
 				dataLength := len(data)
 				dataBuffer := bytes.Trim(data, "\x00")
-				dataType, ok := WebsocketMessageType[messageType]
+				_, ok := WebsocketMessageType[messageType]
 				if !ok {
-					dataType = "uunknown"
+					//dataType = "uunknown"
 				}
-				clog.Infof("received %s (type: %v) message of size %v byte(s) from xterm.js with key sequence: %v", dataType, messageType, dataLength, string(dataBuffer))
+				//clog.Infof("received %s (type: %v) message of size %v byte(s) from xterm.js with key sequence: %v", dataType, messageType, dataLength, string(dataBuffer))
 
 				// process
 				if dataLength == -1 { // invalid
@@ -208,12 +208,12 @@ func GetHandler(opts HandlerOpts) func(ctx *gin.Context) {
 				}
 
 				// write to tty
-				bytesWritten, err := tty.Write(dataBuffer)
+				_, err = tty.Write(dataBuffer)
 				if err != nil {
 					clog.Warn(fmt.Sprintf("failed to write %v bytes to tty: %s", len(dataBuffer), err))
 					continue
 				}
-				clog.Tracef("%v bytes written to tty...", bytesWritten)
+				//clog.Tracef("%v bytes written to tty...", bytesWritten)
 			}
 		}()
 

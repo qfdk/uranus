@@ -1,16 +1,32 @@
 package routes
 
 import (
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
+	"uranus/internal/config"
 	"uranus/internal/controllers"
 )
 
 func auth(context *gin.Context) {
+	var isAuth = false
 	session := sessions.Default(context)
-	if session.Get("login") == true {
+	isAuth = session.Get("login") == true
+
+	if !isAuth {
+		queryUrl := strings.Split(fmt.Sprint(context.Request.URL.String()), "?")[0]
+		// 针对远程路由鉴权
+		if queryUrl == "/admin/xterm.js" {
+			if context.Query("token") == config.GetAppConfig().Token {
+				isAuth = true
+			}
+		}
+	}
+
+	if isAuth {
 		context.Next()
 	} else {
 		context.Redirect(http.StatusMovedPermanently, "/")
