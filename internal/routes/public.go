@@ -2,11 +2,11 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"runtime"
 	"uranus/internal/config"
@@ -70,21 +70,22 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.GET("/upgrade", func(context *gin.Context) {
-		fmt.Println("升级请求 /upgrade")
 		resp, err := http.Get("https://misaka.qfdk.me/version")
 		if err != nil {
 			// handle err
-			fmt.Println(err)
+			log.Println("[-] 升级请求出错")
+			log.Println(err)
+			context.JSON(200, gin.H{
+				"status":       "KO",
+				"buildTime":    "升级出错",
+				"commitId":     "升级出错",
+				"buildVersion": "升级出错",
+			})
 		}
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
-		json.Unmarshal(body, &response)
-		fmt.Println("=====response=====")
-		fmt.Println(response)
-		fmt.Println("=====response end=====")
-
-		if config.CommitID != response.CommitID {
+		if json.Unmarshal(body, &response) == nil && config.CommitID != response.CommitID {
 			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
 			context.JSON(200, gin.H{
 				"status":       "OK",
