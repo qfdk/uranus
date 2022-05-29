@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -69,15 +70,21 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.GET("/upgrade", func(context *gin.Context) {
+		fmt.Println("升级请求 /upgrade")
 		resp, err := http.Get("https://misaka.qfdk.me/version")
 		if err != nil {
 			// handle err
+			fmt.Println(err)
 		}
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
 		json.Unmarshal(body, &response)
-		if response.CommitID != config.CommitID {
+		fmt.Println("response=====")
+		fmt.Println(response)
+		fmt.Println("response end=====")
+
+		if config.CommitID != response.CommitID {
 			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
 			context.JSON(200, gin.H{
 				"status":       "OK",
