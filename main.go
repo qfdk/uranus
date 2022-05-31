@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	config2 "uranus/internal/config"
+	config "uranus/internal/config"
 	"uranus/internal/middlewares"
 	"uranus/internal/models"
 	"uranus/internal/routes"
@@ -150,10 +150,10 @@ func Graceful() {
 func main() {
 	// 线上模式显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
-		config2.DisplayVersion()
+		config.DisplayVersion()
 	}
 	// 初始化配置文件
-	config2.InitAppConfig()
+	config.InitAppConfig()
 	// 初始化 SQLite 数据库
 	models.Init()
 	// 初始化 自动签名

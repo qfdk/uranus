@@ -38,6 +38,7 @@ func loadConfig() {
 	_appConfig = &AppConfig{}
 	viper.Unmarshal(&_appConfig)
 	log.Println("[+] 配置文件载入成功")
+	log.Println("[+] 安装位置: " + _appConfig.InstallPath)
 }
 
 func InitAppConfig() {
