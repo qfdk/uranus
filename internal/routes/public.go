@@ -104,6 +104,7 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {
+		// 是否验证下token
 		data := gin.H{}
 		rawData, err := context.GetRawData()
 		if err != nil {
