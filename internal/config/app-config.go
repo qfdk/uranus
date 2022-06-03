@@ -48,7 +48,7 @@ func loadConfig() {
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 	if _appConfig.UUID == "" {
-		log.Println("[+] 没有UUID，自动生成")
+		log.Println("[-] 没有UUID，自动生成")
 		uuid, _ := uuid.NewUUID()
 		_appConfig.UUID = uuid.String()
 		viper.Set("uuid", _appConfig.UUID)
@@ -60,6 +60,12 @@ func loadConfig() {
 		viper.Set("ip", ip)
 		viper.WriteConfig()
 		log.Println("[+] IP 保存成功")
+	}
+	if _appConfig.ControlCenter == "" {
+		log.Println("[-] 没有 ControlCenter")
+		viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
+		viper.WriteConfig()
+		log.Println("[+] ControlCenter 保存成功")
 	}
 }
 
