@@ -110,11 +110,11 @@ func publicRoute(engine *gin.Engine) {
 		if err != nil {
 			panic(err)
 		}
+		json.Unmarshal(rawData, &data)
 		if data["uuid"] == config.GetAppConfig().UUID {
 			viper.SetConfigName("config")
 			viper.SetConfigType("toml")
 			viper.AddConfigPath(".")
-			json.Unmarshal(rawData, &data)
 			for key, value := range data {
 				viper.Set(key, value)
 			}
