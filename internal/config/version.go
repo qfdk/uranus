@@ -8,7 +8,7 @@ import (
 var (
 	BuildName    = "buildName"
 	BuildVersion = "开发版本"
-	BuildTime    = "现在"
+	BuildTime    = "实时"
 	CommitID     = "未 commit"
 	GoVersion    = "latest"
 )

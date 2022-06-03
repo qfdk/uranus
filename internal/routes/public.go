@@ -65,7 +65,7 @@ func publicRoute(engine *gin.Engine) {
 			"commitId":     config.CommitID,
 			"goVersion":    runtime.Version(),
 			"os":           runtime.GOOS,
-			"uid":          config.GetAppConfig().Uid,
+			"uuid":         config.GetAppConfig().UUID,
 		})
 	})
 
@@ -110,14 +110,18 @@ func publicRoute(engine *gin.Engine) {
 		if err != nil {
 			panic(err)
 		}
-		viper.SetConfigName("config")
-		viper.SetConfigType("toml")
-		viper.AddConfigPath(".")
-		json.Unmarshal(rawData, &data)
-		for key, value := range data {
-			viper.Set(key, value)
+		if data["uuid"] == config.GetAppConfig().UUID {
+			viper.SetConfigName("config")
+			viper.SetConfigType("toml")
+			viper.AddConfigPath(".")
+			json.Unmarshal(rawData, &data)
+			for key, value := range data {
+				viper.Set(key, value)
+			}
+			viper.WriteConfig()
+			context.JSON(200, gin.H{"status": "OK"})
+		} else {
+			context.JSON(200, gin.H{"status": "KO"})
 		}
-		viper.WriteConfig()
-		context.JSON(200, gin.H{"status": "OK"})
 	})
 }
