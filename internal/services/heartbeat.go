@@ -40,7 +40,11 @@ func Heartbeat() {
 			if err != nil {
 				log.Println(err)
 			}
-			defer response.Body.Close()
+			defer func() {
+				if response != nil {
+					response.Body.Close()
+				}
+			}()
 		}()
 	}
 }
