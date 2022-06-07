@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	config "uranus/internal/config"
+	"uranus/internal/config"
 	"uranus/internal/middlewares"
 	"uranus/internal/models"
 	"uranus/internal/routes"
