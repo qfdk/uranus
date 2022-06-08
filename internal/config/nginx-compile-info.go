@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -31,6 +32,7 @@ func initNginxCompileInfo() {
 	if err != nil {
 		log.Printf("获取nginx配置出现错误,%v\n", err)
 		log.Fatalf("[-] nginx 似乎没有安装, " + err.Error())
+		os.Exit(-1)
 	}
 	nginxCompileInfo := string(out)
 	arr := strings.Split(nginxCompileInfo, "\n")
