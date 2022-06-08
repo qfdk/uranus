@@ -1,7 +1,6 @@
-/data.db
-/tmp/
-/uranus
-/config.toml
-/uranus.pid
-/scripts/
-/README.md
+data.db
+tmp/
+uranus
+config.toml
+scripts/
+README.md

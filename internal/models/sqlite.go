@@ -14,6 +14,7 @@ func Init() {
 	log.Println("[+] 初始化 SQLite ...")
 	var err error
 	dataDir := path.Join(config.GetAppConfig().InstallPath, "data.db")
+	log.Println("SQLite 位置 : " + dataDir)
 	db, err = gorm.Open(sqlite.Open(dataDir), &gorm.Config{
 		//Logger:      logger.Default.LogMode(logger.Info),
 		PrepareStmt: true,
