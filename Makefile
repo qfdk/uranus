@@ -16,6 +16,7 @@ LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
 all: clean build
 
 build:
+	echo ${BUILD_TIME}>/tmp/release_time
 	go build ${LDFLAGS} -v .
 release:
 	# build time
@@ -24,21 +25,20 @@ release:
 	go clean
 	rm -rf dist
 	mkdir dist
-	rm -rf *.gz
-	# Build for mac
-#	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -v .
-#	tar czvf ${BUILD_NAME}-darwin-amd64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
-	# Build for mac arm64
-#	go clean
-#	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -v .
-#	tar czvf ${BUILD_NAME}-darwin-arm64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
-	# Build for linux
+
+	# Build for linux amd64
 	go clean
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -v .
-	tar czvf ${BUILD_NAME}-linux64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
-	go clean
-	mv *.gz dist
+	#tar czvf ${BUILD_NAME}-amd64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
+	cp ./${BUILD_NAME} ./dist/${BUILD_NAME}-amd64
 
+	# Build for linux arm64
+	go clean
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -v .
+	#tar czvf ${BUILD_NAME}-arm64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
+	cp ./${BUILD_NAME} ./dist/${BUILD_NAME}-arm64
+
+	go clean
 clean:
 	rm -rf uranus
 	go clean -i .
