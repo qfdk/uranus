@@ -28,13 +28,13 @@ release:
 
 	# Build for linux amd64
 	go clean
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -v .
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -v .
 	#tar czvf ${BUILD_NAME}-amd64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
 	cp ./${BUILD_NAME} ./dist/${BUILD_NAME}-amd64
 
 	# Build for linux arm64
 	go clean
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -v .
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -v .
 	#tar czvf ${BUILD_NAME}-arm64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
 	cp ./${BUILD_NAME} ./dist/${BUILD_NAME}-arm64
 
