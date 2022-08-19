@@ -34,7 +34,7 @@ release:
 
 	# Build for linux arm64
 	go clean
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -v .
+	CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -v .
 	#tar czvf ${BUILD_NAME}-arm64-${BUILD_VERSION}.tar.gz ./${BUILD_NAME}
 	cp ./${BUILD_NAME} ./dist/${BUILD_NAME}-arm64
 
