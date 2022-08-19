@@ -17,8 +17,9 @@ all: clean build
 
 build:
 	go build ${LDFLAGS} -v .
-	echo ${BUILD_TIME}>/tmp/release_time
 release:
+	# build time
+	echo ${BUILD_TIME}>/tmp/release_time
 	# Clean
 	go clean
 	rm -rf dist
