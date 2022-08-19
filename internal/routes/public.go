@@ -86,7 +86,7 @@ func publicRoute(engine *gin.Engine) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
 		if json.Unmarshal(body, &response) == nil && config.CommitID != response.CommitID {
-			services.ToUpdateProgram("https://fr.qfdk.me/uranus")
+			services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
 			context.JSON(200, gin.H{
 				"status":       "OK",
 				"buildTime":    response.BuildTime,

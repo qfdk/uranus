@@ -3,6 +3,7 @@ export GIN_MODE=release
 APP_NAME=uranus
 ServicePath="/etc/systemd/system/${APP_NAME}.service"
 INSTALL_PATH="/etc/uranus"
+PLATFORM=`dpkg --print-architecture`;
 
 FontGreen="\033[32m"
 FontRed="\033[31m"
@@ -72,7 +73,8 @@ main() {
   fi
 
   cd ${INSTALL_PATH}
-  wget https://fr.qfdk.me/uranus
+  wget https://fr.qfdk.me/uranus/uranus-"${PLATFORM}" -O /etc/uranus/uranus
+
   chmod +x $APP_NAME
 
   install_service
