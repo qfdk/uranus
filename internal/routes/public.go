@@ -30,7 +30,7 @@ func publicRoute(engine *gin.Engine) {
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
 			context.Abort()
 		} else {
-			context.HTML(200, "login.html", gin.H{})
+			context.HTML(http.StatusOK, "login.html", gin.H{})
 		}
 	})
 
@@ -40,7 +40,7 @@ func publicRoute(engine *gin.Engine) {
 			session.Delete("login")
 			session.Save()
 		}
-		context.Redirect(http.StatusMovedPermanently, "/")
+		context.Redirect(http.StatusFound, "/")
 	})
 
 	engine.POST("/login", func(context *gin.Context) {
@@ -52,7 +52,7 @@ func publicRoute(engine *gin.Engine) {
 			session.Save()
 			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
 		} else {
-			context.Redirect(http.StatusMovedPermanently, "/")
+			context.Redirect(http.StatusFound, "/")
 		}
 		context.Abort()
 	})
