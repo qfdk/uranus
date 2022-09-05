@@ -28,7 +28,7 @@
                 {{$value.expiredAt}}
             </td>
             <td>
-                <a href="#" id="renew">
+                <a href="#" class="renew">
                         <span class="tag is-info" data-config="{{$value.configName}}">
                             <i class="fa fa-spinner fa-spin" style="display: none" aria-hidden="true"></i>
                             <i class="fa fa-random" aria-hidden="true"></i>&nbsp;续命</span>
@@ -46,7 +46,7 @@
 {{template "footer.html" .}}
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
-    $("#renew").on('click', (e) => {
+    $(".renew").on('click', (e) => {
         e.preventDefault();
         const ele = $(e.target);
         const configName = ele.data('config');
