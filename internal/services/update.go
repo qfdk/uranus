@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -34,10 +35,11 @@ func ToUpdateProgram(url string) {
 		log.Fatal(err)
 	}
 
+	var downloadTarget = projectName + "-" + runtime.GOARCH
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("[INFO] 获取更新: [%s]", projectName)
-		_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, projectName), path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
-		newProjectName := path.Join(config.GetAppConfig().InstallPath, projectName)
+		log.Printf("[INFO] 获取更新: [%s]", downloadTarget)
+		//_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, projectName), path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
+		newProjectName := path.Join(config.GetAppConfig().InstallPath, downloadTarget)
 		log.Printf("[INFO] 下载位置 : %s", newProjectName)
 		downFile, err := os.Create(newProjectName)
 		checkIfError(err)
@@ -63,12 +65,13 @@ func ToUpdateProgram(url string) {
 			err = os.Remove(newProjectName)
 			checkIfError(err)
 		}
+		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", downloadTarget)
 		_ = os.Chmod(newProjectName, os.ModePerm)
-		_ = os.Remove(path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
-		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", projectName)
+		_ = os.Remove(path.Join(config.GetAppConfig().InstallPath, projectName))
+		_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, newProjectName), path.Join(config.GetAppConfig().InstallPath, projectName))
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	} else {
-		log.Printf("[ERROR] [%s]更新失败", projectName)
-		_ = os.Remove(projectName)
+		log.Printf("[ERROR] [%s]更新失败", downloadTarget)
+		_ = os.Remove(downloadTarget)
 	}
 }
