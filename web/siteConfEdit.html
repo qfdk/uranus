@@ -1,10 +1,10 @@
 {{template "header.html" .}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
 {{if not .isNewSite}}
-<h3 class="title">网站配置编辑</h3>
+<h4 class="title is-4">网站配置编辑</h4>
 {{end}}
 {{if .isNewSite}}
-<h3 class="title">新网站配置</h3>
+<h4 class="title is-4">新网站配置</h4>
 {{end}}
 <div class="row">
     <article class="message is-danger" id="alert" style="display: none">

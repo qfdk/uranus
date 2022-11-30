@@ -34,8 +34,6 @@ func Heartbeat() {
 			var response *http.Response
 			if gin.Mode() == gin.ReleaseMode {
 				response, err = http.Post(config.GetAppConfig().ControlCenter, "application/json", bytes.NewReader(bytesData))
-			} else {
-				response, err = http.Post("http://localhost:3000/heartbeat", "application/json", bytes.NewReader(bytesData))
 			}
 			if err != nil {
 				log.Println(err)

@@ -1,6 +1,6 @@
 {{template "header.html" .}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
-<h3 class="title">Nginx 默认配置编辑</h3>
+<h4 class="title is-4">Nginx 默认配置编辑</h4>
 
 <div class="row">
     <article class="message is-danger" id="alert" style="display: none">
@@ -80,8 +80,8 @@
         });
 
         $(window).on("load resize", function () {
-            var ch = $(window).height() - $('#editor').offset().top - 20;
-            $('#editor').css('height', Math.max(200, ch));
+            let ch = $(window).height() - $('#editor').offset().top - 20;
+            $('#editor').css('min-height', Math.max(600, ch) + "px");
         });
     });
 

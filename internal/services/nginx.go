@@ -18,7 +18,7 @@ func NginxStatus() string {
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
 	var result = string(out)
 	if err != nil {
-		log.Printf("[NGINX] 没有启动, %s", out)
+		//log.Printf("[NGINX] 没有启动, %s", out)
 		result = "KO"
 	} else {
 		result = string(out)
