@@ -158,7 +158,7 @@ func main() {
 	models.Init()
 	// 初始化 自动签名
 	go services.RenewSSL()
-	go services.Heartbeat()
+	//go services.Heartbeat()
 	initRouter()
 	Graceful()
 }

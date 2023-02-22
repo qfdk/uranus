@@ -61,12 +61,12 @@ func loadConfig() {
 		viper.WriteConfig()
 		log.Println("[+] IP 保存成功")
 	}
-	if _appConfig.ControlCenter == "" {
-		log.Println("[-] 没有 ControlCenter")
-		viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
-		viper.WriteConfig()
-		log.Println("[+] ControlCenter 保存成功")
-	}
+	//if _appConfig.ControlCenter == "" {
+	//	log.Println("[-] 没有 ControlCenter")
+	//	viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
+	//	viper.WriteConfig()
+	//	log.Println("[+] ControlCenter 保存成功")
+	//}
 }
 
 func InitAppConfig() {
@@ -77,7 +77,7 @@ func InitAppConfig() {
 	viper.AddConfigPath(pwd)
 	if _, err := os.Stat(path.Join(pwd, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
-		viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
+		//viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
 		viper.Set("url", "http://localhost:7777")
 		uuid, _ := uuid.NewUUID()
 		viper.Set("uuid", uuid.String())
