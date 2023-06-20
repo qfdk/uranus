@@ -155,10 +155,9 @@ func main() {
 	// 初始化配置文件
 	config.InitAppConfig()
 	// 初始化 SQLite 数据库
-	models.Init()
+	go models.Init()
 	// 初始化 自动签名
 	go services.RenewSSL()
-	//go services.Heartbeat()
 	initRouter()
 	Graceful()
 }

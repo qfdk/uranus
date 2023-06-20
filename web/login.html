@@ -1,56 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
-          name="viewport">
-    <link href="/public/icon/favicon.ico" rel="shortcut icon">
-    <link href="/public/icon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
-    <link href="/public/icon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
-    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <title>Οὐρανός - A web UI for nginx</title>
+    <title>Οὐρανός 🌋 - A web UI for Nginx</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-<section class="hero is-info is-fullheight" style="background-color: #f5f5f5;">
-    <div class="hero-body">
-        <div class="container">
-            <div class="columns is-centered">
-                <div class="column is-5-tablet is-4-desktop is-3-widescreen">
-                    <div class="box" style="background-color: #2196f359;">
-                        <h4 class="title is-4" style="text-align: center;color: black;">Οὐρανός 后台管理</h4>
-                    </div>
-                    <form action="/login" method="post" class="box">
-                        <div class="field">
-                            <label for="username" class="label">用户名:</label>
-                            <div class="control has-icons-left">
-                                <input type="text" name="username" id="username" class="input" required>
-                                <span class="icon is-small is-left">
-                                  <i class="fa fa-user"></i>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="field">
-                            <label for="password" class="label">密码:</label>
-                            <div class="control has-icons-left">
-                                <input type="password" id="password" name="password" placeholder="*******" class="input"
-                                       required>
-                                <span class="icon is-small is-left">
-                                  <i class="fa fa-lock"></i>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="field">
-                            <button class="button is-success">
-                                登录
-                            </button>
-                        </div>
-                    </form>
-                </div>
+<body class="bg-gray-50 dark:bg-gray-800">
+<div class="h-full sm:min-h-screen w-full flex flex-col items-center justify-center p-4 mt-20 sm:mt-0">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full sm:w-96 mt-10 sm:mt-0">
+        <h1 class="sm:block text-2xl font-bold mb-8">Οὐρανός 🌋</h1>
+        <form action="/login" method="post">
+            <div class="mb-4">
+                <label for="username" class="sm:block text-sm font-medium text-gray-700 mb-2">用户名:</label>
+                <input type="text" name="username" id="username" placeholder="" required
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base p-2 bg-gray-100">
             </div>
-        </div>
+            <div class="mb-6">
+                <label for="password" class="sm:block text-sm font-medium text-gray-700 mb-2">密码:</label>
+                <input type="password" name="password" id="password" placeholder="" required
+                       class="block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base p-2 bg-gray-100">
+            </div>
+            <button type="submit"
+                    class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Login
+            </button>
+        </form>
     </div>
-</section>
-
+</div>
 </body>
 </html>
