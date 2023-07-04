@@ -25,7 +25,7 @@ func Nginx(ctx *gin.Context) {
 	case "stop":
 		nginxActionResult = services.StopNginx()
 	}
-	ctx.Redirect(http.StatusMovedPermanently, "/?message="+base64.StdEncoding.EncodeToString([]byte(nginxActionResult)))
+	ctx.Redirect(http.StatusFound, "/?message="+base64.StdEncoding.EncodeToString([]byte(nginxActionResult)))
 }
 
 func GetNginxConf(ctx *gin.Context) {

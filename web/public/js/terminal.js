@@ -22,12 +22,8 @@
     var attachAddon = new AttachAddon.AttachAddon(ws);
     var fitAddon = new FitAddon.FitAddon();
     terminal.loadAddon(fitAddon);
-    var webLinksAddon = new WebLinksAddon.WebLinksAddon();
-    terminal.loadAddon(webLinksAddon);
     var unicode11Addon = new Unicode11Addon.Unicode11Addon();
     terminal.loadAddon(unicode11Addon);
-    var serializeAddon = new SerializeAddon.SerializeAddon();
-    terminal.loadAddon(serializeAddon);
     ws.onclose = function (event) {
         console.log(event);
         terminal.write('\r\n\nconnection has been terminated from the server-side (hit refresh to restart)\n')

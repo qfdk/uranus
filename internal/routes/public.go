@@ -27,7 +27,7 @@ func publicRoute(engine *gin.Engine) {
 	engine.GET("/", func(context *gin.Context) {
 		session := sessions.Default(context)
 		if session.Get("login") == true {
-			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
+			context.Redirect(http.StatusFound, "/admin/dashboard")
 			context.Abort()
 		} else {
 			context.HTML(http.StatusOK, "login.html", gin.H{})
@@ -50,7 +50,7 @@ func publicRoute(engine *gin.Engine) {
 		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
 			session.Set("login", true)
 			session.Save()
-			context.Redirect(http.StatusMovedPermanently, "/admin/dashboard")
+			context.Redirect(http.StatusFound, "/admin/dashboard")
 		} else {
 			context.Redirect(http.StatusFound, "/")
 		}

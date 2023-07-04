@@ -7,7 +7,9 @@ import (
 )
 
 func terminalRoute(engine *gin.RouterGroup) {
-	engine.GET("/terminal", controllers.Terminal)
+	//engine.GET("/terminal", controllers.Terminal)
+	engine.GET("/terminal", controllers.TerminalStart)
+	engine.GET("/terminal/stop", controllers.TerminalStop)
 	// this is the endpoint for xterm.js to connect to
 	xtermjsHandlerOptions := xtermjs.HandlerOpts{
 		Command:              "/bin/bash",

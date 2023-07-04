@@ -29,7 +29,7 @@ func auth(context *gin.Context) {
 	if isAuth {
 		context.Next()
 	} else {
-		context.Redirect(http.StatusMovedPermanently, "/")
+		context.Redirect(http.StatusFound, "/")
 	}
 	context.Abort()
 }
