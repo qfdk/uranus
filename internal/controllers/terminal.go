@@ -63,10 +63,24 @@ func installTtyd() error {
 		return err
 	}
 
+	// Kill any running ttyd processes
+	cmd = exec.Command("pkill", "ttyd")
+	err = cmd.Run()
+	if err != nil {
+		log.Println("Error killing ttyd processes:", err)
+		return err
+	}
 	return nil
 }
 
 func TerminalStart(ctx *gin.Context) {
+	// 检查TtydProcess是否存在
+	if TtydProcess != nil {
+		log.Println("ttyd process is already running.")
+		ctx.Redirect(http.StatusFound, "http://"+getLocalIP()+":7681/")
+		return
+	}
+
 	if err := ensureTtydInstalled(); err != nil {
 		ctx.String(http.StatusInternalServerError, "Error preparing ttyd: %v", err)
 		return
