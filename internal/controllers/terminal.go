@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -113,9 +114,23 @@ func ensureTtydInstalled() error {
 }
 
 func addIptablesRule() error {
-	log.Println("执行命令")
+	log.Println("检查 iptables 规则")
+
+	output, err := exec.Command("sh", "-c", "sudo iptables -L | grep 'dpt:7681'").Output()
+	if err != nil {
+		log.Println("Error reading iptables rules:", err)
+		return err
+	}
+
+	// 如果已经有相应的规则，不再添加
+	if strings.Contains(string(output), "ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:7681") {
+		log.Println("iptables rule for port 7681 already exists")
+		return nil
+	}
+
+	log.Println("执行 iptables 添加规则命令")
 	iptablesCmd := exec.Command("sudo", "iptables", "-I", "INPUT", "-p", "tcp", "--dport", "7681", "-j", "ACCEPT")
-	err := iptablesCmd.Run()
+	err = iptablesCmd.Run()
 	if err != nil {
 		log.Println("Error adding iptables rule:", err)
 		return err
