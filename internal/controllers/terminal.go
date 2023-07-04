@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -14,9 +15,37 @@ import (
 
 var TtydProcess *os.Process
 
-//	func Terminal(ctx *gin.Context) {
-//		ctx.HTML(http.StatusOK, "terminal.html", gin.H{})
-//	}
+func getIP() string {
+	// 先尝试获取公网IP
+	publicIP, err := getPublicIP()
+	if err == nil && publicIP != "" {
+		return publicIP
+	}
+
+	// 如果无法获取公网IP，则获取本地IP
+	localIP := getLocalIP()
+	if localIP != "" {
+		return localIP
+	}
+
+	// 如果无法获取任何IP，则返回空字符串
+	return ""
+}
+
+func getPublicIP() (string, error) {
+	resp, err := http.Get("https://api.ipify.org")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
 
 func getLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
@@ -77,7 +106,7 @@ func TerminalStart(ctx *gin.Context) {
 	// 检查TtydProcess是否存在
 	if TtydProcess != nil {
 		log.Println("ttyd process is already running.")
-		ctx.Redirect(http.StatusFound, "http://"+getLocalIP()+":7681/")
+		ctx.Redirect(http.StatusFound, "http://"+getIP()+":7681/")
 		return
 	}
 
@@ -107,8 +136,8 @@ func TerminalStart(ctx *gin.Context) {
 
 	TtydProcess = cmd.Process
 	log.Println("ttyd has been started with PID:", TtydProcess.Pid)
-	waitForServerReady("http://" + getLocalIP() + ":7681/")
-	ctx.Redirect(http.StatusFound, "http://"+getLocalIP()+":7681/")
+	waitForServerReady("http://" + getIP() + ":7681/")
+	ctx.Redirect(http.StatusFound, "http://"+getIP()+":7681/")
 }
 
 func ensureTtydInstalled() error {
