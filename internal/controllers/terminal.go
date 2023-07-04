@@ -92,11 +92,12 @@ func installTtyd() error {
 		return err
 	}
 
-	// Kill any running ttyd processes
-	cmd = exec.Command("pkill", "ttyd")
+	time.Sleep(5 * time.Second)
+	// stop any running ttyd processes
+	cmd = exec.Command("sudo", "systemctl", "stop", "ttyd")
 	err = cmd.Run()
 	if err != nil {
-		log.Println("Error killing ttyd processes:", err)
+		log.Println("Error stopping ttyd service:", err)
 		return err
 	}
 	return nil
