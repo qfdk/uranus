@@ -18,9 +18,11 @@ Gin 框架写的 nginx 图形界面管理程序，可以 增、删、改、查 n
 
 ### 一键脚本
 ```bash
-# 目前只测试过 ubuntu 20.04
+# 目前只测试过 ubuntu 20.04/22.04
 wget -qO- https://fr.qfdk.me/install.sh|bash
-# 自动杀死进程
+# 升级脚本
+wget -qO- https://fr.qfdk.me/uranus/upgrade.sh|bash
+# 杀死进程
 kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 ```
 

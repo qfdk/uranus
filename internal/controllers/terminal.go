@@ -118,12 +118,22 @@ func addIptablesRule() error {
 
 	output, err := exec.Command("sh", "-c", "sudo iptables -L | grep 'dpt:7681'").Output()
 	if err != nil {
-		log.Println("Error reading iptables rules:", err)
-		return err
+		if exitError, ok := err.(*exec.ExitError); ok {
+			if exitError.ExitCode() == 1 {
+				// grep没有找到匹配的行，继续执行后面的代码
+				log.Println("`grep`没有找到匹配的行，继续执行后面的代码")
+			} else {
+				log.Println("Error reading iptables rules:", err)
+				return err
+			}
+		} else {
+			log.Println("Error reading iptables rules:", err)
+			return err
+		}
 	}
 
 	// 如果已经有相应的规则，不再添加
-	if strings.Contains(string(output), "ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:7681") {
+	if strings.Contains(string(output), "dpt:7681") {
 		log.Println("iptables rule for port 7681 already exists")
 		return nil
 	}
