@@ -66,41 +66,70 @@ func installTtyd() error {
 }
 
 func TerminalStart(ctx *gin.Context) {
-	if !isCommandAvailable("ttyd") {
-		log.Println("`ttyd` command is not available, trying to install it...")
-		err := installTtyd()
-		if err != nil {
-			log.Println("Failed to install `ttyd`: ", err)
-			return
-		}
-		log.Println("`ttyd` has been installed successfully.")
+	if err := ensureTtydInstalled(); err != nil {
+		ctx.String(http.StatusInternalServerError, "Error preparing ttyd: %v", err)
+		return
 	}
 
-	log.Println("执行命令")
-	var shell string
-	if isCommandAvailable("zsh") {
-		shell = "zsh"
-	} else {
-		shell = "bash"
+	if err := addIptablesRule(); err != nil {
+		ctx.String(http.StatusInternalServerError, "Error adding iptables rule: %v", err)
+		return
 	}
+
+	shell := findAvailableShell()
+
 	// 创建一个命令对象
 	cmd := exec.Command("ttyd", "-t", "cursorStyle=bar", "-t", "lineHeight=1.2", "-t", "fontSize=14", shell)
 
 	// 开启新的会话以创建守护进程
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
-	// 启动命令
-	err := cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		log.Println("Error starting command:", err)
 		ctx.String(http.StatusInternalServerError, "Error starting command: %v", err)
 		return
 	}
+
 	TtydProcess = cmd.Process
 	log.Println("ttyd has been started with PID:", TtydProcess.Pid)
 	waitForServerReady("http://" + getLocalIP() + ":7681/")
-	log.Println("命令已完成")
 	ctx.Redirect(http.StatusFound, "http://"+getLocalIP()+":7681/")
+}
+
+func ensureTtydInstalled() error {
+	if isCommandAvailable("ttyd") {
+		return nil
+	}
+
+	log.Println("`ttyd` command is not available, trying to install it...")
+	err := installTtyd()
+	if err != nil {
+		log.Println("Failed to install `ttyd`: ", err)
+		return err
+	}
+
+	log.Println("`ttyd` has been installed successfully.")
+	return nil
+}
+
+func addIptablesRule() error {
+	log.Println("执行命令")
+	iptablesCmd := exec.Command("sudo", "iptables", "-I", "INPUT", "-p", "tcp", "--dport", "7681", "-j", "ACCEPT")
+	err := iptablesCmd.Run()
+	if err != nil {
+		log.Println("Error adding iptables rule:", err)
+		return err
+	}
+
+	return nil
+}
+
+func findAvailableShell() string {
+	if isCommandAvailable("zsh") {
+		return "zsh"
+	}
+
+	return "bash"
 }
 
 func TerminalStop(ctx *gin.Context) {
