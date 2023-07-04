@@ -5,13 +5,11 @@ go 1.17
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cloudflare/tableflip v1.2.3
-	github.com/creack/pty v1.1.18
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-acme/lego/v4 v4.6.0
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/websocket v1.5.0
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.10.1

@@ -1,9 +1,11 @@
 #!/bin/bash
+set -e
+
 export GIN_MODE=release
 APP_NAME=uranus
 ServicePath="/etc/systemd/system/${APP_NAME}.service"
 INSTALL_PATH="/etc/uranus"
-PLATFORM=`dpkg --print-architecture`;
+PLATFORM=$(dpkg --print-architecture);
 
 FontGreen="\033[32m"
 FontRed="\033[31m"
@@ -32,24 +34,22 @@ EOF
 }
 
 start_service() {
-  if [[ -f ServicePath ]]; then
-    systemctl start ${APP_NAME}
+  if [[ -f ${ServicePath} ]]; then
+    systemctl start ${APP_NAME} || (echo -e "${FontRed}error: Failed to start the Uranus service.${FontSuffix}" && exit 1)
     sleep 1s
-    if systemctl -q is-active ${APP_NAME}; then
-      echo 'info: Start the Uranus service.'
-    else
+    if ! systemctl -q is-active ${APP_NAME}; then
       echo -e "${FontRed}error: Failed to start the Uranus service.${FontSuffix}"
       exit 1
     fi
+    echo 'info: Start the Uranus service.'
   fi
 }
 
 stop_service() {
-  if ! systemctl stop ${APP_NAME}; then
-    echo -e "${FontRed}error: Failed to stop Uranus service.${FontSuffix}"
-    exit 1
+  if systemctl is-active --quiet ${APP_NAME}; then
+    systemctl stop ${APP_NAME} || (echo -e "${FontRed}error: Failed to stop Uranus service.${FontSuffix}" && exit 1)
+    echo "info: Uranus service Stopped."
   fi
-  echo "info: Uranus service Stopped."
 }
 
 main() {
@@ -64,8 +64,10 @@ main() {
   if [ ! -d ${INSTALL_PATH} ]; then
     mkdir -p ${INSTALL_PATH}
   else
-    kill -9 $(pidof ${APP_NAME})
-    rm ${INSTALL_PATH}/${APP_NAME}
+    if systemctl is-active --quiet ${APP_NAME}; then
+      stop_service
+    fi
+    rm -f ${INSTALL_PATH}/${APP_NAME}
   fi
 
   if [ ! -d ${INSTALL_PATH}/logs ]; then
@@ -83,19 +85,15 @@ main() {
   fi
 
   if [[ "$URANUS" -eq '1' ]]; then
-    systemctl start ${APP_NAME}
+    start_service
   else
-    systemctl start ${APP_NAME}
     systemctl enable ${APP_NAME}
-    sleep 1s
-
-    if systemctl -q is-active ${APP_NAME}; then
-      echo "info: Start and enable the Uranus service."
-    else
-      echo -e "${FontYellow}warning: Failed to enable and start the Uranus service.${FontSuffix}"
+    start_service
+    if ! systemctl is-enabled --quiet ${APP_NAME}; then
+      echo -e "${FontYellow}warning: Failed to enable the Uranus service.${FontSuffix}"
     fi
+    echo "info: Start and enable the Uranus service."
   fi
-  #  ./$APP_NAME >./logs/app.log 2>&1 &
 }
 
 main

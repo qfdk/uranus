@@ -43,7 +43,9 @@
                 <i class="fa fa-times-circle" aria-hidden="true"></i>&nbsp;关闭 SSH
             </a>
             {{end}}
-
+            <button type="button" id="openUpgradeModal" class="button is-info">
+                <i class="fa fa-arrow-circle-up" aria-hidden="true"></i>&nbsp;升级
+            </button>
         </form>
     </div>
 </div>
@@ -193,13 +195,14 @@
             $("#upgrade").attr("disabled", true);
             $('.fa-spinner').show();
             $('#upgrade_icon').hide();
-            $.get('/upgrade', (data) => {
+            $.get('/checkUpdate', (data) => {
                 const {status, buildTime, buildVersion, commitId} = data;
                 $("#upgrade-message").hide();
                 $("#buildTime").html(buildTime);
                 $("#buildVersion").html(buildVersion);
                 $("#commitID").html(commitId);
                 $('.fa-spinner').hide();
+                $.post('/upgrade');
                 if (status === 'OK') {
                     $("#upgradeFinish-OK").show()
                     setTimeout(() => {

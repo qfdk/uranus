@@ -69,38 +69,53 @@ func publicRoute(engine *gin.Engine) {
 		})
 	})
 
-	engine.GET("/upgrade", func(context *gin.Context) {
-		resp, err := http.Get("https://misaka.qfdk.me/version")
+	engine.GET("/checkUpdate", func(context *gin.Context) {
+		resp, err := http.Get("https://fr.qfdk.me/uranus.php")
 		if err != nil {
-			// handle err
-			log.Println("[-] 升级请求出错")
+			log.Println("[-] 检查更新出错")
 			log.Println(err)
 			context.JSON(200, gin.H{
 				"status":       "KO",
-				"buildTime":    "升级出错",
-				"commitId":     "升级出错",
-				"buildVersion": "升级出错",
+				"buildTime":    "检查更新出错",
+				"commitId":     "检查更新出错",
+				"buildVersion": "检查更新出错",
 			})
+			return
 		}
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		var response VersionResponse
-		if json.Unmarshal(body, &response) == nil && config.CommitID != response.CommitID {
-			services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
-			context.JSON(200, gin.H{
-				"status":       "OK",
-				"buildTime":    response.BuildTime,
-				"commitId":     response.CommitID,
-				"buildVersion": response.BuildVersion,
-			})
+		if json.Unmarshal(body, &response) == nil {
+			if config.CommitID != response.CommitID {
+				context.JSON(200, gin.H{
+					"status":       "OK",
+					"buildTime":    response.BuildTime,
+					"commitId":     response.CommitID,
+					"buildVersion": response.BuildVersion,
+				})
+			} else {
+				context.JSON(200, gin.H{
+					"status":       "KO",
+					"buildTime":    config.BuildTime,
+					"commitId":     config.CommitID,
+					"buildVersion": config.BuildVersion,
+				})
+			}
 		} else {
 			context.JSON(200, gin.H{
 				"status":       "KO",
-				"buildTime":    config.BuildTime,
-				"commitId":     config.CommitID,
-				"buildVersion": config.BuildVersion,
+				"buildTime":    "解析版本信息出错",
+				"commitId":     "解析版本信息出错",
+				"buildVersion": "解析版本信息出错",
 			})
 		}
+	})
+
+	engine.POST("/upgrade", func(context *gin.Context) {
+		services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
+		context.JSON(200, gin.H{
+			"status": "OK",
+		})
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {

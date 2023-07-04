@@ -39,7 +39,6 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 错误中间件
 	//engine.Use(middlewares.ErrorHttp)
 	// 初始化路由
-	//websocketRoute(engine)
 	engine.Use(sessions.Sessions("uranus", cookie.NewStore([]byte("secret"))))
 	publicRoute(engine)
 	authorized := engine.Group("/admin", auth)
