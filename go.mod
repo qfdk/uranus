@@ -12,7 +12,6 @@ require (
 	github.com/go-acme/lego/v4 v4.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.10.1
