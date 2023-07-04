@@ -15,7 +15,7 @@ import (
 	"uranus/internal/config"
 )
 
-var projectName = "uranus"
+var binaryName = "uranus"
 
 // CheckIfError ...
 func checkIfError(err error) {
@@ -35,13 +35,12 @@ func ToUpdateProgram(url string) {
 		log.Fatal(err)
 	}
 
-	var downloadTarget = projectName + "-" + runtime.GOARCH
+	var upgradedBinaryName = binaryName + "-" + runtime.GOARCH
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("[INFO] 获取更新: [%s]", downloadTarget)
-		//_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, projectName), path.Join(config.GetAppConfig().InstallPath, projectName+"_back"))
-		newProjectName := path.Join(config.GetAppConfig().InstallPath, downloadTarget)
-		log.Printf("[INFO] 下载位置 : %s", newProjectName)
-		downFile, err := os.Create(newProjectName)
+		log.Printf("[INFO] 获取更新: [%s]", upgradedBinaryName)
+		newFileWithFullPath := path.Join(config.GetAppConfig().InstallPath, upgradedBinaryName)
+		log.Printf("[INFO] 下载位置 : %s", newFileWithFullPath)
+		downFile, err := os.Create(newFileWithFullPath)
 		checkIfError(err)
 		defer downFile.Close()
 
@@ -59,19 +58,27 @@ func ToUpdateProgram(url string) {
 		bar.Finish()
 
 		// 检查文件大小
-		stat, _ := os.Stat(newProjectName)
+		stat, _ := os.Stat(newFileWithFullPath)
 		if stat.Size() != int64(contentLength) {
-			log.Printf("[ERROR] [%s]更新失败", projectName)
-			err = os.Remove(newProjectName)
+			log.Printf("[ERROR] [%s]更新失败", binaryName)
+			err = os.Remove(newFileWithFullPath)
 			checkIfError(err)
 		}
-		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", downloadTarget)
-		_ = os.Chmod(newProjectName, os.ModePerm)
-		_ = os.Remove(path.Join(config.GetAppConfig().InstallPath, projectName))
-		_ = os.Rename(path.Join(config.GetAppConfig().InstallPath, newProjectName), path.Join(config.GetAppConfig().InstallPath, projectName))
+		log.Printf("[INFO] [%s] 下载成功, 准备下一步操作", upgradedBinaryName)
+		_ = os.Chmod(newFileWithFullPath, os.ModePerm)
+		err = os.Remove(path.Join(config.GetAppConfig().InstallPath, binaryName))
+		if err != nil {
+			log.Printf("删除旧程序失败: %s", err)
+			return
+		}
+		err = os.Rename(newFileWithFullPath, path.Join(config.GetAppConfig().InstallPath, binaryName))
+		if err != nil {
+			log.Printf("重命名新程序失败: %s", err)
+			return
+		}
 		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	} else {
-		log.Printf("[ERROR] [%s]更新失败", downloadTarget)
-		_ = os.Remove(downloadTarget)
+		log.Printf("[ERROR] [%s]更新失败", upgradedBinaryName)
+		_ = os.Remove(upgradedBinaryName)
 	}
 }
