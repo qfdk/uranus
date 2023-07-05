@@ -56,4 +56,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Remove the old file
+rm ${OLD_FILE}
+
 echo "Uranus service upgraded successfully."

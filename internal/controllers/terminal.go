@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
@@ -160,7 +163,10 @@ func ensureTtydInstalled() error {
 func addIptablesRule() error {
 	log.Println("检查 iptables 规则")
 
-	output, err := exec.Command("sh", "-c", "sudo iptables -L | grep 'dpt:7681'").Output()
+	// 获取当前 IP 地址
+	IP := getIP()
+
+	output, err := exec.Command("sh", "-c", fmt.Sprintf("sudo iptables -L | grep '7681'")).Output()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			if exitError.ExitCode() == 1 {
@@ -177,13 +183,13 @@ func addIptablesRule() error {
 	}
 
 	// 如果已经有相应的规则，不再添加
-	if strings.Contains(string(output), "dpt:7681") {
+	if strings.Contains(string(output), "7681") {
 		log.Println("iptables rule for port 7681 already exists")
 		return nil
 	}
 
-	log.Println("执行 iptables 添加规则命令")
-	iptablesCmd := exec.Command("sudo", "iptables", "-I", "INPUT", "-p", "tcp", "--dport", "7681", "-j", "ACCEPT")
+	log.Println("执行 iptables 添加规则命令 : ", IP)
+	iptablesCmd := exec.Command("sudo", "iptables", "-I", "INPUT", "-s", IP, "-p", "tcp", "--dport", "7681", "-j", "ACCEPT")
 	err = iptablesCmd.Run()
 	if err != nil {
 		log.Println("Error adding iptables rule:", err)
@@ -209,10 +215,32 @@ func TerminalStop(ctx *gin.Context) {
 			ctx.String(http.StatusInternalServerError, "Error stopping command: %v", err)
 			return
 		}
+
 		TtydProcess = nil
 		log.Println("ttyd has been stopped")
+
+		// 移除 iptables 规则
+		log.Println("正在移除 iptables 规则")
+		rules, _ := exec.Command("sh", "-c", "sudo iptables -L --line-numbers | grep '7681'").Output()
+
+		scanner := bufio.NewScanner(bytes.NewReader(rules))
+		for scanner.Scan() {
+			line := scanner.Text()
+			lineSplit := strings.Split(line, " ")
+			lineNum := lineSplit[0]
+			exec.Command("sudo", "iptables", "-D", "INPUT", lineNum).Run()
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Println("Error reading iptables rules:", err)
+			ctx.String(http.StatusInternalServerError, "Error reading iptables rules: %v", err)
+			return
+		}
+
+		log.Println("iptables rules for port 7681 have been removed")
 	} else {
 		log.Println("ttyd is not running")
 	}
+
 	ctx.Redirect(http.StatusFound, "/")
 }
