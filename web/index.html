@@ -90,15 +90,15 @@
             </tr>
             <tr>
                 <th scope="row">构建版本</th>
-                <td>{{.buildVersion}}</td>
+                <td id="upgrade_buildVersion">{{.buildVersion}}</td>
             </tr>
             <tr>
                 <th scope="row">构建时间</th>
-                <td>{{.buildTime}}</td>
+                <td id="upgrade_buildTime">{{.buildTime}}</td>
             </tr>
             <tr>
                 <th scope="row">CommitID</th>
-                <td style="max-width: 250px;overflow-x: auto;">{{.commitID}}</td>
+                <td style="max-width: 250px;overflow-x: auto;" id="upgrade_commitID">{{.commitID}}</td>
             </tr>
             </tbody>
         </table>
@@ -184,37 +184,52 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
+    let updateData = null;
+
     $(document).ready(function () {
+        $.get('/checkUpdate', (data) => {
+            updateData = data;
+
+            const {buildTime} = data;
+            if (buildTime !== $('#upgrade_buildTime')?.text()?.trim()) {
+                $("#upgrade").attr("disabled", false);
+            } else {
+                $("#upgrade").attr("disabled", true);
+            }
+        });
+
         $("#openUpgradeModal").click(() => {
             $("#upgrade-modal").addClass("is-active");
         });
+
         $(".delete").click(() => {
             $("#upgrade-modal").removeClass("is-active");
         });
+
         $("#upgrade").click(() => {
             $("#upgrade").attr("disabled", true);
             $('.fa-spinner').show();
             $('#upgrade_icon').hide();
-            $.get('/checkUpdate', (data) => {
-                const {status, buildTime, buildVersion, commitId} = data;
-                $("#upgrade-message").hide();
-                $("#buildTime").html(buildTime);
-                $("#buildVersion").html(buildVersion);
-                $("#commitID").html(commitId);
-                $('.fa-spinner').hide();
-                $.post('/upgrade');
-                if (status === 'OK') {
-                    $("#upgradeFinish-OK").show()
-                    setTimeout(() => {
-                        location.reload();
-                    }, 5000);
-                } else {
-                    $("#upgradeFinish-KO").show()
-                }
-                $('#upgrade_icon').show();
-                $("#upgradeFinish").show();
-            });
+
+            const {status, buildTime, buildVersion, commitId} = updateData;
+            $("#upgrade-message").hide();
+            $("#buildTime").html(buildTime);
+            $("#buildVersion").html(buildVersion);
+            $("#commitID").html(commitId);
+            $('.fa-spinner').hide();
+            $.post('/upgrade');
+            if (status === 'OK') {
+                $("#upgradeFinish-OK").show()
+                setTimeout(() => {
+                    location.reload();
+                }, 5000);
+            } else {
+                $("#upgradeFinish-KO").show()
+            }
+            $('#upgrade_icon').show();
+            $("#upgradeFinish").show();
         });
     });
 </script>
+
 {{template "footer.html" .}}
