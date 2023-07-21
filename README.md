@@ -13,7 +13,7 @@ Gin 框架写的 nginx 图形界面管理程序，可以 增、删、改、查 n
 * 数据库支持 : [gorm](https://github.com/go-gorm/gorm)
 * SQLite : [SQLite](https://github.com/go-gorm/sqlite)
 * Terminal : [ttyd](https://github.com/tsl0922/ttyd)
-* VScode : [vscode](https://github.com/microsoft/vscode)
+* VSCode : [vscode](https://github.com/microsoft/vscode)
 * 一键升级
 
 ### 一键脚本
