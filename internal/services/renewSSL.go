@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"github.com/robfig/cron/v3"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -21,7 +22,9 @@ func GetCertificateInfo(domain string) *x509.Certificate {
 		log.Printf("证书获取失败: %v", domain)
 		return nil
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(response.Body)
 	return response.TLS.PeerCertificates[0]
 }
 
@@ -29,7 +32,7 @@ func RenewSSL() {
 	// 每天 00:05 进行检测
 	spec := "5 0 * * *"
 	c := cron.New()
-	c.AddFunc(spec, func() {
+	_, _ = c.AddFunc(spec, func() {
 		for _, cert := range models.GetCertificates() {
 			var need2Renew = false
 			if cert.NotAfter.Unix() != -62135596800 {
@@ -41,7 +44,7 @@ func RenewSSL() {
 				}
 			}
 			if need2Renew {
-				IssueCert(strings.Split(cert.Domains, ","), cert.FileName)
+				_ = IssueCert(strings.Split(cert.Domains, ","), cert.FileName)
 				ReloadNginx()
 			}
 		}

@@ -42,7 +42,7 @@ func loadConfig() {
 		log.Fatalf("[-] 读取配置文件失败: %v", err)
 	}
 	_appConfig = &AppConfig{}
-	viper.Unmarshal(&_appConfig)
+	_ = viper.Unmarshal(&_appConfig)
 	log.Println("[+] 配置文件载入成功")
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
@@ -52,21 +52,15 @@ func loadConfig() {
 		uuid, _ := uuid.NewUUID()
 		_appConfig.UUID = uuid.String()
 		viper.Set("uuid", _appConfig.UUID)
-		viper.WriteConfig()
+		_ = viper.WriteConfig()
 		log.Println("[+] UUID 保存成功")
 	}
 	if _appConfig.IP == "" {
 		ip := getIP()
 		viper.Set("ip", ip)
-		viper.WriteConfig()
+		_ = viper.WriteConfig()
 		log.Println("[+] IP 保存成功")
 	}
-	//if _appConfig.ControlCenter == "" {
-	//	log.Println("[-] 没有 ControlCenter")
-	//	viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
-	//	viper.WriteConfig()
-	//	log.Println("[+] ControlCenter 保存成功")
-	//}
 }
 
 func InitAppConfig() {
@@ -77,7 +71,6 @@ func InitAppConfig() {
 	viper.AddConfigPath(pwd)
 	if _, err := os.Stat(path.Join(pwd, "config.toml")); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，生成并使用默认配置文件")
-		//viper.Set("controlCenter", "https://misaka.qfdk.me/heartbeat")
 		viper.Set("url", "http://localhost:7777")
 		uuid, _ := uuid.NewUUID()
 		viper.Set("uuid", uuid.String())
@@ -89,13 +82,13 @@ func InitAppConfig() {
 		viper.Set("password", "admin")
 		viper.Set("installPath", pwd)
 		viper.Set("ip", getIP())
-		viper.SafeWriteConfig()
+		_ = viper.SafeWriteConfig()
 	}
 	loadConfig()
 	viper.WatchConfig()
 	viper.OnConfigChange(func(in fsnotify.Event) {
 		log.Println("[+] 配置文件更新了:", in.Name)
-		viper.Unmarshal(&_appConfig)
+		_ = viper.Unmarshal(&_appConfig)
 	})
 }
 

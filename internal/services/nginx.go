@@ -1,8 +1,8 @@
 package services
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -92,7 +92,7 @@ func getNginxConfPath() string {
 
 func SaveNginxConf(content string) string {
 	path := filepath.Join(getNginxConfPath(), "nginx.conf")
-	ioutil.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0644)
 	log.Println("[NGINX] 保存配置成功")
 	return ReloadNginx()
 }

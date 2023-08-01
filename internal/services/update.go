@@ -42,7 +42,9 @@ func ToUpdateProgram(url string) {
 		log.Printf("[INFO] 下载位置 : %s", newFileWithFullPath)
 		downFile, err := os.Create(newFileWithFullPath)
 		checkIfError(err)
-		defer downFile.Close()
+		defer func(downFile *os.File) {
+			_ = downFile.Close()
+		}(downFile)
 
 		// 获取下载文件的大小
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
@@ -76,7 +78,7 @@ func ToUpdateProgram(url string) {
 			log.Printf("重命名新程序失败: %s", err)
 			return
 		}
-		syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+		_ = syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	} else {
 		log.Printf("[ERROR] [%s]更新失败", upgradedBinaryName)
 		_ = os.Remove(upgradedBinaryName)

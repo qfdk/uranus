@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -40,9 +40,11 @@ func getPublicIP() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +230,7 @@ func TerminalStop(ctx *gin.Context) {
 			line := scanner.Text()
 			lineSplit := strings.Split(line, " ")
 			lineNum := lineSplit[0]
-			exec.Command("sudo", "iptables", "-D", "INPUT", lineNum).Run()
+			_ = exec.Command("sudo", "iptables", "-D", "INPUT", lineNum).Run()
 		}
 
 		if err := scanner.Err(); err != nil {

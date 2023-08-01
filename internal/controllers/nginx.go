@@ -3,9 +3,9 @@ package controllers
 import (
 	"encoding/base64"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"uranus/internal/config"
 	"uranus/internal/services"
 )
@@ -30,7 +30,7 @@ func Nginx(ctx *gin.Context) {
 
 func GetNginxConf(ctx *gin.Context) {
 	log.Println("读取 Nginx 配置文件")
-	content, _ := ioutil.ReadFile(config.ReadNginxCompileInfo().NginxConfPath)
+	content, _ := os.ReadFile(config.ReadNginxCompileInfo().NginxConfPath)
 	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{"configFileName": "nginx", "content": string(content), "isNginxDefaultConf": true})
 }
 

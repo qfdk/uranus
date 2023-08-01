@@ -11,7 +11,6 @@ import (
 	"github.com/go-acme/lego/v4/challenge/http01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -47,7 +46,7 @@ func IssueCert(domains []string, configName string) error {
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
-		data, _ := ioutil.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
+		data, _ := os.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
 		domains = strings.Split(string(data), ",")
 	}
 
@@ -96,13 +95,13 @@ func IssueCert(domains []string, configName string) error {
 		os.MkdirAll(certificateSavedDir, 0755)
 	}
 	// Each certificate comes back with the cert bytes, the bytes of the client's
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "fullchain.cer"),
+	_ = os.WriteFile(filepath.Join(certificateSavedDir, "fullchain.cer"),
 		certificates.Certificate, 0644)
 	// private key, and a certificate URL. SAVE THESE TO DISK.
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "private.key"),
+	_ = os.WriteFile(filepath.Join(certificateSavedDir, "private.key"),
 		certificates.PrivateKey, 0644)
 	// 保存域名
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "domains"),
+	_ = os.WriteFile(filepath.Join(certificateSavedDir, "domains"),
 		[]byte(strings.Join(domains, ",")), 0644)
 	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
 

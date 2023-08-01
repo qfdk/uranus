@@ -5,7 +5,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"runtime"
@@ -38,7 +38,7 @@ func publicRoute(engine *gin.Engine) {
 		session := sessions.Default(context)
 		if session.Get("login") == true {
 			session.Delete("login")
-			session.Save()
+			_ = session.Save()
 		}
 		context.Redirect(http.StatusFound, "/")
 	})
@@ -49,7 +49,7 @@ func publicRoute(engine *gin.Engine) {
 		password, _ := context.GetPostForm("password")
 		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
 			session.Set("login", true)
-			session.Save()
+			_ = session.Save()
 			context.Redirect(http.StatusFound, "/admin/dashboard")
 		} else {
 			context.Redirect(http.StatusFound, "/")
@@ -82,8 +82,10 @@ func publicRoute(engine *gin.Engine) {
 			})
 			return
 		}
-		defer resp.Body.Close()
-		body, _ := ioutil.ReadAll(resp.Body)
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		var response VersionResponse
 		if json.Unmarshal(body, &response) == nil {
 			if config.CommitID != response.CommitID {
@@ -125,7 +127,7 @@ func publicRoute(engine *gin.Engine) {
 		if err != nil {
 			panic(err)
 		}
-		json.Unmarshal(rawData, &data)
+		_ = json.Unmarshal(rawData, &data)
 		if data["uuid"] == config.GetAppConfig().UUID {
 			viper.SetConfigName("config")
 			viper.SetConfigType("toml")
@@ -133,7 +135,7 @@ func publicRoute(engine *gin.Engine) {
 			for key, value := range data {
 				viper.Set(key, value)
 			}
-			viper.WriteConfig()
+			_ = viper.WriteConfig()
 			context.JSON(200, gin.H{"status": "OK"})
 		} else {
 			context.JSON(200, gin.H{"status": "KO"})
