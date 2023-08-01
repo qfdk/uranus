@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"github.com/cloudflare/tableflip"
 	"github.com/gin-gonic/gin"
 	"html/template"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -35,7 +35,7 @@ func init() {
 	// 生产模式写入日志
 	if gin.Mode() == gin.ReleaseMode {
 		if _, err := os.Stat(path.Join(tools.GetPWD(), "logs")); os.IsNotExist(err) {
-			os.MkdirAll(path.Join(tools.GetPWD(), "logs"), 0755)
+			_ = os.MkdirAll(path.Join(tools.GetPWD(), "logs"), 0755)
 		}
 		file := path.Join(tools.GetPWD(), "logs", "app.log")
 		logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
@@ -59,8 +59,8 @@ func mustFS() http.FileSystem {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
-	template, _ := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
-	app.SetHTMLTemplate(template)
+	myTemplate, _ := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
+	app.SetHTMLTemplate(myTemplate)
 	// 缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 	// 静态文件路由
@@ -69,7 +69,7 @@ func initRouter() *gin.Engine {
 		file, _ := staticFS.ReadFile("web/public/icon/favicon.ico")
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
-	app.SetTrustedProxies([]string{"127.0.0.1"})
+	_ = app.SetTrustedProxies([]string{"127.0.0.1"})
 	routes.RegisterRoutes(app)
 	return app
 }
@@ -120,12 +120,13 @@ func Graceful() {
 
 	go func() {
 		err := server.Serve(ln)
-		if err != http.ErrServerClosed {
+		if !errors.Is(err, http.ErrServerClosed) {
 			log.Println("HTTP server:", err)
 		}
 	}()
 	log.Printf("[PID][%d]: 服务器启动成功并写入 PID 到文件", os.Getpid())
-	ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
+	_ = os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
+
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
@@ -139,7 +140,7 @@ func Graceful() {
 		os.Exit(1)
 	})
 	// Wait for connections to drain.
-	server.Shutdown(context.Background())
+	_ = server.Shutdown(context.Background())
 
 	if exit {
 		log.Println("退出并删除pid文件")
