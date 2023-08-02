@@ -4,7 +4,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -98,7 +98,7 @@ func getIP() string {
 	req.Header.Set("User-Agent", "Mozilla")
 	resp, _ := http.DefaultClient.Do(req)
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := ioutil.ReadAll(resp.Body)
 	log.Printf("[+] IP 获取成功: %s\n", strings.TrimSpace(string(body)))
 	return strings.TrimSpace(string(body))
 }

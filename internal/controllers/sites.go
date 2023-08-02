@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -46,7 +47,7 @@ func GetTemplate(ctx *gin.Context) {
 }
 
 func GetSites(ctx *gin.Context) {
-	files, err := os.ReadDir(filepath.Join(GetAppConfig().VhostPath))
+	files, err := ioutil.ReadDir(filepath.Join(GetAppConfig().VhostPath))
 	if err != nil {
 		log.Println(err)
 		ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": []string{}})
@@ -58,7 +59,7 @@ func GetSites(ctx *gin.Context) {
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	content, _ := os.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+	content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
 	if filename != "default" {
 		cert := models2.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html",
@@ -86,8 +87,8 @@ func EditSiteConf(ctx *gin.Context) {
 func DeleteSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	_ = os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
-	_ = os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
+	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
+	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
 	// 数据库删除
 	cert := models2.GetCertByFilename(configName)
 	err := cert.Remove()
@@ -116,10 +117,10 @@ func SaveSiteConf(ctx *gin.Context) {
 	}
 	//  检测 文件夹是否存在不存在建立
 	if _, err := os.Stat(GetAppConfig().VhostPath); os.IsNotExist(err) {
-		_ = os.MkdirAll(GetAppConfig().VhostPath, 0755)
+		os.MkdirAll(GetAppConfig().VhostPath, 0755)
 	}
-	configPath := filepath.Join(GetAppConfig().VhostPath, fileName)
-	_ = os.WriteFile(configPath, []byte(content), 0644)
+	path := filepath.Join(GetAppConfig().VhostPath, fileName)
+	ioutil.WriteFile(path, []byte(content), 0644)
 	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
