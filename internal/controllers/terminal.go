@@ -84,6 +84,17 @@ func isCommandAvailable(name string) bool {
 	return true
 }
 
+func stopTtyd() error {
+	// stop any running ttyd processes
+	cmd := exec.Command("sudo", "systemctl", "stop", "ttyd")
+	err := cmd.Run()
+	if err != nil {
+		log.Println("Error stopping ttyd service:", err)
+		return err
+	}
+	return nil
+}
+
 func installTtyd() error {
 	cmd := exec.Command("sudo", "apt-get", "update")
 	err := cmd.Run()
@@ -98,14 +109,7 @@ func installTtyd() error {
 	}
 
 	time.Sleep(5 * time.Second)
-	// stop any running ttyd processes
-	cmd = exec.Command("sudo", "systemctl", "stop", "ttyd")
-	err = cmd.Run()
-	if err != nil {
-		log.Println("Error stopping ttyd service:", err)
-		return err
-	}
-	return nil
+	return stopTtyd()
 }
 
 func TerminalStart(ctx *gin.Context) {
@@ -212,6 +216,7 @@ func findAvailableShell() string {
 
 func TerminalStop(ctx *gin.Context) {
 	if TtydProcess != nil {
+		_ = stopTtyd()
 		err := TtydProcess.Kill()
 		if err != nil {
 			log.Println("Error stopping command:", err)
