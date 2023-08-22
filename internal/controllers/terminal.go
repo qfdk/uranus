@@ -129,7 +129,7 @@ func TerminalStart(ctx *gin.Context) {
 	shell := findAvailableShell()
 
 	// 创建一个命令对象
-	cmd := exec.Command("ttyd", "-t", "cursorStyle=bar", "-t", "lineHeight=1.2", "-t", "fontSize=14", shell)
+	cmd := exec.Command("ttyd", "-t", "cursorStyle=bar", "-t", "lineHeight=1.2", "-t", "fontSize=14", "-O", "login", shell)
 
 	// 开启新的会话以创建守护进程
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -157,6 +157,7 @@ func ensureTtydInstalled() error {
 		log.Println("Failed to install `ttyd`: ", err)
 		return err
 	}
+	log.Println("`ttyd` has been installed successfully. Now i need some configuration...")
 
 	log.Println("`ttyd` has been installed successfully.")
 	return nil
