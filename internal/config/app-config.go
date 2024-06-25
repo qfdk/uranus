@@ -4,7 +4,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -94,11 +94,37 @@ func InitAppConfig() {
 
 func getIP() string {
 	log.Println("[-] 正在获取 IP ...")
-	req, _ := http.NewRequest("GET", "https://api.ip.sb/ip", nil)
+	req, err := http.NewRequest("GET", "https://api.ip.sb/ip", nil)
+	if err != nil {
+		log.Printf("请求创建失败: %v", err)
+		return ""
+	}
 	req.Header.Set("User-Agent", "Mozilla")
-	resp, _ := http.DefaultClient.Do(req)
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	log.Printf("[+] IP 获取成功: %s\n", strings.TrimSpace(string(body)))
-	return strings.TrimSpace(string(body))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("请求失败: %v", err)
+		return ""
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("请求返回非 200 状态码: %d", resp.StatusCode)
+		return ""
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("读取响应体失败: %v", err)
+		return ""
+	}
+
+	ip := strings.TrimSpace(string(body))
+	log.Printf("[+] IP 获取成功: %s\n", ip)
+	return ip
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"github.com/cloudflare/tableflip"
 	"github.com/gin-gonic/gin"
 	"html/template"
@@ -34,19 +35,21 @@ var staticFS embed.FS
 func init() {
 	// 生产模式写入日志
 	if gin.Mode() == gin.ReleaseMode {
-		if _, err := os.Stat(path.Join(tools.GetPWD(), "logs")); os.IsNotExist(err) {
-			os.MkdirAll(path.Join(tools.GetPWD(), "logs"), 0755)
+		logDir := path.Join(tools.GetPWD(), "logs")
+		if err := os.MkdirAll(logDir, 0755); err != nil && !os.IsExist(err) {
+			panic(err)
 		}
-		file := path.Join(tools.GetPWD(), "logs", "app.log")
-		logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+
+		logFile := path.Join(logDir, "app.log")
+		file, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			panic(err)
 		}
-		wrt := io.MultiWriter(os.Stdout, logFile)
+
+		wrt := io.MultiWriter(os.Stdout, file)
 		log.SetOutput(wrt)
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
-	return
 }
 
 func mustFS() http.FileSystem {
@@ -59,23 +62,44 @@ func mustFS() http.FileSystem {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
-	template, _ := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
-	app.SetHTMLTemplate(template)
-	// 缓存中间件
+
+	// 解析模板
+	tmpl, err := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
+	if err != nil {
+		panic(err)
+	}
+	app.SetHTMLTemplate(tmpl)
+
+	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
-	// 静态文件路由
+
+	// 设置静态文件路由
 	app.StaticFS("/public", mustFS())
+
+	// 处理 favicon.ico 请求
 	app.GET("/favicon.ico", func(c *gin.Context) {
-		file, _ := staticFS.ReadFile("web/public/icon/favicon.ico")
+		file, err := staticFS.ReadFile("web/public/icon/favicon.ico")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
-	app.SetTrustedProxies([]string{"127.0.0.1"})
+
+	// 设置可信代理
+	err = app.SetTrustedProxies([]string{"127.0.0.1"})
+	if err != nil {
+		return nil
+	}
+
+	// 注册路由
 	routes.RegisterRoutes(app)
+
 	return app
 }
 
 func Graceful() {
-	var pidFile = path.Join(tools.GetPWD(), "uranus.pid")
+	pidFile := path.Join(tools.GetPWD(), "uranus.pid")
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: pidFile,
 	})
@@ -84,8 +108,7 @@ func Graceful() {
 	}
 	defer upg.Stop()
 
-	// Do an upgrade on SIGHUP
-	var exit bool
+	// 处理信号
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
@@ -97,14 +120,13 @@ func Graceful() {
 				if err != nil {
 					log.Printf("[PID][%d]: 升级出错, %s", os.Getpid(), err)
 					continue
-				} else {
-					log.Printf("[PID][%d]: 升级完成", os.Getpid())
 				}
+				log.Printf("[PID][%d]: 升级完成", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
 				log.Printf("[PID][%d]: 收到关闭信号, 准备关闭服务器", os.Getpid())
-				exit = true
 				upg.Stop()
 				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
+				os.Exit(0)
 			}
 		}
 	}()
@@ -119,31 +141,32 @@ func Graceful() {
 	}
 
 	go func() {
-		err := server.Serve(ln)
-		if err != http.ErrServerClosed {
+		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Println("HTTP server:", err)
 		}
 	}()
 	log.Printf("[PID][%d]: 服务器启动成功并写入 PID 到文件", os.Getpid())
-	ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755)
+	if err := ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
+		log.Println("写入 PID 文件出错:", err)
+	}
+
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
 	<-upg.Exit()
 
-	// Make sure to set a deadline on exiting the process
-	// after upg.Exit() is closed. No new upgrades can be
-	// performed if the parent doesn't exit.
 	time.AfterFunc(10*time.Second, func() {
 		log.Println("平滑关闭超时 ...")
 		os.Exit(1)
 	})
-	// Wait for connections to drain.
-	server.Shutdown(context.Background())
 
-	if exit {
-		log.Println("退出并删除pid文件")
-		_ = os.Remove(pidFile)
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Println("服务器关闭出错:", err)
+	}
+
+	log.Println("退出并删除pid文件")
+	if err := os.Remove(pidFile); err != nil {
+		log.Println("删除 PID 文件出错:", err)
 	}
 }
 
