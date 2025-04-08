@@ -1,35 +1,70 @@
 {{template "header.html" .}}
-<h4 class="title is-4">网站管理</h4>
-<article class="message is-info">
-    <div class="message-body">
-        已添加的网站列表
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold text-gray-900">网站管理</h1>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">已添加的网站列表</p>
+            </div>
+        </div>
     </div>
-</article>
-<a class="button is-info" href="/admin/sites/new" type="link">
-    <i class="fa fa-plus" aria-hidden="true"></i>&nbsp;添加新配置</a>
-<div class="table-container">
-    <table class="table is-fullwidth">
-        <thead>
-        <tr>
-            <th scope="col">配置文件</th>
-            <th scope="col">大小</th>
-            <th scope="col">操作</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range $index, $value :=.files}}
-        <tr>
-            <th scope="row">{{$value.Name}}</th>
-            <td>{{call $.humanizeBytes $value.Size}}</td>
-            <td>
-                <a href="/admin/sites/edit/{{$value.Name}}"><span class="tag is-info"><i class="fa fa-file-text-o"
-                                                                                   aria-hidden="true"></i>&nbsp;编辑</span></a>
-                <a href="/admin/sites/delete/{{$value.Name}}"><span class="tag is-danger is-light">
-                        <i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;删除</span></a>
-            </td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+
+    <div class="flex mb-4">
+        <a href="/admin/sites/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            添加新配置
+        </a>
+    </div>
+
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200">
+            {{range $index, $value :=.files}}
+            <li>
+                <div class="px-4 py-4 sm:px-6 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <line x1="10" y1="9" x2="8" y2="9"></line>
+                        </svg>
+                        <div class="text-sm font-medium text-indigo-600 truncate">{{$value.Name}}</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {{call $.humanizeBytes $value.Size}}
+                        </span>
+                        <a href="/admin/sites/edit/{{$value.Name}}" class="text-indigo-600 hover:text-indigo-900 inline-flex items-center text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                            编辑
+                        </a>
+                        <a href="/admin/sites/delete/{{$value.Name}}" class="text-red-600 hover:text-red-900 inline-flex items-center text-sm ml-3" onclick="return confirm('确定要删除吗？')">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                            删除
+                        </a>
+                    </div>
+                </div>
+            </li>
+            {{end}}
+        </ul>
+    </div>
 </div>
 {{template "footer.html" .}}

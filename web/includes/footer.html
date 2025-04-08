@@ -1,24 +1,122 @@
 {{ define "footer.html" }}
 </div>
+</main>
 </div>
-<div class="container" style="margin: 30px auto 30px auto;">
-    <div class="mx-3">
-        <hr>
-        <footer>
-            <div class="content has-text-centered">
-                <p>
-                    Powered by <strong><a href="https://github.com/qfdk/uranus">Οὐρανός</a></strong> Coding by <a
-                        href="https://github.com/qfdk">@qfdk</a>.
-                </p>
-            </div>
-        </footer>
-    </div>
-</div>
-</body>
+
+<style>
+    /* 按钮相关样式 */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem; /* 确保图标和文本之间有适当间距 */
+        height: 2.5rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 0.375rem;
+        white-space: nowrap; /* 防止文本换行 */
+        transition: background-color 0.2s;
+    }
+
+    /* 各种按钮状态和颜色 */
+    .btn-disabled {
+        background-color: #f3f4f6;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .btn-blue {
+        background-color: #ebf5ff;
+        color: #1d4ed8;
+    }
+
+    .btn-blue:hover {
+        background-color: #dbeafe;
+    }
+
+    .btn-amber {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
+    .btn-amber:hover {
+        background-color: #fde68a;
+    }
+
+    .btn-red {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .btn-red:hover {
+        background-color: #fecaca;
+    }
+
+    .btn-gray {
+        background-color: #f9fafb;
+        color: #374151;
+    }
+
+    .btn-gray:hover {
+        background-color: #f3f4f6;
+    }
+
+    .btn-indigo {
+        background-color: #ede9fe;
+        color: #4f46e5;
+    }
+
+    .btn-indigo:hover {
+        background-color: #ddd6fe;
+    }
+
+    /* 改进侧边栏样式 */
+    .sidebar-item {
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 4px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        color: #4b5563;
+    }
+    .sidebar-item:hover {
+        background-color: #f3f4f6;
+    }
+    .sidebar-item.active {
+        background-color: #e5e7eb;
+        color: #111827;
+        font-weight: 500;
+    }
+    .sidebar-item svg {
+        margin-right: 12px;
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+    }
+    .sidebar-item.active svg {
+        color: #3b82f6;
+    }
+</style>
+
 <script>
+    function toggleUserMenu() {
+        document.getElementById('userMenu').classList.toggle('hidden');
+    }
+
+    function toggleSidebar() {
+        document.getElementById('mobileSidebar').classList.toggle('hidden');
+    }
+
     // 禁用IOS双指缩放和双击缩放, 安卓则不需要下面这个段代码
     (function () {
-        var agent = navigator.userAgent.toLowerCase();        //检测是否是ios
+        var agent = navigator.userAgent.toLowerCase();
         if (agent.indexOf('iphone') >= 0 || agent.indexOf('ipad') >= 0) {
             // 禁用双指缩放
             document.documentElement.addEventListener('touchstart', function (event) {
@@ -38,24 +136,7 @@
             }, false)
         }
     })();
-    document.addEventListener('DOMContentLoaded', () => {
-        // Get all "navbar-burger" elements
-        const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
-        // Check if there are any navbar burgers
-        if ($navbarBurgers.length > 0) {
-            // Add a click event on each of them
-            $navbarBurgers.forEach(el => {
-                el.addEventListener('click', () => {
-                    // Get the target from the "data-target" attribute
-                    const target = el.dataset.target;
-                    const $target = document.getElementById(target);
-                    // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
-                    el.classList.toggle('is-active');
-                    $target.classList.toggle('is-active');
-                });
-            });
-        }
-    });
 </script>
+</body>
 </html>
 {{end}}

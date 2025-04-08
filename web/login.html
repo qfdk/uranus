@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Uranus - 登录</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-icons@0.16.29/font/lucide.min.css">
     <style>
         .lucide {
             width: 18px;
@@ -23,7 +22,7 @@
     <div class="text-center mb-8">
         <img class="h-16 w-auto mx-auto mb-3" src="/public/icon/nginx.png" alt="Uranus">
         <h2 class="text-3xl font-bold">Uranus</h2>
-<!--        <p class="text-gray-600 mt-1">A web UI for Nginx</p>-->
+        <p class="text-gray-600 mt-1">Nginx管理系统</p>
     </div>
 
     <div class="bg-white p-8 rounded-lg shadow-md">
@@ -31,9 +30,12 @@
             <div class="mb-4">
                 <label for="username" class="block text-gray-700 font-medium mb-2">用户名</label>
                 <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            <i class="lucide lucide-user"></i>
-                        </span>
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </span>
                     <input
                             id="username"
                             name="username"
@@ -48,9 +50,12 @@
             <div class="mb-6">
                 <label for="password" class="block text-gray-700 font-medium mb-2">密码</label>
                 <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            <i class="lucide lucide-lock"></i>
-                        </span>
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide">
+                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </span>
                     <input
                             id="password"
                             name="password"
@@ -66,10 +71,14 @@
                     type="submit"
                     class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md flex items-center justify-center"
             >
-                    <span class="flex items-center">
-                        <i class="lucide lucide-log-in mr-2"></i>
-                        登录
-                    </span>
+                <span class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide mr-2">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" x2="3" y1="12" y2="12"></line>
+                    </svg>
+                    登录
+                </span>
             </button>
         </form>
     </div>
