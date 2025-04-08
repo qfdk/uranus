@@ -10,7 +10,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cheggaaa/pb/v3"
@@ -22,17 +21,10 @@ const (
 	installPath = "/etc/uranus"
 	// 二进制文件名
 	binaryName = "uranus"
-	// PID文件路径
-	pidFilePath = "/etc/uranus/uranus.pid"
+	// 服务名称
+	serviceName = "uranus.service"
 	// 下载超时时间（秒）
 	downloadTimeout = 600 // 10分钟
-
-	// 更新模式
-	// 0: 使用触发文件
-	// 1: 使用 SIGHUP 信号
-	// 2: 使用 SIGUSR2 信号
-	// 3: 使用 systemctl 重启服务
-	updateMode = 3
 )
 
 // ToUpdateProgram 从指定URL下载并安装新版本程序
@@ -76,76 +68,15 @@ func ToUpdateProgram(url string) error {
 
 	log.Printf("[INFO] 更新成功，准备重启服务...")
 
-	// 根据更新模式选择重启方式
-	switch updateMode {
-	case 0:
-		return createTriggerFile()
-	case 1, 2:
-		sig := syscall.SIGHUP
-		if updateMode == 2 {
-			sig = syscall.SIGUSR2
-		}
-		return sendSignalToProcess(sig)
-	case 3:
-		return restartSystemdService()
-	default:
-		return fmt.Errorf("不支持的更新模式: %d", updateMode)
-	}
-}
-
-// createTriggerFile 创建触发文件以触发程序自动重启
-func createTriggerFile() error {
-	triggerPath := path.Join(installPath, ".upgrade_trigger")
-
-	f, err := os.Create(triggerPath)
-	if err != nil {
-		return fmt.Errorf("创建升级触发文件失败: %v", err)
-	}
-	f.Close()
-
-	log.Printf("[INFO] 已创建升级触发文件，服务将在检测到后自动重启")
-	return nil
-}
-
-// sendSignalToProcess 向主进程发送信号
-func sendSignalToProcess(sig syscall.Signal) error {
-	// 读取PID文件获取当前运行的主进程PID
-	pidContent, err := os.ReadFile(pidFilePath)
-	if err != nil {
-		return fmt.Errorf("无法读取PID文件: %v", err)
-	}
-
-	pid := strings.TrimSpace(string(pidContent))
-	pidNum, err := strconv.Atoi(pid)
-	if err != nil {
-		return fmt.Errorf("无效的PID值: %v", err)
-	}
-
-	sigName := "SIGHUP"
-	if sig == syscall.SIGUSR2 {
-		sigName = "SIGUSR2"
-	}
-	log.Printf("[INFO] 向PID %d 发送%s信号", pidNum, sigName)
-
-	// 向主进程发送信号
-	proc, err := os.FindProcess(pidNum)
-	if err != nil {
-		return fmt.Errorf("找不到进程PID %d: %v", pidNum, err)
-	}
-
-	if err := proc.Signal(sig); err != nil {
-		return fmt.Errorf("发送信号失败: %v", err)
-	}
-
-	log.Println("[INFO] 升级信号已发送，服务将重启")
-	return nil
+	// 在systemd环境下，使用systemctl重启服务
+	return restartSystemdService()
 }
 
 // restartSystemdService 使用systemctl重启服务
 func restartSystemdService() error {
-	log.Println("[INFO] 使用systemctl重启uranus服务...")
+	log.Printf("[INFO] 使用systemctl重启%s...", serviceName)
 
-	cmd := exec.Command("systemctl", "restart", "uranus.service")
+	cmd := exec.Command("systemctl", "restart", serviceName)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -155,10 +86,10 @@ func restartSystemdService() error {
 	log.Printf("[INFO] 服务重启命令已执行: %s", strings.TrimSpace(string(output)))
 
 	// 等待服务启动
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// 检查服务状态
-	statusCmd := exec.Command("systemctl", "is-active", "uranus.service")
+	statusCmd := exec.Command("systemctl", "is-active", serviceName)
 	statusOutput, _ := statusCmd.CombinedOutput()
 	status := strings.TrimSpace(string(statusOutput))
 
@@ -166,6 +97,11 @@ func restartSystemdService() error {
 		log.Println("[INFO] 服务已成功重启并处于活动状态")
 	} else {
 		log.Printf("[WARN] 服务可能未正确启动，当前状态: %s", status)
+
+		// 获取服务详细状态
+		detailCmd := exec.Command("systemctl", "status", serviceName)
+		detailOutput, _ := detailCmd.CombinedOutput()
+		log.Printf("[INFO] 服务状态详情:\n%s", string(detailOutput))
 	}
 
 	return nil
