@@ -179,7 +179,7 @@ func Graceful() {
 	// Initialize automatic SSL signing with context
 	sslCtx, sslCancel := context.WithCancel(ctx)
 	defer sslCancel()
-	go services.RenewSSLWithContext(sslCtx)
+	go services.RenewSSL()
 
 	// Start heartbeat service with context if in release mode
 	if gin.Mode() == gin.ReleaseMode {
