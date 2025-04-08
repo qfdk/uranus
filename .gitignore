@@ -154,3 +154,4 @@ tmp/
 /app.log
 dist/
 logs/
+node_modules

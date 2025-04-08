@@ -31,6 +31,12 @@ var templates embed.FS
 //go:embed web/public
 var staticFS embed.FS
 
+//go:embed assets/css
+var cssFS embed.FS
+
+//go:embed assets/icons
+var iconsFS embed.FS
+
 func init() {
 	// Production mode writes to log
 	if gin.Mode() == gin.ReleaseMode {
@@ -70,6 +76,13 @@ func initRouter() *gin.Engine {
 		"add": func(a, b int) int {
 			return a + b
 		},
+		"svgIcon": func(name string) template.HTML {
+			content, err := fs.ReadFile(iconsFS, "assets/icons/"+name+".svg")
+			if err != nil {
+				return template.HTML("")
+			}
+			return template.HTML(content)
+		},
 	}
 
 	// 使用自定义函数创建一个模板实例
@@ -85,6 +98,12 @@ func initRouter() *gin.Engine {
 
 	// Use cache middleware
 	app.Use(middlewares.CacheMiddleware())
+
+	cssSubFS, _ := fs.Sub(cssFS, "assets/css")
+	app.StaticFS("/assets/css", http.FS(cssSubFS))
+
+	iconsSubFS, _ := fs.Sub(iconsFS, "assets/icons")
+	app.StaticFS("/assets/icons", http.FS(iconsSubFS))
 
 	// Set static file routes
 	app.StaticFS("/public", mustFS())
@@ -129,22 +148,42 @@ func Graceful() {
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-		for s := range sig {
-			switch s {
-			case syscall.SIGHUP, syscall.SIGUSR2:
-				log.Printf("[PID][%d]: Received upgrade signal, starting upgrade", os.Getpid())
-				err := upg.Upgrade()
-				if err != nil {
-					log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
-					continue
+
+		// 定期检查触发文件
+		triggerCheck := time.NewTicker(5 * time.Second)
+		defer triggerCheck.Stop()
+
+		for {
+			select {
+			case s := <-sig:
+				switch s {
+				case syscall.SIGHUP, syscall.SIGUSR2:
+					log.Printf("[PID][%d]: Received upgrade signal, starting upgrade", os.Getpid())
+					err := upg.Upgrade()
+					if err != nil {
+						log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
+						continue
+					}
+					log.Printf("[PID][%d]: Upgrade complete", os.Getpid())
+				case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
+					log.Printf("[PID][%d]: Received shutdown signal, preparing to close server", os.Getpid())
+					cancel() // Cancel the context to signal goroutines to stop
+					upg.Stop()
+					log.Printf("[PID][%d]: Server fully closed", os.Getpid())
+					os.Exit(0)
 				}
-				log.Printf("[PID][%d]: Upgrade complete", os.Getpid())
-			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-				log.Printf("[PID][%d]: Received shutdown signal, preparing to close server", os.Getpid())
-				cancel() // Cancel the context to signal goroutines to stop
-				upg.Stop()
-				log.Printf("[PID][%d]: Server fully closed", os.Getpid())
-				os.Exit(0)
+			case <-triggerCheck.C:
+				triggerFile := path.Join(tools.GetPWD(), ".upgrade_trigger")
+				if _, err := os.Stat(triggerFile); err == nil {
+					// 触发文件存在，执行升级
+					log.Printf("[PID][%d]: Found upgrade trigger file, starting upgrade", os.Getpid())
+					os.Remove(triggerFile) // 删除触发文件
+
+					err := upg.Upgrade()
+					if err != nil {
+						log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
+					}
+				}
 			}
 		}
 	}()
@@ -175,7 +214,7 @@ func Graceful() {
 	dbCtx, dbCancel := context.WithCancel(ctx)
 	defer dbCancel()
 	models.InitWithContext(dbCtx)
-	
+
 	go services.RenewSSL()
 
 	// Start heartbeat service with context if in release mode

@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors;
+    }
+    .btn-blue {
+        @apply bg-blue-600 text-white hover:bg-blue-700;
+    }
+    .btn-red {
+        @apply bg-red-600 text-white hover:bg-red-700;
+    }
+    .btn-amber {
+        @apply bg-amber-600 text-white hover:bg-amber-700;
+    }
+    .btn-gray {
+        @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+    }
+    .btn-indigo {
+        @apply bg-indigo-600 text-white hover:bg-indigo-700;
+    }
+    .btn-disabled {
+        @apply bg-gray-300 text-gray-500 cursor-not-allowed;
+    }
+
+    .sidebar-item {
+        @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+    }
+    .sidebar-item.active {
+        @apply bg-indigo-50 text-indigo-600;
+    }
+}

@@ -47,3 +47,11 @@ clean:
 help:
 	@echo "make: compile packages and dependencies"
 	@echo "make clean: remove object files and cached files"
+# 构建CSS
+css:
+	@echo "编译CSS..."
+	pnpm run build:css
+
+# 开发模式CSS (监视更改)
+dev-css:
+	pnpm run dev:css

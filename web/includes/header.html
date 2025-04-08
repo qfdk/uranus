@@ -3,57 +3,18 @@
 <html lang="zh" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-    <link href="/public/icon/favicon.ico" rel="shortcut icon">
-    <link href="/public/icon/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
-    <link href="/public/icon/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" href="/public/icon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/public/icon/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
 
-    <!-- 添加Lucide UI图标库 -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-        /* 侧边栏样式 */
-        .sidebar-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            border-radius: 0.375rem;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: rgb(75, 85, 99);
-            margin-bottom: 0.25rem;
-            text-decoration: none;
-        }
-
-        .sidebar-item:hover {
-            background-color: rgb(243, 244, 246);
-            color: rgb(17, 24, 39);
-        }
-
-        .sidebar-item.active {
-            background-color: rgb(238, 242, 255);
-            color: rgb(79, 70, 229);
-        }
-
-        /* 图标固定大小 */
-        .sidebar-icon {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-    </style>
+    <!-- 预加载CSS -->
+    <link rel="preload" href="/assets/css/tailwind.min.css" as="style">
+    <link rel="stylesheet" href="/assets/css/tailwind.min.css">
 
     <title>Uranus - Nginx管理系统</title>
 
-    <!-- 添加Lucide UI初始化脚本 -->
     <script>
-        // 等待文档加载完成后初始化Lucide图标
-        document.addEventListener('DOMContentLoaded', function() {
-            lucide.createIcons();
-        });
-
         // 用户菜单切换
         function toggleUserMenu() {
             var menu = document.getElementById('userMenu');
@@ -67,7 +28,6 @@
         }
     </script>
 </head>
-
 <body class="h-full bg-gray-50">
 <!-- 顶部导航栏 -->
 <header class="bg-white border-b border-gray-200 fixed top-0 inset-x-0 z-30">
@@ -80,7 +40,7 @@
                     onclick="toggleSidebar()"
             >
                 <span class="sr-only">打开菜单</span>
-                <i data-lucide="menu" class="w-6 h-6"></i>
+                {{ svgIcon "menu" }}
             </button>
 
             <!-- Logo -->
@@ -98,16 +58,16 @@
                 >
                     <span class="hidden md:inline-block">管理员</span>
                     <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        <i data-lucide="user" class="w-5 h-5 text-gray-500"></i>
+                        {{ svgIcon "user" }}
                     </div>
-                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                    {{ svgIcon "chevron-down" }}
                 </button>
 
                 <!-- 下拉菜单 -->
                 <div id="userMenu" class="absolute right-0 mt-2 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 hidden">
                     <a href="/logout" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <i data-lucide="log-out" class="w-4 h-4 mr-2"></i>
-                        退出登录
+                        {{ svgIcon "log-out" }}
+                        <span class="ml-2">退出登录</span>
                     </a>
                 </div>
             </div>
@@ -132,31 +92,31 @@
                     onclick="toggleSidebar()"
             >
                 <span class="sr-only">关闭菜单</span>
-                <i data-lucide="x" class="w-6 h-6"></i>
+                {{ svgIcon "x" }}
             </button>
         </div>
 
         <div class="flex-1 px-3 mt-5">
             <nav>
                 <a href="/admin/dashboard" class="sidebar-item {{ if eq .activePage "dashboard" }}active{{ end }}">
-                <i data-lucide="server" class="sidebar-icon"></i>
-                服务器状态
+                {{ svgIcon "server" }}
+                <span>服务器状态</span>
                 </a>
                 <a href="/admin/nginx/config-info" class="sidebar-item {{ if eq .activePage "config" }}active{{ end }}">
-                <i data-lucide="settings" class="sidebar-icon"></i>
-                配置
+                {{ svgIcon "settings" }}
+                <span>配置</span>
                 </a>
                 <a href="/admin/sites" class="sidebar-item {{ if eq .activePage "sites" }}active{{ end }}">
-                <i data-lucide="globe" class="sidebar-icon"></i>
-                网站管理
+                {{ svgIcon "globe" }}
+                <span>网站管理</span>
                 </a>
                 <a href="/admin/ssl" class="sidebar-item {{ if eq .activePage "ssl" }}active{{ end }}">
-                <i data-lucide="shield" class="sidebar-icon"></i>
-                SSL证书管理
+                {{ svgIcon "shield" }}
+                <span>SSL证书管理</span>
                 </a>
                 <a href="/admin/terminal" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
-                <i data-lucide="terminal" class="sidebar-icon"></i>
-                Terminal
+                {{ svgIcon "terminal" }}
+                <span>Terminal</span>
                 </a>
             </nav>
         </div>
@@ -169,24 +129,24 @@
         <div class="flex flex-1 flex-col overflow-y-auto pt-20 pb-4">
             <nav class="mt-2 px-3">
                 <a href="/admin/dashboard" class="sidebar-item {{ if eq .activePage "dashboard" }}active{{ end }}">
-                <i data-lucide="server" class="sidebar-icon"></i>
-                服务器状态
+                {{ svgIcon "server" }}
+                <span>服务器状态</span>
                 </a>
                 <a href="/admin/nginx/config-info" class="sidebar-item {{ if eq .activePage "config" }}active{{ end }}">
-                <i data-lucide="settings" class="sidebar-icon"></i>
-                配置
+                {{ svgIcon "settings" }}
+                <span>配置</span>
                 </a>
                 <a href="/admin/sites" class="sidebar-item {{ if eq .activePage "sites" }}active{{ end }}">
-                <i data-lucide="globe" class="sidebar-icon"></i>
-                网站管理
+                {{ svgIcon "globe" }}
+                <span>网站管理</span>
                 </a>
                 <a href="/admin/ssl" class="sidebar-item {{ if eq .activePage "ssl" }}active{{ end }}">
-                <i data-lucide="shield" class="sidebar-icon"></i>
-                SSL证书管理
+                {{ svgIcon "shield" }}
+                <span>SSL证书管理</span>
                 </a>
                 <a href="/admin/terminal" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
-                <i data-lucide="terminal" class="sidebar-icon"></i>
-                Terminal
+                {{ svgIcon "terminal" }}
+                <span>Terminal</span>
                 </a>
             </nav>
         </div>
