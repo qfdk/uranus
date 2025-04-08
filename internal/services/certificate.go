@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -56,11 +57,6 @@ var (
 	// 缓存 ACME 客户端
 	clientCache     map[string]*lego.Client
 	clientCacheLock sync.RWMutex
-
-	// 证书信息缓存
-	certInfoCache     = make(map[string]*x509.Certificate)
-	certInfoCacheLock sync.RWMutex
-	certInfoExpiry    = make(map[string]time.Time)
 )
 
 func init() {
@@ -70,7 +66,7 @@ func init() {
 // HTTP Challenge 服务管理
 type ChallengeServerManager struct {
 	server     *http.Server
-	provider   *http01.HTTPChallengeProvider
+	provider   *http01.ProviderServer 
 	started    bool
 	startMutex sync.Mutex
 }
@@ -93,7 +89,7 @@ func (m *ChallengeServerManager) Start() error {
 	// 启动服务器
 	srv := &http.Server{
 		Addr:              ":9999",
-		Handler:           provider.HTTPChallengeHandler(),
+		Handler:           provider,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -212,51 +208,6 @@ func getClient(email string, key crypto.PrivateKey) (*lego.Client, error) {
 	return client, nil
 }
 
-// GetCertificateInfo retrieves certificate info with caching
-func GetCertificateInfo(domain string) *x509.Certificate {
-	// 首先检查缓存（读锁）
-	certInfoCacheLock.RLock()
-	if cert, ok := certInfoCache[domain]; ok {
-		if time.Now().Before(certInfoExpiry[domain]) {
-			certInfoCacheLock.RUnlock()
-			return cert
-		}
-	}
-	certInfoCacheLock.RUnlock()
-
-	// 缓存未命中或已过期，获取新证书
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   10 * time.Second, // 防止挂起
-	}
-
-	response, err := client.Get("https://" + domain)
-	if err != nil {
-		log.Printf("Certificate retrieval failed for %s: %v", domain, err)
-		return nil
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(response.Body)
-
-	cert := response.TLS.PeerCertificates[0]
-
-	// 更新缓存（写锁）
-	certInfoCacheLock.Lock()
-	certInfoCache[domain] = cert
-	certInfoExpiry[domain] = time.Now().Add(1 * time.Hour) // 缓存 1 小时
-	certInfoCacheLock.Unlock()
-
-	return cert
-}
-
 func IssueCert(domains []string, configName string) error {
 	// 启动 HTTP Challenge 服务
 	if err := challengeServerManager.Start(); err != nil {
@@ -351,14 +302,6 @@ func IssueCert(domains []string, configName string) error {
 	}
 
 	log.Printf("[+] SSL task completed, certificate expires on: %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
-
-	// 使证书缓存失效
-	certInfoCacheLock.Lock()
-	for _, domain := range domains {
-		delete(certInfoCache, domain)
-		delete(certInfoExpiry, domain)
-	}
-	certInfoCacheLock.Unlock()
 
 	return nil
 }
