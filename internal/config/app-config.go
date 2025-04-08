@@ -161,12 +161,12 @@ func getIP() string {
 		Timeout: 5 * time.Second,
 	}
 
-	req, err := http.NewRequest("GET", "https://api.ip.sb/ip", nil)
+	req, err := http.NewRequest("GET", "https://ip.tar.tn", nil)
 	if err != nil {
 		log.Printf("Request creation failed: %v", err)
 		return ""
 	}
-	req.Header.Set("User-Agent", "Mozilla")
+	req.Header.Set("User-Agent", "Uranus")
 
 	resp, err := client.Do(req)
 	if err != nil {
