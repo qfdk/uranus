@@ -3,14 +3,15 @@ package config
 import (
 	"log"
 	"strings"
+	"time"
 )
 
 var (
 	BuildName    = "buildName"
 	BuildVersion = "开发版本"
-	BuildTime    = "实时"
-	CommitID     = "未 commit"
-	GoVersion    = "latest"
+	BuildTime    = time.Now().Format("2006-01-02 15:04:05")
+	CommitID     = "尚未提交"
+	GoVersion    = "go version 开发环境"
 )
 
 func DisplayVersion() {
