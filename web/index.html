@@ -354,7 +354,8 @@
 
             $.post('/upgrade')
                 .then(response => {
-                    if (status === 'OK') {
+                    // 假设 response 中有 status 属性，根据实际情况调整
+                    if (response.status === 'OK') {  // 修改这里，使用 response.status
                         $("#upgradeFinish-OK").removeClass("hidden");
 
                         // 5秒后刷新页面
@@ -370,6 +371,8 @@
                     } else {
                         $("#upgradeFinish-KO").removeClass("hidden");
                     }
+
+                    $("#upgradeFinish").removeClass("hidden");
                 })
                 .catch(error => {
                     $("#upgrade_status").text("升级失败");
@@ -377,8 +380,7 @@
                     $('#upgrade_icon').removeClass('hidden');
                     $("#upgrade").attr("disabled", false);
                     console.error(error);
-                })
-                .finally(() => {
+
                     $("#upgradeFinish").removeClass("hidden");
                 });
         });
