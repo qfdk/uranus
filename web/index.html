@@ -7,7 +7,9 @@
     {{ if ne .nginxStatus "KO" }}
     <div class="rounded-lg shadow-sm border-l-4 border-green-500 bg-green-50 p-4">
         <div class="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="text-green-500">
                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                 <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                 <line x1="6" x2="6.01" y1="6" y2="6"></line>
@@ -24,7 +26,9 @@
     {{else}}
     <div class="rounded-lg shadow-sm border-l-4 border-yellow-500 bg-yellow-50 p-4">
         <div class="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="text-yellow-500">
                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                 <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                 <line x1="6" x2="6.01" y1="6" y2="6"></line>
@@ -42,7 +46,9 @@
     {{if and (ne .nginxActionMessage "OK") (ne .nginxActionMessage "")}}
     <div class="rounded-lg shadow-sm border-l-4 border-red-500 bg-red-50 p-4">
         <div class="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="text-red-500">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -57,22 +63,28 @@
     <!-- 操作按钮组 -->
     <div class="flex flex-wrap gap-3">
         <form action="/admin/nginx" method="post" class="flex flex-wrap gap-3">
-            <button type="submit" name="action" value="start" class="btn btn-blue" {{ if ne .nginxStatus "KO" }}disabled class="btn-disabled"{{end}}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button type="submit" name="action" value="start" class="btn btn-blue" {{ if ne .nginxStatus
+            "KO" }}disabled class="btn-disabled"{{end}}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
             开始服务
             </button>
 
-            <button type="submit" name="action" value="reload" class="btn btn-amber" {{ if eq .nginxStatus "KO" }}disabled class="btn-disabled"{{end}}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button type="submit" name="action" value="reload" class="btn btn-amber" {{ if eq .nginxStatus
+            "KO" }}disabled class="btn-disabled"{{end}}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
             </svg>
             重载配置
             </button>
 
-            <button type="submit" name="action" value="stop" class="btn btn-red" {{ if eq .nginxStatus "KO" }}disabled class="btn-disabled"{{end}}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button type="submit" name="action" value="stop" class="btn btn-red" {{ if eq .nginxStatus
+            "KO" }}disabled class="btn-disabled"{{end}}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <rect x="9" y="9" width="6" height="6"></rect>
             </svg>
@@ -80,7 +92,8 @@
             </button>
 
             <a href="/admin/nginx/config" class="btn btn-gray">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
                     <circle cx="12" cy="12" r="3"></circle>
                 </svg>
@@ -89,7 +102,8 @@
 
             {{ if .hasSSH }}
             <a href="/admin/terminal/stop" class="btn btn-red">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18"></path>
                     <path d="m6 6 12 12"></path>
                 </svg>
@@ -97,7 +111,8 @@
             </a>
             {{ else }}
             <a href="/admin/terminal" class="btn btn-indigo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="4 17 10 11 4 5"></polyline>
                     <line x1="12" x2="20" y1="19" y2="19"></line>
                 </svg>
@@ -106,7 +121,8 @@
             {{ end }}
 
             <button type="button" id="openUpgradeModal" class="btn btn-blue">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="16 12 12 8 8 12"></polyline>
                     <line x1="12" x2="12" y1="16" y2="8"></line>
@@ -121,7 +137,9 @@
         <!-- 系统信息 -->
         <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 flex items-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     class="text-gray-500 mr-2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                 </svg>
                 系统信息
@@ -145,7 +163,9 @@
         <!-- Nginx信息 -->
         <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 flex items-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     class="text-gray-500 mr-2">
                     <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                     <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                     <line x1="6" x2="6.01" y1="6" y2="6"></line>
@@ -173,7 +193,9 @@
     <!-- 系统版本信息 -->
     <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
         <h3 class="text-lg font-medium text-gray-900 flex items-center mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 mr-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="text-gray-500 mr-2">
                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                 <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                 <line x1="6" x2="6.01" y1="6" y2="6"></line>
@@ -199,14 +221,16 @@
 </div>
 
 <!-- 升级模态框 -->
-<div class="hidden fixed inset-0 z-50 overflow-auto bg-gray-500 bg-opacity-75 flex items-center justify-center" id="upgrade-modal">
+<div class="hidden fixed inset-0 z-50 overflow-auto bg-gray-500 bg-opacity-75 flex items-center justify-center"
+     id="upgrade-modal">
     <div class="relative bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl">
         <div class="p-6" id="upgrade-message">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
                 <h3 class="text-xl font-medium text-gray-900">系统信息</h3>
-                <button class="text-gray-400 hover:text-gray-500" onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
+                <button class="text-gray-400 hover:text-gray-500"
+                        onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
@@ -226,18 +250,24 @@
                 </div>
 
                 <div class="pt-4 flex justify-end">
-                    <button id="upgrade" class="px-5 py-2 bg-gray-400 text-white rounded-lg flex items-center transition-colors" disabled>
+                    <button id="upgrade"
+                            class="px-5 py-2 bg-gray-400 text-white rounded-lg flex items-center transition-colors"
+                            disabled>
                         <span id="upgrade_icon" class="mr-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="17 8 12 3 7 8"></polyline>
                                 <line x1="12" x2="12" y1="3" y2="15"></line>
                             </svg>
                         </span>
                         <span id="upgrade_spinner" class="hidden mr-2">
-                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                 viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                         </span>
                         <span id="upgrade_status">检查更新中...</span>
@@ -249,12 +279,14 @@
         <div class="hidden p-6" id="upgradeFinish">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
                 <h3 class="text-xl font-medium text-gray-900">
-                    <span id="upgradeFinish-OK" class="hidden">升级完成, <span id="countdown">5</span>s 后刷新页面...</span>
+                    <span id="upgradeFinish-OK" class="hidden">升级完成, <span
+                            id="countdown">5</span>s 后刷新页面...</span>
                     <span id="upgradeFinish-KO" class="hidden">已经是最新版本, 不需要升级</span>
                 </h3>
-                <button class="text-gray-400 hover:text-gray-500" onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
+                <button class="text-gray-400 hover:text-gray-500"
+                        onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
@@ -344,7 +376,7 @@
                     $('#upgrade_spinner').addClass('hidden');
                     $('#upgrade_icon').removeClass('hidden');
                     $("#upgrade").attr("disabled", false);
-                    alert("升级过程中出错: " + error);
+                    console.error(error);
                 })
                 .finally(() => {
                     $("#upgradeFinish").removeClass("hidden");
