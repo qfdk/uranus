@@ -6,10 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -66,7 +63,7 @@ func init() {
 // HTTP Challenge 服务管理
 type ChallengeServerManager struct {
 	server     *http.Server
-	provider   *http01.ProviderServer 
+	provider   *http01.ProviderServer
 	started    bool
 	startMutex sync.Mutex
 }
@@ -86,10 +83,15 @@ func (m *ChallengeServerManager) Start() error {
 	// 创建 HTTP Challenge 提供器
 	provider := http01.NewProviderServer("", "9999")
 	
+	// 创建自定义处理器
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provider.ServeHTTP(w, r)
+	})
+
 	// 启动服务器
 	srv := &http.Server{
 		Addr:              ":9999",
-		Handler:           provider,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
