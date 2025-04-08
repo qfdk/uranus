@@ -10,86 +10,35 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"uranus/internal/models"
 
 	"github.com/robfig/cron/v3"
+	"uranus/internal/models"
 )
 
-var (
-	// Cache for certificate information to avoid repeated TLS handshakes
-	certInfoCache     = make(map[string]*x509.Certificate)
-	certInfoCacheLock sync.RWMutex
-	certInfoExpiry    = make(map[string]time.Time)
-)
-
-// GetCertificateInfo retrieves certificate info with caching
-func GetCertificateInfo(domain string) *x509.Certificate {
-	// Check cache first (read lock)
-	certInfoCacheLock.RLock()
-	if cert, ok := certInfoCache[domain]; ok {
-		if time.Now().Before(certInfoExpiry[domain]) {
-			certInfoCacheLock.RUnlock()
-			return cert
-		}
-	}
-	certInfoCacheLock.RUnlock()
-
-	// Cache miss or expired, fetch new certificate
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		// Performance tuning
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   10 * time.Second, // Prevent hanging
-	}
-
-	response, err := client.Get("https://" + domain)
-	if err != nil {
-		log.Printf("Certificate retrieval failed for %s: %v", domain, err)
-		return nil
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(response.Body)
-
-	cert := response.TLS.PeerCertificates[0]
-
-	// Update cache (write lock)
-	certInfoCacheLock.Lock()
-	certInfoCache[domain] = cert
-	certInfoExpiry[domain] = time.Now().Add(1 * time.Hour) // Cache for 1 hour
-	certInfoCacheLock.Unlock()
-
-	return cert
-}
+// 已移除重复的缓存定义，使用 certificate.go 中的缓存机制
 
 // RenewSSLWithContext runs SSL renewal with context support for graceful shutdown
 func RenewSSLWithContext(ctx context.Context) {
-	// Every day at 00:05 check certificates
+	// 每天凌晨 00:05 检查证书
 	spec := "5 0 * * *"
 	c := cron.New()
 
 	_, _ = c.AddFunc(spec, func() {
 		log.Println("[SSL] Starting certificate renewal check")
 
-		// Process certificates in parallel with a limit
+		// 并行处理证书，限制并发数
 		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, 5) // Limit to 5 concurrent operations
+		semaphore := make(chan struct{}, 5) // 限制为 5 个并发操作
 
 		certs := models.GetCertificates()
 		for _, cert := range certs {
-			// Check if context is cancelled
+			// 检查上下文是否被取消
 			select {
 			case <-ctx.Done():
 				log.Println("[SSL] Certificate renewal cancelled by context")
 				return
 			default:
-				// Continue processing
+				// 继续处理
 			}
 
 			var need2Renew = false
@@ -106,11 +55,11 @@ func RenewSSLWithContext(ctx context.Context) {
 
 			if need2Renew {
 				wg.Add(1)
-				semaphore <- struct{}{} // Acquire semaphore to limit concurrency
+				semaphore <- struct{}{} // 获取信号量以限制并发
 
 				go func(cert models.Cert) {
 					defer wg.Done()
-					defer func() { <-semaphore }() // Release semaphore
+					defer func() { <-semaphore }() // 释放信号量
 
 					err := IssueCert(strings.Split(cert.Domains, ","), cert.FileName)
 					if err != nil {
@@ -129,7 +78,7 @@ func RenewSSLWithContext(ctx context.Context) {
 
 	go c.Start()
 
-	// Wait for context cancellation to stop the cron scheduler
+	// 等待上下文取消以停止 cron 调度器
 	<-ctx.Done()
 	log.Println("[SSL] Stopping certificate renewal service")
 	c.Stop()
@@ -137,6 +86,6 @@ func RenewSSLWithContext(ctx context.Context) {
 
 // RenewSSL for backward compatibility
 func RenewSSL() {
-	// Use background context that will never be canceled
+	// 使用永不取消的后台上下文
 	RenewSSLWithContext(context.Background())
 }
