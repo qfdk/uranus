@@ -9,13 +9,13 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 	"uranus/internal/config"
@@ -33,7 +33,7 @@ var templates embed.FS
 var staticFS embed.FS
 
 func init() {
-	// 生产模式写入日志
+	// Production mode writes to log
 	if gin.Mode() == gin.ReleaseMode {
 		logDir := path.Join(tools.GetPWD(), "logs")
 		if err := os.MkdirAll(logDir, 0755); err != nil && !os.IsExist(err) {
@@ -62,21 +62,22 @@ func mustFS() http.FileSystem {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
+	app.Use(gin.Recovery()) // Add recovery middleware for stability
 
-	// 解析模板
+	// Parse templates
 	tmpl, err := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
 	if err != nil {
 		panic(err)
 	}
 	app.SetHTMLTemplate(tmpl)
 
-	// 使用缓存中间件
+	// Use cache middleware
 	app.Use(middlewares.CacheMiddleware())
 
-	// 设置静态文件路由
+	// Set static file routes
 	app.StaticFS("/public", mustFS())
 
-	// 处理 favicon.ico 请求
+	// Handle favicon.ico requests
 	app.GET("/favicon.ico", func(c *gin.Context) {
 		file, err := staticFS.ReadFile("web/public/icon/favicon.ico")
 		if err != nil {
@@ -86,13 +87,13 @@ func initRouter() *gin.Engine {
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
 
-	// 设置可信代理
+	// Set trusted proxies
 	err = app.SetTrustedProxies([]string{"127.0.0.1"})
 	if err != nil {
 		return nil
 	}
 
-	// 注册路由
+	// Register routes
 	routes.RegisterRoutes(app)
 
 	return app
@@ -108,24 +109,29 @@ func Graceful() {
 	}
 	defer upg.Stop()
 
-	// 处理信号
+	// Create a context that will be canceled on shutdown signals
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle signals
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 		for s := range sig {
 			switch s {
 			case syscall.SIGHUP, syscall.SIGUSR2:
-				log.Printf("[PID][%d]: 收到升级信号, 升级开始", os.Getpid())
+				log.Printf("[PID][%d]: Received upgrade signal, starting upgrade", os.Getpid())
 				err := upg.Upgrade()
 				if err != nil {
-					log.Printf("[PID][%d]: 升级出错, %s", os.Getpid(), err)
+					log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
 					continue
 				}
-				log.Printf("[PID][%d]: 升级完成", os.Getpid())
+				log.Printf("[PID][%d]: Upgrade complete", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-				log.Printf("[PID][%d]: 收到关闭信号, 准备关闭服务器", os.Getpid())
+				log.Printf("[PID][%d]: Received shutdown signal, preparing to close server", os.Getpid())
+				cancel() // Cancel the context to signal goroutines to stop
 				upg.Stop()
-				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
+				log.Printf("[PID][%d]: Server fully closed", os.Getpid())
 				os.Exit(0)
 			}
 		}
@@ -133,21 +139,46 @@ func Graceful() {
 
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
 	if err != nil {
-		log.Fatalln("无法监听:", err)
+		log.Fatalln("Unable to listen:", err)
 	}
 
+	// Configure server with timeouts and other performance settings
 	server := &http.Server{
-		Handler: initRouter(),
+		Handler:           initRouter(),
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MB
 	}
 
+	// Start the server in a goroutine
 	go func() {
 		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Println("HTTP server:", err)
 		}
 	}()
-	log.Printf("[PID][%d]: 服务器启动成功并写入 PID 到文件", os.Getpid())
-	if err := ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
-		log.Println("写入 PID 文件出错:", err)
+
+	// Initialize SQLite database with context
+	dbCtx, dbCancel := context.WithCancel(ctx)
+	defer dbCancel()
+	models.InitWithContext(dbCtx)
+
+	// Initialize automatic SSL signing with context
+	sslCtx, sslCancel := context.WithCancel(ctx)
+	defer sslCancel()
+	go services.RenewSSLWithContext(sslCtx)
+
+	// Start heartbeat service with context if in release mode
+	if gin.Mode() == gin.ReleaseMode {
+		heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
+		defer heartbeatCancel()
+		go services.HeartbeatWithContext(heartbeatCtx)
+	}
+
+	log.Printf("[PID][%d]: Server started successfully and wrote PID to file", os.Getpid())
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
+		log.Println("Error writing PID file:", err)
 	}
 
 	if err := upg.Ready(); err != nil {
@@ -155,32 +186,30 @@ func Graceful() {
 	}
 	<-upg.Exit()
 
-	time.AfterFunc(10*time.Second, func() {
-		log.Println("平滑关闭超时 ...")
-		os.Exit(1)
-	})
+	// Setup shutdown timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
-	if err := server.Shutdown(context.Background()); err != nil {
-		log.Println("服务器关闭出错:", err)
+	// Shutdown the server gracefully
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Println("Server shutdown error:", err)
 	}
 
-	log.Println("退出并删除pid文件")
+	log.Println("Exiting and deleting pid file")
 	if err := os.Remove(pidFile); err != nil {
-		log.Println("删除 PID 文件出错:", err)
+		log.Println("Error deleting PID file:", err)
 	}
 }
 
 func main() {
-	// 线上模式显示版本信息
+	// Show version info in production mode
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
 	}
-	// 初始化配置文件
+
+	// Initialize configuration file
 	config.InitAppConfig()
-	// 初始化 SQLite 数据库
-	go models.Init()
-	// 初始化 自动签名
-	go services.RenewSSL()
-	initRouter()
+
+	// Start the server with graceful shutdown
 	Graceful()
 }

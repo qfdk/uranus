@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	. "uranus/internal/config"
-	models2 "uranus/internal/models"
+	"uranus/internal/models"
 	"uranus/internal/services"
 )
 
@@ -23,9 +24,19 @@ var httpConf string
 //go:embed template/https.conf
 var httpsConf string
 
+// Template cache to prevent repeated string operations
+var (
+	templateCache     = make(map[string]string)
+	templateCacheLock sync.RWMutex
+)
+
 func NewSite(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
-		"configFileName": "", "content": "", "isNewSite": true, "infoPlus": true, "isDefaultConf": false,
+		"configFileName": "",
+		"content":        "",
+		"isNewSite":      true,
+		"infoPlus":       true,
+		"isDefaultConf":  false,
 	})
 }
 
@@ -34,68 +45,129 @@ func GetTemplate(ctx *gin.Context) {
 	configName := ctx.Query("configName")
 	proxy := ctx.Query("proxy")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
-	var templateConf = httpConf
+
+	// Create cache key from parameters
+	cacheKey := strings.Join(domains, ",") + "|" + configName + "|" + proxy + "|" + strconv.FormatBool(enableSSL)
+
+	// Check template cache first
+	templateCacheLock.RLock()
+	if cachedTemplate, ok := templateCache[cacheKey]; ok {
+		templateCacheLock.RUnlock()
+		ctx.JSON(http.StatusOK, gin.H{"content": cachedTemplate})
+		return
+	}
+	templateCacheLock.RUnlock()
+
+	// Cache miss, generate template
+	var templateConf string
 	if enableSSL {
 		templateConf = httpsConf
+	} else {
+		templateConf = httpConf
 	}
+
+	// Apply template replacements
 	inputTemplate := templateConf
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains[:], " "))
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains, " "))
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", GetAppConfig().SSLPath)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{proxy}}", proxy)
+
+	// Update cache
+	templateCacheLock.Lock()
+	templateCache[cacheKey] = inputTemplate
+	templateCacheLock.Unlock()
+
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
 func GetSites(ctx *gin.Context) {
-	files, err := ioutil.ReadDir(filepath.Join(GetAppConfig().VhostPath))
+	vhostPath := GetAppConfig().VhostPath
+	files, err := ioutil.ReadDir(filepath.Join(vhostPath))
 	if err != nil {
 		log.Println(err)
 		ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": []string{}})
 		return
 	}
-	ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": files, "humanizeBytes": humanize.Bytes})
+
+	// Pre-format file sizes for performance
+	ctx.HTML(http.StatusOK, "sites.html", gin.H{
+		"files":         files,
+		"humanizeBytes": humanize.Bytes,
+	})
 }
 
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	content, _ := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+
 	if filename != "default" {
-		cert := models2.GetCertByFilename(configName)
-		ctx.HTML(http.StatusOK, "siteConfEdit.html",
-			gin.H{
-				"configFileName": configName,
-				"domains":        cert.Domains,
-				"content":        cert.Content,
-				"proxy":          cert.Proxy,
-				"infoPlus":       true,
-				"isDefaultConf":  false,
-			},
-		)
+		// Get certificate info from database
+		cert := models.GetCertByFilename(configName)
+
+		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+			"configFileName": configName,
+			"domains":        cert.Domains,
+			"content":        cert.Content,
+			"proxy":          cert.Proxy,
+			"infoPlus":       true,
+			"isDefaultConf":  false,
+		})
 	} else {
-		ctx.HTML(http.StatusOK, "siteConfEdit.html",
-			gin.H{
-				"configFileName": configName,
-				"content":        string(content),
-				"infoPlus":       false,
-				"isDefaultConf":  true,
-			},
-		)
+		// Read default configuration from file
+		content, err := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+		if err != nil {
+			log.Printf("Error reading default configuration: %v", err)
+			ctx.String(http.StatusInternalServerError, "Error reading configuration")
+			return
+		}
+
+		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+			"configFileName": configName,
+			"content":        string(content),
+			"infoPlus":       false,
+			"isDefaultConf":  true,
+		})
 	}
 }
 
 func DeleteSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-	os.Remove(filepath.Join(GetAppConfig().VhostPath, filename))
-	os.RemoveAll(filepath.Join(GetAppConfig().SSLPath, configName))
-	// 数据库删除
-	cert := models2.GetCertByFilename(configName)
-	err := cert.Remove()
+
+	// Remove configuration file
+	vhostPath := GetAppConfig().VhostPath
+	err := os.Remove(filepath.Join(vhostPath, filename))
+	if err != nil {
+		log.Printf("Error deleting configuration file: %v", err)
+	}
+
+	// Remove SSL directory if exists
+	sslPath := GetAppConfig().SSLPath
+	err = os.RemoveAll(filepath.Join(sslPath, configName))
+	if err != nil {
+		log.Printf("Error deleting SSL directory: %v", err)
+	}
+
+	// Delete from database
+	cert := models.GetCertByFilename(configName)
+	err = cert.Remove()
 	if err != nil {
 		log.Println(err)
 	}
+
+	// Invalidate template cache
+	templateCacheLock.Lock()
+	for key := range templateCache {
+		if strings.Contains(key, configName) {
+			delete(templateCache, key)
+		}
+	}
+	templateCacheLock.Unlock()
+
+	// Reload nginx
 	services.ReloadNginx()
+
 	ctx.Redirect(http.StatusFound, "/admin/sites")
 }
 
@@ -105,22 +177,52 @@ func SaveSiteConf(ctx *gin.Context) {
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
 
-	cert := models2.GetCertByFilename(fileName)
-	cert.Content = content
-	cert.Domains = strings.Join(domains, ",")
-	cert.FileName = fileName
-	cert.Proxy = proxy
-	models2.GetDbClient().Save(&cert)
-
+	// Save to database if not default configuration
 	if fileName != "default" {
-		fileName = fileName + ".conf"
+		cert := models.GetCertByFilename(fileName)
+		cert.Content = content
+		cert.Domains = strings.Join(domains, ",")
+		cert.FileName = fileName
+		cert.Proxy = proxy
+		models.GetDbClient().Save(&cert)
 	}
-	//  检测 文件夹是否存在不存在建立
-	if _, err := os.Stat(GetAppConfig().VhostPath); os.IsNotExist(err) {
-		os.MkdirAll(GetAppConfig().VhostPath, 0755)
+
+	// Prepare filename for file path
+	fullFileName := fileName
+	if fileName != "default" {
+		fullFileName = fileName + ".conf"
 	}
-	path := filepath.Join(GetAppConfig().VhostPath, fileName)
-	ioutil.WriteFile(path, []byte(content), 0644)
+
+	// Ensure vhost directory exists
+	vhostPath := GetAppConfig().VhostPath
+	if _, err := os.Stat(vhostPath); os.IsNotExist(err) {
+		err = os.MkdirAll(vhostPath, 0755)
+		if err != nil {
+			log.Printf("Error creating vhost directory: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating directory"})
+			return
+		}
+	}
+
+	// Write configuration file
+	filePath := filepath.Join(vhostPath, fullFileName)
+	err := ioutil.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		log.Printf("Error writing configuration file: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error writing file"})
+		return
+	}
+
+	// Invalidate template cache
+	templateCacheLock.Lock()
+	for key := range templateCache {
+		if strings.Contains(key, fileName) {
+			delete(templateCache, key)
+		}
+	}
+	templateCacheLock.Unlock()
+
+	// Reload nginx
 	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
