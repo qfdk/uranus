@@ -226,7 +226,7 @@
                 </div>
 
                 <div class="pt-4 flex justify-end">
-                    <button id="upgrade" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center transition-colors">
+                    <button id="upgrade" class="px-5 py-2 bg-gray-400 text-white rounded-lg flex items-center transition-colors" disabled>
                         <span id="upgrade_icon" class="mr-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -240,7 +240,7 @@
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                         </span>
-                        升级
+                        <span id="upgrade_status">检查更新中...</span>
                     </button>
                 </div>
             </div>
@@ -249,7 +249,7 @@
         <div class="hidden p-6" id="upgradeFinish">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
                 <h3 class="text-xl font-medium text-gray-900">
-                    <span id="upgradeFinish-OK" class="hidden">升级完成, 5s 后刷新页面...</span>
+                    <span id="upgradeFinish-OK" class="hidden">升级完成, <span id="countdown">5</span>s 后刷新页面...</span>
                     <span id="upgradeFinish-KO" class="hidden">已经是最新版本, 不需要升级</span>
                 </h3>
                 <button class="text-gray-400 hover:text-gray-500" onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
@@ -284,11 +284,15 @@
         $.get('/checkUpdate', (data) => {
             updateData = data;
 
-            const {buildTime} = data;
-            if (buildTime !== $('#upgrade_buildTime')?.text()?.trim()) {
+            const {buildTime, status} = data;
+            if (status === 'OK') {
                 $("#upgrade").attr("disabled", false);
+                $("#upgrade").removeClass("bg-gray-400").addClass("bg-blue-600 hover:bg-blue-700");
+                $("#upgrade_status").text("有新版本可用");
             } else {
                 $("#upgrade").attr("disabled", true);
+                $("#upgrade").addClass("bg-gray-400").removeClass("bg-blue-600 hover:bg-blue-700");
+                $("#upgrade_status").text("已是最新版本");
             }
         });
 
@@ -301,9 +305,14 @@
         });
 
         $("#upgrade").click(() => {
+            if ($("#upgrade").attr("disabled") === "disabled") {
+                return;
+            }
+
             $("#upgrade").attr("disabled", true);
             $('#upgrade_spinner').removeClass('hidden');
             $('#upgrade_icon').addClass('hidden');
+            $("#upgrade_status").text("正在升级...");
 
             const {status, buildTime, buildVersion, commitId} = updateData;
             $("#upgrade-message").addClass("hidden");
@@ -311,18 +320,35 @@
             $("#buildVersion").html(buildVersion);
             $("#commitID").html(commitId);
 
-            $.post('/upgrade');
+            $.post('/upgrade')
+                .then(response => {
+                    if (status === 'OK') {
+                        $("#upgradeFinish-OK").removeClass("hidden");
 
-            if (status === 'OK') {
-                $("#upgradeFinish-OK").removeClass("hidden")
-                setTimeout(() => {
-                    location.reload();
-                }, 5000);
-            } else {
-                $("#upgradeFinish-KO").removeClass("hidden")
-            }
-
-            $("#upgradeFinish").removeClass("hidden");
+                        // 5秒后刷新页面
+                        let countdown = 5;
+                        const countdownInterval = setInterval(() => {
+                            countdown--;
+                            $("#countdown").text(countdown);
+                            if (countdown <= 0) {
+                                clearInterval(countdownInterval);
+                                location.reload();
+                            }
+                        }, 1000);
+                    } else {
+                        $("#upgradeFinish-KO").removeClass("hidden");
+                    }
+                })
+                .catch(error => {
+                    $("#upgrade_status").text("升级失败");
+                    $('#upgrade_spinner').addClass('hidden');
+                    $('#upgrade_icon').removeClass('hidden');
+                    $("#upgrade").attr("disabled", false);
+                    alert("升级过程中出错: " + error);
+                })
+                .finally(() => {
+                    $("#upgradeFinish").removeClass("hidden");
+                });
         });
     });
 </script>

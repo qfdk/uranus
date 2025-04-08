@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -16,15 +15,6 @@ import (
 )
 
 var binaryName = "uranus"
-
-// CheckIfError ...
-func checkIfError(err error) {
-	if err == nil {
-		return
-	}
-	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
-	os.Exit(1)
-}
 
 func ToUpdateProgram(url string) error {
 	log.Println("[INFO] 开始从", url, "下载更新")
@@ -54,17 +44,19 @@ func ToUpdateProgram(url string) error {
 
 	// 准备文件路径
 	installPath := config.GetAppConfig().InstallPath
-	upgradedBinaryName := binaryName + "-" + runtime.GOARCH
+	upgradedBinaryName := binaryName
 	newFileWithFullPath := path.Join(installPath, upgradedBinaryName)
-	originalBinaryPath := path.Join(installPath, binaryName)
 	backupBinaryPath := path.Join(installPath, binaryName+".bak")
+
+	// 临时文件
+	tmpFile := newFileWithFullPath + ".tmp"
 
 	log.Printf("[INFO] 下载位置: %s", newFileWithFullPath)
 
 	// 创建下载文件
-	downFile, err := os.Create(newFileWithFullPath)
+	downFile, err := os.Create(tmpFile)
 	if err != nil {
-		return fmt.Errorf("无法创建文件: %v", err)
+		return fmt.Errorf("无法创建临时文件: %v", err)
 	}
 	defer downFile.Close()
 
@@ -78,44 +70,50 @@ func ToUpdateProgram(url string) error {
 	bar.Finish()
 
 	if err != nil {
-		os.Remove(newFileWithFullPath) // 清理临时文件
+		os.Remove(tmpFile) // 清理临时文件
 		return fmt.Errorf("下载过程中出错: %v", err)
 	}
 
 	// 验证文件大小
 	if contentLength > 0 && bytesWritten != int64(contentLength) {
-		os.Remove(newFileWithFullPath)
+		os.Remove(tmpFile)
 		return fmt.Errorf("下载的文件大小不匹配，期望 %d 字节，实际 %d 字节", contentLength, bytesWritten)
 	}
 
 	// 设置执行权限
-	if err = os.Chmod(newFileWithFullPath, 0755); err != nil {
-		os.Remove(newFileWithFullPath)
+	if err = os.Chmod(tmpFile, 0755); err != nil {
+		os.Remove(tmpFile)
 		return fmt.Errorf("无法设置执行权限: %v", err)
 	}
 
 	// 备份当前可执行文件
-	if _, err := os.Stat(originalBinaryPath); err == nil {
-		if err = os.Rename(originalBinaryPath, backupBinaryPath); err != nil {
-			os.Remove(newFileWithFullPath)
+	if _, err := os.Stat(newFileWithFullPath); err == nil {
+		if err = os.Rename(newFileWithFullPath, backupBinaryPath); err != nil {
+			os.Remove(tmpFile)
 			return fmt.Errorf("备份当前可执行文件失败: %v", err)
 		}
 	}
 
 	// 移动新文件到目标位置
-	if err = os.Rename(newFileWithFullPath, originalBinaryPath); err != nil {
+	if err = os.Rename(tmpFile, newFileWithFullPath); err != nil {
 		// 尝试恢复
-		os.Rename(backupBinaryPath, originalBinaryPath)
+		os.Rename(backupBinaryPath, newFileWithFullPath)
 		return fmt.Errorf("无法替换可执行文件: %v", err)
 	}
 
 	log.Printf("[INFO] 升级成功，正在重启服务...")
 
-	// 使用更安全的方式重启
+	// 触发 tableflip 升级 - 不直接发送 SIGHUP，而是使用标记文件
+	triggerFile := path.Join(installPath, ".upgrade_trigger")
+	if err = os.WriteFile(triggerFile, []byte("upgrade"), 0644); err != nil {
+		return fmt.Errorf("无法创建升级触发文件: %v", err)
+	}
+
+	// 发送较为温和的 SIGUSR2 信号，让 tableflip 处理升级
 	proc, err := os.FindProcess(os.Getpid())
 	if err != nil {
 		return fmt.Errorf("无法获取当前进程: %v", err)
 	}
 
-	return proc.Signal(syscall.SIGHUP)
+	return proc.Signal(syscall.SIGUSR2)
 }
