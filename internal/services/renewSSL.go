@@ -2,7 +2,11 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +14,59 @@ import (
 	"github.com/robfig/cron/v3"
 	"uranus/internal/models"
 )
+
+// 缓存变量
+var (
+	// 证书信息缓存
+	certInfoCache     = make(map[string]*x509.Certificate)
+	certInfoCacheLock sync.RWMutex
+	certInfoExpiry    = make(map[string]time.Time)
+)
+
+// GetCertificateInfo retrieves certificate info with caching
+func GetCertificateInfo(domain string) *x509.Certificate {
+	// 首先检查缓存（读锁）
+	certInfoCacheLock.RLock()
+	if cert, ok := certInfoCache[domain]; ok {
+		if time.Now().Before(certInfoExpiry[domain]) {
+			certInfoCacheLock.RUnlock()
+			return cert
+		}
+	}
+	certInfoCacheLock.RUnlock()
+
+	// 缓存未命中或已过期，获取新证书
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   10 * time.Second, // 防止挂起
+	}
+
+	response, err := client.Get("https://" + domain)
+	if err != nil {
+		log.Printf("Certificate retrieval failed for %s: %v", domain, err)
+		return nil
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(response.Body)
+
+	cert := response.TLS.PeerCertificates[0]
+
+	// 更新缓存（写锁）
+	certInfoCacheLock.Lock()
+	certInfoCache[domain] = cert
+	certInfoExpiry[domain] = time.Now().Add(1 * time.Hour) // 缓存 1 小时
+	certInfoCacheLock.Unlock()
+
+	return cert
+}
 
 // RenewSSLWithContext runs SSL renewal with context support for graceful shutdown
 func RenewSSLWithContext(ctx context.Context) {
