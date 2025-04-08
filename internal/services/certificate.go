@@ -64,12 +64,16 @@ func init() {
 type ChallengeServerManager struct {
 	server     *http.Server
 	provider   *http01.ProviderServer
+	challenges map[string]string
+	lock       sync.RWMutex
 	started    bool
 	startMutex sync.Mutex
 }
 
 // 全局 Challenge 服务管理器
-var challengeServerManager = &ChallengeServerManager{}
+var challengeServerManager = &ChallengeServerManager{
+	challenges: make(map[string]string),
+}
 
 // 启动 HTTP Challenge 服务
 func (m *ChallengeServerManager) Start() error {
@@ -83,9 +87,27 @@ func (m *ChallengeServerManager) Start() error {
 	// 创建 HTTP Challenge 提供器
 	provider := http01.NewProviderServer("", "9999")
 	
-	// 创建自定义处理器
+	// 创建自定义处理器，手动处理 HTTP Challenge 请求
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		provider.ServeHTTP(w, r)
+		if !strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+
+		token := r.URL.Path[len("/.well-known/acme-challenge/"):]
+		
+		m.lock.RLock()
+		challResponse, ok := m.challenges[token]
+		m.lock.RUnlock()
+
+		if !ok {
+			http.Error(w, "Challenge Not Found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(challResponse))
 	})
 
 	// 启动服务器
@@ -114,6 +136,20 @@ func (m *ChallengeServerManager) Start() error {
 	return nil
 }
 
+// 添加 Challenge
+func (m *ChallengeServerManager) AddChallenge(token, keyAuth string) {
+	m.lock.Lock()
+	m.challenges[token] = keyAuth
+	m.lock.Unlock()
+}
+
+// 删除 Challenge
+func (m *ChallengeServerManager) CleanupChallenge(token string) {
+	m.lock.Lock()
+	delete(m.challenges, token)
+	m.lock.Unlock()
+}
+
 // 关闭 HTTP Challenge 服务
 func (m *ChallengeServerManager) Stop() {
 	m.startMutex.Lock()
@@ -136,6 +172,7 @@ func (m *ChallengeServerManager) Stop() {
 	m.server = nil
 	m.provider = nil
 	m.started = false
+	m.challenges = make(map[string]string)
 }
 
 // getOrCreatePrivateKey returns a cached private key or generates a new one
@@ -195,6 +232,12 @@ func getClient(email string, key crypto.PrivateKey) (*lego.Client, error) {
 		return nil, fmt.Errorf("failed to create ACME client: %w", err)
 	}
 
+	// 设置 HTTP Challenge 处理
+	err = client.Challenge.SetHTTP01Provider(challengeServerManager)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set HTTP challenge provider: %w", err)
+	}
+
 	// 注册用户
 	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
 	if err != nil {
@@ -242,12 +285,6 @@ func IssueCert(domains []string, configName string) error {
 	client, err := getClient(GetAppConfig().Email, privateKey)
 	if err != nil {
 		return err
-	}
-
-	// 设置 HTTP Challenge 提供器
-	err = client.Challenge.SetHTTP01Provider(challengeServerManager.provider)
-	if err != nil {
-		return fmt.Errorf("failed to set HTTP challenge provider: %w", err)
 	}
 
 	// 请求证书
@@ -305,5 +342,16 @@ func IssueCert(domains []string, configName string) error {
 
 	log.Printf("[+] SSL task completed, certificate expires on: %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
 
+	return nil
+}
+
+// 为 http01.Provider 接口实现方法
+func (m *ChallengeServerManager) Present(domain, token, keyAuth string) error {
+	m.AddChallenge(token, keyAuth)
+	return nil
+}
+
+func (m *ChallengeServerManager) CleanUp(domain, token, keyAuth string) error {
+	m.CleanupChallenge(token)
 	return nil
 }
