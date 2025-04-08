@@ -2,11 +2,7 @@ package services
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"io"
 	"log"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +10,6 @@ import (
 	"github.com/robfig/cron/v3"
 	"uranus/internal/models"
 )
-
-// 已移除重复的缓存定义，使用 certificate.go 中的缓存机制
 
 // RenewSSLWithContext runs SSL renewal with context support for graceful shutdown
 func RenewSSLWithContext(ctx context.Context) {
