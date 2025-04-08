@@ -15,7 +15,6 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 	"uranus/internal/config"
@@ -63,12 +62,25 @@ func mustFS() http.FileSystem {
 func initRouter() *gin.Engine {
 	app := gin.New()
 	app.Use(gin.Recovery()) // Add recovery middleware for stability
+	// 创建一个包含自定义函数的模板引擎
+	funcMap := template.FuncMap{
+		"isEven": func(num int) bool {
+			return num%2 == 0
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}
 
-	// Parse templates
-	tmpl, err := template.ParseFS(templates, "web/includes/*.html", "web/*.html")
+	// 使用自定义函数创建一个模板实例
+	tmpl := template.New("").Funcs(funcMap)
+
+	// 解析模板文件
+	tmpl, err := tmpl.ParseFS(templates, "web/includes/*.html", "web/*.html")
 	if err != nil {
 		panic(err)
 	}
+
 	app.SetHTMLTemplate(tmpl)
 
 	// Use cache middleware

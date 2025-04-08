@@ -1,42 +1,52 @@
 {{template "header.html" .}}
-<h4 class="title is-4">配置文件</h4>
-<article class="message is-info">
-    <div class="message-body">
-        配置文件列表
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold text-gray-900">配置文件</h1>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">配置文件列表</p>
+            </div>
+        </div>
     </div>
-</article>
-<div class="table-container">
-    <table class="table is-fullwidth">
-        <thead>
-        <tr>
-            <th scope="col">项目名称</th>
-            <th scope="col">状态</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <th scope="row">Nginx 版本</th>
-            <td>{{.nginxCompileInfo.Version}}</td>
-        </tr>
-        <tr>
-            <th scope="row">编译器</th>
-            <td>{{.nginxCompileInfo.CompilerVersion}}</td>
-        </tr>
-        <tr>
-            <th scope="row">SSL 版本</th>
-            <td>{{.nginxCompileInfo.SSLVersion}}</td>
-        </tr>
-        <tr>
-            <th scope="row"></th>
-            <td>{{.nginxCompileInfo.TLSSupport}}</td>
-        </tr>
-        {{range $index, $value :=.nginxCompileInfo.Params}}
-        <tr>
-            <th scope="row"></th>
-            <td>--{{$value}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                Nginx 配置详情
+            </h3>
+        </div>
+        <div class="border-t border-gray-200">
+            <dl>
+                <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">Nginx 版本</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.Version}}</dd>
+                </div>
+                <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">编译器</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.CompilerVersion}}</dd>
+                </div>
+                <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">SSL 版本</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.SSLVersion}}</dd>
+                </div>
+                <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">TLS 支持</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.TLSSupport}}</dd>
+                </div>
+                {{range $index, $value :=.nginxCompileInfo.Params}}
+                <div class="{{if isEven $index}}bg-gray-50{{else}}bg-white{{end}} px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">配置参数 {{$index}}</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">--{{$value}}</dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+    </div>
 </div>
 {{template "footer.html" .}}
