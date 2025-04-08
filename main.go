@@ -175,10 +175,7 @@ func Graceful() {
 	dbCtx, dbCancel := context.WithCancel(ctx)
 	defer dbCancel()
 	models.InitWithContext(dbCtx)
-
-	// Initialize automatic SSL signing with context
-	sslCtx, sslCancel := context.WithCancel(ctx)
-	defer sslCancel()
+	
 	go services.RenewSSL()
 
 	// Start heartbeat service with context if in release mode
