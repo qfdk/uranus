@@ -9,9 +9,9 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"syscall"
 	"time"
 	"uranus/internal/config"
+	"uranus/internal/tools"
 )
 
 var binaryName = "uranus"
@@ -101,19 +101,14 @@ func ToUpdateProgram(url string) error {
 		return fmt.Errorf("无法替换可执行文件: %v", err)
 	}
 
-	log.Printf("[INFO] 升级成功，正在重启服务...")
+	log.Printf("[INFO] 升级文件准备就绪，触发平滑重启...")
 
-	// 触发 tableflip 升级 - 不直接发送 SIGHUP，而是使用标记文件
-	triggerFile := path.Join(installPath, ".upgrade_trigger")
-	if err = os.WriteFile(triggerFile, []byte("upgrade"), 0644); err != nil {
+	// 创建触发文件，不发送信号
+	triggerFile := path.Join(tools.GetPWD(), ".upgrade_trigger")
+	if err = os.WriteFile(triggerFile, []byte(fmt.Sprintf("upgrade=%d", time.Now().Unix())), 0644); err != nil {
 		return fmt.Errorf("无法创建升级触发文件: %v", err)
 	}
 
-	// 发送较为温和的 SIGUSR2 信号，让 tableflip 处理升级
-	proc, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		return fmt.Errorf("无法获取当前进程: %v", err)
-	}
-
-	return proc.Signal(syscall.SIGUSR2)
+	log.Printf("[INFO] 升级准备完成，等待系统检测并重启 (通常在5秒内)")
+	return nil
 }
