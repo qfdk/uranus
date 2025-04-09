@@ -175,7 +175,7 @@ $('#enableSSL').click(() => {
                 editor.getModel().setValue(data.content);
             });
         }
-    }).fail(function() {
+    }).fail(function () {
         // In case of error, restore the button
         $('#ssl_spinner').addClass('hidden');
         $('#ssl_icon').removeClass('hidden');
