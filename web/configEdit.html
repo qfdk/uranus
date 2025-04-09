@@ -1,0 +1,140 @@
+{{template "header.html" .}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
+
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold text-gray-900">应用配置编辑</h1>
+
+    <div id="alert" class="hidden bg-red-50 border-l-4 border-red-400 p-4 rounded">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p id="message" class="text-sm text-red-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="alertSuccess" class="hidden bg-green-50 border-l-4 border-green-400 p-4 rounded">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p id="successMessage" class="text-sm text-green-700"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="sm:flex sm:items-center mb-4">
+                <div class="sm:flex-grow">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">config.toml</h3>
+                    <div class="mt-2 max-w-xl text-sm text-gray-500">
+                        <p>编辑应用程序的主要配置文件。更改保存后将立即生效。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button type="button" id="saveConfig" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    保存配置
+                </button>
+            </div>
+
+            <div>
+                <div id="editor" data-lang="toml" style="min-height: 400px; border: 1px solid #e5e7eb; border-radius: 0.375rem;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.32.1/min/vs/loader.js'></script>
+<script>
+    // Initialize TOML language tokenizer config
+    const tomlTokenizer = {
+        defaultToken: 'invalid',
+        tokenizer: {
+            root: [
+                [/^\s*\[.*\]\s*$/, 'metatag'],  // Section
+                [/^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=/, 'key'],  // Key
+                [/".*?"/, 'string'],  // Quoted string
+                [/'.*?'/, 'string'],  // Single quoted string
+                [/[0-9]+/, 'number'],  // Numbers
+                [/true|false/, 'keyword'],  // Boolean
+                [/#.*$/, 'comment']  // Comment
+            ],
+        }
+    };
+
+    // Editor setup
+    var editor;
+
+    require.config({
+        paths: {
+            vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/min/vs'
+        },
+        'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
+    });
+
+    require(['vs/editor/editor.main'], function () {
+        // Register TOML language
+        monaco.languages.register({id: 'toml'});
+        monaco.languages.setMonarchTokensProvider('toml', tomlTokenizer);
+
+        // Create editor
+        editor = monaco.editor.create(document.getElementById('editor'), {
+            value: {{.content}},
+        language: 'toml',
+            theme: 'vs-dark',
+            fontSize: 14,
+            automaticLayout: true,
+            scrollbar: {
+            verticalScrollbarSize: 13,
+                horizontalScrollbarSize: 13
+        },
+        minimap: {
+            enabled: true
+        }
+    });
+
+        $(window).on("load resize", function () {
+            let ch = $(window).height() - $('#editor').offset().top - 40;
+            $('#editor').css('min-height', Math.max(400, ch) + "px");
+        });
+    });
+
+    // Save config
+    $('#saveConfig').click(function() {
+        $("#alert").hide();
+        $("#alertSuccess").hide();
+
+        $.post('/admin/config/save', {
+            content: editor.getValue()
+        }, function(data) {
+            if (data.message === 'OK') {
+                $("#successMessage").text("配置已成功保存！");
+                $("#alertSuccess").show();
+            } else {
+                $("#message").text(data.message);
+                $("#alert").show();
+            }
+        }).fail(function(xhr, status, error) {
+            $("#message").text("保存失败: " + error);
+            $("#alert").show();
+        });
+    });
+</script>
+
+{{template "footer.html" .}}

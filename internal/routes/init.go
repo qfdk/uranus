@@ -47,4 +47,5 @@ func RegisterRoutes(engine *gin.Engine) {
 	sitesRoute(authorized)
 	sslRoute(authorized)
 	terminalRoute(authorized)
+	configRoute(authorized)
 }
