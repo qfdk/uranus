@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,12 +23,13 @@ var httpConf string
 //go:embed template/https.conf
 var httpsConf string
 
-// Template cache to prevent repeated string operations
+// 模板缓存，用于防止重复的字符串操作
 var (
 	templateCache     = make(map[string]string)
 	templateCacheLock sync.RWMutex
 )
 
+// NewSite 创建新站点的页面处理
 func NewSite(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
 		"configFileName": "",
@@ -40,16 +40,17 @@ func NewSite(ctx *gin.Context) {
 	})
 }
 
+// GetTemplate 获取配置模板
 func GetTemplate(ctx *gin.Context) {
 	domains := ctx.QueryArray("domains[]")
 	configName := ctx.Query("configName")
 	proxy := ctx.Query("proxy")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
 
-	// Create cache key from parameters
+	// 根据参数创建缓存键
 	cacheKey := strings.Join(domains, ",") + "|" + configName + "|" + proxy + "|" + strconv.FormatBool(enableSSL)
 
-	// Check template cache first
+	// 首先检查模板缓存
 	templateCacheLock.RLock()
 	if cachedTemplate, ok := templateCache[cacheKey]; ok {
 		templateCacheLock.RUnlock()
@@ -58,7 +59,7 @@ func GetTemplate(ctx *gin.Context) {
 	}
 	templateCacheLock.RUnlock()
 
-	// Cache miss, generate template
+	// 缓存未命中，生成模板
 	var templateConf string
 	if enableSSL {
 		templateConf = httpsConf
@@ -66,14 +67,14 @@ func GetTemplate(ctx *gin.Context) {
 		templateConf = httpConf
 	}
 
-	// Apply template replacements
+	// 应用模板替换
 	inputTemplate := templateConf
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains, " "))
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", GetAppConfig().SSLPath)
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{proxy}}", proxy)
 
-	// Update cache
+	// 更新缓存
 	templateCacheLock.Lock()
 	templateCache[cacheKey] = inputTemplate
 	templateCacheLock.Unlock()
@@ -81,9 +82,10 @@ func GetTemplate(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
+// GetSites 获取所有站点配置
 func GetSites(ctx *gin.Context) {
 	vhostPath := GetAppConfig().VhostPath
-	files, err := ioutil.ReadDir(filepath.Join(vhostPath))
+	allFiles, err := ioutil.ReadDir(vhostPath)
 	if err != nil {
 		log.Println(err)
 		ctx.HTML(http.StatusOK, "sites.html", gin.H{
@@ -92,27 +94,58 @@ func GetSites(ctx *gin.Context) {
 		return
 	}
 
-	// Pre-format file sizes for performance
+	// 只过滤显示.conf文件
+	var confFiles []os.FileInfo
+	for _, file := range allFiles {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".conf") {
+			confFiles = append(confFiles, file)
+		}
+	}
+
 	ctx.HTML(http.StatusOK, "sites.html", gin.H{
-		"files":         files,
+		"files":         confFiles,
 		"humanizeBytes": humanize.Bytes,
+		"activePage":    "sites",
 	})
 }
 
-// TODO: fixme 这里要修改前端还有后端 保存的时候有问题
+// EditSiteConf 编辑站点配置
 func EditSiteConf(ctx *gin.Context) {
+	// 从URL参数获取文件名
 	filename := ctx.Param("filename")
-	configName := strings.Split(filename, ".conf")[0]
+
+	// 确保文件名具有.conf扩展名用于文件读取
+	fileToRead := filename
+	if !strings.HasSuffix(fileToRead, ".conf") && filename != "default" {
+		fileToRead = filename + ".conf"
+	}
+
+	// 提取不带扩展名的配置名称
+	configName := filename
+	if strings.HasSuffix(configName, ".conf") {
+		configName = strings.TrimSuffix(configName, ".conf")
+	}
+
+	vhostPath := GetAppConfig().VhostPath
+	filePath := filepath.Join(vhostPath, fileToRead)
+
+	// 检查文件是否存在
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Printf("未找到配置文件: %v", filePath)
+		ctx.String(http.StatusNotFound, "未找到配置文件")
+		return
+	}
+
 	if filename != "default" {
-		// Read default configuration from file
-		content, err := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+		// 从文件读取配置
+		content, err := ioutil.ReadFile(filePath)
 		if err != nil {
-			log.Printf("Error reading default configuration: %v", err)
-			ctx.String(http.StatusInternalServerError, "Error reading configuration")
+			log.Printf("读取配置文件出错: %v", err)
+			ctx.String(http.StatusInternalServerError, "读取配置出错")
 			return
 		}
 
-		// Get certificate info from database
+		// 从数据库获取证书信息
 		cert := models.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
 			"configFileName": configName,
@@ -123,11 +156,11 @@ func EditSiteConf(ctx *gin.Context) {
 			"isDefaultConf":  false,
 		})
 	} else {
-		// Read default configuration from file
-		content, err := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+		// 读取默认配置
+		content, err := ioutil.ReadFile(filePath)
 		if err != nil {
-			log.Printf("Error reading default configuration: %v", err)
-			ctx.String(http.StatusInternalServerError, "Error reading configuration")
+			log.Printf("读取默认配置出错: %v", err)
+			ctx.String(http.StatusInternalServerError, "读取配置出错")
 			return
 		}
 
@@ -140,53 +173,62 @@ func EditSiteConf(ctx *gin.Context) {
 	}
 }
 
+// DeleteSiteConf 删除站点配置
 func DeleteSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
-	configName := strings.Split(filename, ".conf")[0]
 
-	// Remove configuration file
-	vhostPath := GetAppConfig().VhostPath
-	err := os.Remove(filepath.Join(vhostPath, filename))
-	if err != nil {
-		log.Printf("Error deleting configuration file: %v", err)
+	// 确保文件名具有.conf扩展名用于文件删除
+	fileToDelete := filename
+	if !strings.HasSuffix(fileToDelete, ".conf") && filename != "default" {
+		fileToDelete = filename + ".conf"
 	}
 
-	// Remove SSL directory if exists
+	// 提取不带扩展名的配置名称
+	configName := filename
+	if strings.HasSuffix(configName, ".conf") {
+		configName = strings.TrimSuffix(configName, ".conf")
+	}
+
+	// 删除配置文件
+	vhostPath := GetAppConfig().VhostPath
+	err := os.Remove(filepath.Join(vhostPath, fileToDelete))
+	if err != nil {
+		log.Printf("删除配置文件出错: %v", err)
+	}
+
+	// 如果存在，删除SSL目录
 	sslPath := GetAppConfig().SSLPath
 	err = os.RemoveAll(filepath.Join(sslPath, configName))
 	if err != nil {
-		log.Printf("Error deleting SSL directory: %v", err)
+		log.Printf("删除SSL目录出错: %v", err)
 	}
 
-	// Delete from database
+	// 从数据库中删除
 	cert := models.GetCertByFilename(configName)
 	err = cert.Remove()
 	if err != nil {
 		log.Println(err)
 	}
 
-	// Invalidate template cache
+	// 清除所有缓存以确保数据刷新
 	templateCacheLock.Lock()
-	for key := range templateCache {
-		if strings.Contains(key, configName) {
-			delete(templateCache, key)
-		}
-	}
+	templateCache = make(map[string]string)
 	templateCacheLock.Unlock()
 
-	// Reload nginx
+	// 重新加载nginx
 	services.ReloadNginx()
 
 	ctx.Redirect(http.StatusFound, "/admin/sites")
 }
 
+// SaveSiteConf 保存站点配置
 func SaveSiteConf(ctx *gin.Context) {
 	fileName := ctx.PostForm("filename")
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
 
-	// Save to database if not default configuration
+	// 如果不是默认配置，则保存到数据库
 	if fileName != "default" {
 		cert := models.GetCertByFilename(fileName)
 		cert.Content = content
@@ -196,42 +238,38 @@ func SaveSiteConf(ctx *gin.Context) {
 		models.GetDbClient().Save(&cert)
 	}
 
-	// Prepare filename for file path
+	// 准备用于文件路径的文件名，确保具有.conf扩展名
 	fullFileName := fileName
-	if fileName != "default" {
+	if fileName != "default" && !strings.HasSuffix(fileName, ".conf") {
 		fullFileName = fileName + ".conf"
 	}
 
-	// Ensure vhost directory exists
+	// 确保vhost目录存在
 	vhostPath := GetAppConfig().VhostPath
 	if _, err := os.Stat(vhostPath); os.IsNotExist(err) {
 		err = os.MkdirAll(vhostPath, 0755)
 		if err != nil {
-			log.Printf("Error creating vhost directory: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating directory"})
+			log.Printf("创建vhost目录出错: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})
 			return
 		}
 	}
 
-	// Write configuration file
+	// 写入配置文件
 	filePath := filepath.Join(vhostPath, fullFileName)
 	err := ioutil.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
-		log.Printf("Error writing configuration file: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error writing file"})
+		log.Printf("写入配置文件出错: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "写入文件出错"})
 		return
 	}
 
-	// Invalidate template cache
+	// 清除所有缓存以确保数据刷新
 	templateCacheLock.Lock()
-	for key := range templateCache {
-		if strings.Contains(key, fileName) {
-			delete(templateCache, key)
-		}
-	}
+	templateCache = make(map[string]string)
 	templateCacheLock.Unlock()
 
-	// Reload nginx
+	// 重新加载nginx
 	response := services.ReloadNginx()
 	ctx.JSON(http.StatusOK, gin.H{"message": response})
 }
