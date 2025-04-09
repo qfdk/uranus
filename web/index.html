@@ -280,22 +280,24 @@
         <!-- 升级结果部分 -->
         <div class="hidden p-6" id="upgradeFinish">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="text-xl font-medium text-gray-900 break-words">
-                    <span id="upgradeFinish-OK" class="hidden">
-                        <svg class="h-6 w-6 inline-block text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="flex-1 pr-2">
+                    <div id="upgradeFinish-OK" class="hidden flex items-center">
+                        <svg class="h-6 w-6 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        升级完成, <span id="countdown">10</span>s 后刷新页面...
-                    </span>
-                                <span id="upgradeFinish-KO" class="hidden">
-                        <svg class="h-6 w-6 inline-block text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <span class="text-xl font-medium text-gray-900">升级完成, <span id="countdown">10</span>s 后刷新页面...</span>
+                    </div>
+                    <div id="upgradeFinish-KO" class="hidden flex items-center">
+                        <svg class="h-6 w-6 text-blue-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        已经是最新版本, 不需要升级
-                    </span>
-                </h3>
+                        <span class="text-xl font-medium text-gray-900">已经是最新版本, 不需要升级</span>
+                    </div>
+                </div>
                 <button class="text-gray-400 hover:text-gray-500 flex-shrink-0"
                         onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
