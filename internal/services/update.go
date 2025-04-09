@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -88,8 +89,61 @@ func ToUpdateProgram(url string) error {
 		f.Close()
 	}
 
+	// 清理所有旧备份文件，包括刚刚创建的备份
+	DeleteAllBackups()
+
 	log.Printf("[INFO] 升级将在下一次服务检查周期完成")
 	return nil
+}
+
+// DeleteAllBackups 删除所有备份文件
+func DeleteAllBackups() {
+	log.Printf("[INFO] 开始清理所有备份文件...")
+
+	// 获取安装目录中所有的备份文件
+	backupFiles, err := filepath.Glob(path.Join(installPath, fmt.Sprintf("%s.bak.*", binaryName)))
+	if err != nil {
+		log.Printf("[WARN] 无法搜索备份文件: %v", err)
+		return
+	}
+
+	// 如果没有找到备份文件
+	if len(backupFiles) == 0 {
+		log.Printf("[INFO] 未找到备份文件，无需清理")
+		return
+	}
+
+	// 删除所有找到的备份文件
+	for _, file := range backupFiles {
+		log.Printf("[INFO] 删除备份文件: %s", file)
+		if err := os.Remove(file); err != nil {
+			log.Printf("[WARN] 删除文件失败 %s: %v", file, err)
+		}
+	}
+
+	log.Printf("[INFO] 备份文件清理完成，共删除 %d 个文件", len(backupFiles))
+
+	// 查找工作目录中的备份文件（以防安装在非标准位置）
+	workingDir := tools.GetPWD()
+	if workingDir != installPath {
+		workingDirBackups, err := filepath.Glob(path.Join(workingDir, fmt.Sprintf("%s.bak.*", binaryName)))
+		if err != nil {
+			log.Printf("[WARN] 无法搜索工作目录备份文件: %v", err)
+			return
+		}
+
+		// 删除工作目录中的备份文件
+		for _, file := range workingDirBackups {
+			log.Printf("[INFO] 删除工作目录备份文件: %s", file)
+			if err := os.Remove(file); err != nil {
+				log.Printf("[WARN] 删除文件失败 %s: %v", file, err)
+			}
+		}
+
+		if len(workingDirBackups) > 0 {
+			log.Printf("[INFO] 工作目录备份文件清理完成，共删除 %d 个文件", len(workingDirBackups))
+		}
+	}
 }
 
 // downloadFile 从指定URL下载文件到目标路径，带进度条
@@ -178,13 +232,16 @@ func CheckAndRestartAfterUpgrade() bool {
 			log.Printf("[ERROR] 重启服务失败: %v", err)
 			return false
 		}
+
+		// 重启成功后再次清理所有备份文件
+		DeleteAllBackups()
 		return true
 	}
 
 	// 备用: 检查工作目录中的触发文件
 	workingDirTrigger := path.Join(tools.GetPWD(), upgradeTrigger)
 	if _, err := os.Stat(workingDirTrigger); err == nil {
-		log.Printf("[INFO] 检测到工作目录的升级触发文件，准备重启服务...")
+		log.Printf("[INFO] 检测到工作目录中的升级触发文件，准备重启服务...")
 		// 删除触发文件
 		os.Remove(workingDirTrigger)
 
@@ -193,6 +250,9 @@ func CheckAndRestartAfterUpgrade() bool {
 			log.Printf("[ERROR] 重启服务失败: %v", err)
 			return false
 		}
+
+		// 重启成功后再次清理所有备份文件
+		DeleteAllBackups()
 		return true
 	}
 
