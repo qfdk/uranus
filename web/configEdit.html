@@ -7,8 +7,11 @@
     <div id="alert" class="hidden bg-red-50 border-l-4 border-red-400 p-4 rounded">
         <div class="flex">
             <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                     fill="currentColor">
+                    <path fill-rule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                          clip-rule="evenodd"/>
                 </svg>
             </div>
             <div class="ml-3">
@@ -20,8 +23,11 @@
     <div id="alertSuccess" class="hidden bg-green-50 border-l-4 border-green-400 p-4 rounded">
         <div class="flex">
             <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                     fill="currentColor">
+                    <path fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"/>
                 </svg>
             </div>
             <div class="ml-3">
@@ -42,8 +48,10 @@
             </div>
 
             <div class="flex flex-wrap gap-2 mb-4">
-                <button type="button" id="saveConfig" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button type="button" id="saveConfig"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                         <polyline points="17 21 17 13 7 13 7 21"></polyline>
                         <polyline points="7 3 7 8 15 8"></polyline>
@@ -53,7 +61,8 @@
             </div>
 
             <div>
-                <div id="editor" data-lang="toml" style="min-height: 400px; border: 1px solid #e5e7eb; border-radius: 0.375rem;"></div>
+                <div id="editor" data-lang="toml"
+                     style="min-height: 400px; border: 1px solid #e5e7eb; border-radius: 0.375rem;"></div>
             </div>
         </div>
     </div>
@@ -96,18 +105,18 @@
         // Create editor
         editor = monaco.editor.create(document.getElementById('editor'), {
             value: {{.content}},
-        language: 'toml',
+            language: 'toml',
             theme: 'vs-dark',
             fontSize: 14,
             automaticLayout: true,
             scrollbar: {
-            verticalScrollbarSize: 13,
+                verticalScrollbarSize: 13,
                 horizontalScrollbarSize: 13
-        },
-        minimap: {
-            enabled: true
-        }
-    });
+            },
+            minimap: {
+                enabled: true
+            }
+        });
 
         $(window).on("load resize", function () {
             let ch = $(window).height() - $('#editor').offset().top - 40;
@@ -116,13 +125,13 @@
     });
 
     // Save config
-    $('#saveConfig').click(function() {
+    $('#saveConfig').click(function () {
         $("#alert").hide();
         $("#alertSuccess").hide();
 
         $.post('/admin/config/save', {
             content: editor.getValue()
-        }, function(data) {
+        }, function (data) {
             if (data.message === 'OK') {
                 $("#successMessage").text("配置已成功保存！");
                 $("#alertSuccess").show();
@@ -130,7 +139,7 @@
                 $("#message").text(data.message);
                 $("#alert").show();
             }
-        }).fail(function(xhr, status, error) {
+        }).fail(function (xhr, status, error) {
             $("#message").text("保存失败: " + error);
             $("#alert").show();
         });
