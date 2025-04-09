@@ -25,7 +25,7 @@ func GetConfigEditor(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "configEdit.html", gin.H{
-		"activePage": "config",
+		"activePage": "app-config",
 		"content":    string(content),
 	})
 }

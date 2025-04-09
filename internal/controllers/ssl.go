@@ -23,7 +23,10 @@ func Certificates(ctx *gin.Context) {
 			})
 		}
 	}
-	ctx.HTML(http.StatusOK, "ssl.html", gin.H{"results": results})
+	ctx.HTML(http.StatusOK, "ssl.html", gin.H{
+		"activePage": "ssl",
+		"results":    results,
+	})
 }
 
 func IssueCert(ctx *gin.Context) {

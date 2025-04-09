@@ -96,6 +96,7 @@ func GetNginxCompileInfo(ctx *gin.Context) {
 	nginxCompileInfo := config.ReadNginxCompileInfo()
 
 	ctx.HTML(http.StatusOK, "config.html", gin.H{
+		"activePage":       "config",
 		"nginxCompileInfo": nginxCompileInfo,
 	})
 }
