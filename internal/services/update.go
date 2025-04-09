@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uranus/internal/tools"
 
 	"github.com/cheggaaa/pb/v3"
 )
@@ -163,11 +164,12 @@ func downloadFile(url, targetPath string) error {
 
 // CheckAndRestartAfterUpgrade 检查是否需要重启服务
 func CheckAndRestartAfterUpgrade() bool {
+	// 优先检查标准安装路径
 	triggerPath := path.Join(installPath, upgradeTrigger)
 
 	// 检查触发文件是否存在
 	if _, err := os.Stat(triggerPath); err == nil {
-		log.Printf("[INFO] 检测到升级触发文件，准备重启服务...")
+		log.Printf("[INFO] 检测到标准路径的升级触发文件，准备重启服务...")
 		// 删除触发文件
 		os.Remove(triggerPath)
 
@@ -178,6 +180,22 @@ func CheckAndRestartAfterUpgrade() bool {
 		}
 		return true
 	}
+
+	// 备用: 检查工作目录中的触发文件
+	workingDirTrigger := path.Join(tools.GetPWD(), upgradeTrigger)
+	if _, err := os.Stat(workingDirTrigger); err == nil {
+		log.Printf("[INFO] 检测到工作目录的升级触发文件，准备重启服务...")
+		// 删除触发文件
+		os.Remove(workingDirTrigger)
+
+		// 尝试在systemd环境下重启服务
+		if err := restartSystemdService(); err != nil {
+			log.Printf("[ERROR] 重启服务失败: %v", err)
+			return false
+		}
+		return true
+	}
+
 	return false
 }
 
@@ -188,18 +206,30 @@ func restartSystemdService() error {
 	// 先检查服务是否存在
 	checkCmd := exec.Command("systemctl", "list-unit-files", serviceName)
 	checkOutput, err := checkCmd.CombinedOutput()
-	if err != nil || !strings.Contains(string(checkOutput), serviceName) {
-		return fmt.Errorf("服务不存在或无法检查服务状态: %v", err)
+	if err != nil {
+		log.Printf("[ERROR] 无法检查服务状态: %v, 输出: %s", err, string(checkOutput))
+		if !strings.Contains(string(checkOutput), serviceName) {
+			return fmt.Errorf("服务不存在或无法检查服务状态: %v", err)
+		}
 	}
+
+	log.Printf("[INFO] 服务检查结果: %s", strings.TrimSpace(string(checkOutput)))
 
 	// 尝试重启服务
 	cmd := exec.Command("systemctl", "restart", serviceName)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
+		log.Printf("[ERROR] 重启服务失败: %v, 输出: %s", err, string(output))
 		return fmt.Errorf("重启服务失败: %v, 输出: %s", err, output)
 	}
 
 	log.Printf("[INFO] 服务重启命令已执行: %s", strings.TrimSpace(string(output)))
+
+	// 额外添加检查服务状态
+	statusCmd := exec.Command("systemctl", "status", serviceName)
+	statusOutput, _ := statusCmd.CombinedOutput()
+	log.Printf("[INFO] 服务状态: %s", strings.TrimSpace(string(statusOutput)))
+
 	return nil
 }
