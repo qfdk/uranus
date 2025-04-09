@@ -213,7 +213,7 @@
                 <dd class="text-sm text-gray-900" id="upgrade_buildTime">{{.buildTime}}</dd>
             </div>
             <div class="flex justify-between">
-                <dt class="text-sm font-medium text-gray-500">CommitID</dt>
+                <dt class="text-sm font-medium text-gray-500">CommitId</dt>
                 <dd class="text-sm text-gray-900 truncate md:max-w-xs" id="upgrade_commitID">{{slice .commitID 0 8}}</dd>
             </div>
         </dl>
@@ -246,8 +246,8 @@
                     <dd class="text-gray-900">{{.buildTime}}</dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">CommitID</dt>
-                    <dd class="text-gray-900 truncate max-w-xs">{{.commitID}}</dd>
+                    <dt class="text-gray-600 font-medium">CommitId</dt>
+                    <dd class="text-gray-900 truncate max-w-xs">{{slice .commitID 0 8}}</dd>
                 </div>
 
                 <div class="pt-4 flex justify-end">
@@ -316,7 +316,7 @@
                     <dd id="buildTime" class="text-gray-900 break-words max-w-[70%] text-right"></dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">CommitID</dt>
+                    <dt class="text-gray-600 font-medium">CommitId</dt>
                     <dd id="commitID" class="text-gray-900 break-words max-w-[70%] text-right"></dd>
                 </div>
 
