@@ -10,7 +10,7 @@ var (
 	BuildName    = "buildName"
 	BuildVersion = "开发版本"
 	BuildTime    = time.Now().Format("2006-01-02 15:04:05")
-	CommitID     = "尚未提交"
+	CommitID     = "DEV888888"
 	GoVersion    = "go version 开发环境"
 )
 
