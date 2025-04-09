@@ -277,6 +277,7 @@ func Graceful() {
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
+
 	<-upg.Exit()
 
 	// 设置关闭超时
