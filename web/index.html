@@ -246,8 +246,8 @@
                     <dd class="text-gray-900">{{.buildTime}}</dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">CommitId</dt>
-                    <dd class="text-gray-900 truncate max-w-xs">{{slice .commitID 0 8}}</dd>
+                    <dt class="text-gray-600 font-medium">CommitID</dt>
+                    <dd class="text-gray-900 truncate max-w-xs">{{.commitID}}</dd>
                 </div>
 
                 <div class="pt-4 flex justify-end">
@@ -316,7 +316,7 @@
                     <dd id="buildTime" class="text-gray-900 break-words max-w-[70%] text-right"></dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">CommitId</dt>
+                    <dt class="text-gray-600 font-medium">CommitID</dt>
                     <dd id="commitID" class="text-gray-900 break-words max-w-[70%] text-right"></dd>
                 </div>
 
@@ -361,7 +361,7 @@
                 // 更新版本信息显示
                 $("#buildTime").html(data.buildTime);
                 $("#buildVersion").html(data.buildVersion);
-                $("#commitID").html(data.commitId.slice(0, 8));
+                $("#commitID").html(data.commitId);
             } else {
                 $("#upgrade").attr("disabled", true);
                 $("#upgrade").addClass("bg-gray-400").removeClass("bg-blue-600 hover:bg-blue-700");

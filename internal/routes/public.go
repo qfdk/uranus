@@ -13,6 +13,7 @@ import (
 	"uranus/internal/services"
 )
 
+// 版本信息响应结构体
 type VersionResponse struct {
 	ID           string `json:"_id"`
 	CommitID     string `json:"commitId"`
@@ -69,6 +70,7 @@ func publicRoute(engine *gin.Engine) {
 		})
 	})
 
+	// 检查更新接口
 	engine.GET("/checkUpdate", func(context *gin.Context) {
 		resp, err := http.Get("https://fr.qfdk.me/uranus.php")
 		if err != nil {
@@ -113,6 +115,7 @@ func publicRoute(engine *gin.Engine) {
 		}
 	})
 
+	// 执行升级接口
 	engine.POST("/upgrade", func(context *gin.Context) {
 		services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
 		context.JSON(200, gin.H{
