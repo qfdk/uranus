@@ -11,10 +11,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"uranus/internal/config"
@@ -53,7 +53,8 @@ func init() {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
-	app.Use(gin.Recovery()) // 添加恢复中间件以提高稳定性
+	app.Use(gin.Recovery())
+
 	// 创建一个包含自定义函数的模板引擎
 	funcMap := template.FuncMap{
 		"isEven": func(num int) bool {
@@ -84,10 +85,28 @@ func initRouter() *gin.Engine {
 
 	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
-	// 设置静态文件路由
-	app.Static("/public", "./web/public")
 
-	// 处理favicon.ico请求
+	// 设置静态文件服务，直接使用 embed.FS
+	app.Use(func(c *gin.Context) {
+		// 处理静态文件请求
+		if strings.HasPrefix(c.Request.URL.Path, "/public/") {
+			// 移除 /public/ 前缀
+			filePath := strings.TrimPrefix(c.Request.URL.Path, "/public/")
+
+			// 尝试读取文件
+			file, err := staticFS.ReadFile(path.Join("web/public", filePath))
+			if err == nil {
+				// 根据文件扩展名设置正确的 MIME 类型
+				contentType := getMimeType(filePath)
+				c.Data(http.StatusOK, contentType, file)
+				c.Abort()
+				return
+			}
+		}
+		c.Next()
+	})
+
+	// 处理favicon.ico
 	app.GET("/favicon.ico", func(c *gin.Context) {
 		file, err := staticFS.ReadFile("web/public/icon/favicon.ico")
 		if err != nil {
@@ -107,6 +126,31 @@ func initRouter() *gin.Engine {
 	routes.RegisterRoutes(app)
 
 	return app
+}
+
+// 根据文件扩展名获取 MIME 类型
+func getMimeType(filePath string) string {
+	ext := path.Ext(filePath)
+	switch ext {
+	case ".css":
+		return "text/css"
+	case ".js":
+		return "application/javascript"
+	case ".svg":
+		return "image/svg+xml"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".ico":
+		return "image/x-icon"
+	case ".html":
+		return "text/html"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func Graceful() {
@@ -146,83 +190,6 @@ func Graceful() {
 					os.Exit(0)
 				}
 			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	// 创建触发检查计时器
-	triggerCheck := time.NewTicker(5 * time.Second)
-	defer triggerCheck.Stop()
-
-	// 触发文件路径
-	triggerPaths := []string{
-		path.Join("/etc/uranus", ".upgrade_trigger"),
-		path.Join(tools.GetPWD(), ".upgrade_trigger"),
-	}
-
-	// 启动时检查并删除可能存在的触发文件
-	for _, filePath := range triggerPaths {
-		if _, err := os.Stat(filePath); err == nil {
-			location := "标准安装目录"
-			if filePath == triggerPaths[1] {
-				location = "工作目录"
-			}
-			log.Printf("[进程][%d]: 启动时发现%s触发文件，正在删除", os.Getpid(), location)
-			os.Remove(filePath)
-		}
-	}
-
-	log.Printf("[进程][%d]: 应用启动，清理所有旧备份文件", os.Getpid())
-	services.DeleteAllBackups()
-
-	// 处理重启服务的函数
-	restartService := func(triggerPath string) {
-		location := "升级"
-		if triggerPath == triggerPaths[1] {
-			location = "工作目录中的升级"
-		}
-
-		log.Printf("[进程][%d]: 发现%s触发文件，立即删除", os.Getpid(), location)
-
-		if err := os.Remove(triggerPath); err != nil {
-			log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
-		} else {
-			log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
-		}
-
-		log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
-		restartCmd := exec.Command("systemctl", "restart", "uranus.service")
-		output, err := restartCmd.CombinedOutput()
-
-		if err != nil {
-			log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
-		} else {
-			log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
-		}
-	}
-
-	// 升级触发文件检查
-	go func() {
-		log.Printf("[进程][%d]: 启动升级触发文件检查器，每5秒检查一次", os.Getpid())
-		checkCount := 0
-
-		for {
-			select {
-			case <-triggerCheck.C:
-				checkCount++
-
-				for _, triggerPath := range triggerPaths {
-					exists, _ := fileExists(triggerPath)
-					if exists {
-						restartService(triggerPath)
-						log.Printf("[进程][%d]: 清理所有旧备份文件", os.Getpid())
-						services.DeleteAllBackups()
-						break // 找到一个触发文件后立即处理并停止检查其他路径
-					}
-				}
-			case <-ctx.Done():
-				log.Printf("[进程][%d]: 升级检查器收到停止信号，总共执行了%d次检查", os.Getpid(), checkCount)
 				return
 			}
 		}
@@ -285,18 +252,6 @@ func Graceful() {
 	if err := os.Remove(pidFile); err != nil {
 		log.Println("删除PID文件错误:", err)
 	}
-}
-
-// 检查文件是否存在
-func fileExists(filepath string) (bool, error) {
-	_, err := os.Stat(filepath)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
 }
 
 func main() {
