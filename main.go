@@ -245,11 +245,6 @@ func Graceful() {
 						break // 找到一个触发文件后立即处理并停止检查其他路径
 					}
 				}
-
-				if !foundTrigger && checkCount%12 == 0 {
-					log.Printf("[进程][%d]: 升级检查器运行中，完成%d次检查", os.Getpid(), checkCount)
-				}
-
 			case <-ctx.Done():
 				log.Printf("[进程][%d]: 升级检查器收到停止信号，总共执行了%d次检查", os.Getpid(), checkCount)
 				return
