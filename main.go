@@ -195,6 +195,9 @@ func Graceful() {
 		}
 	}
 
+	log.Printf("[进程][%d]: 应用启动，清理所有旧备份文件", os.Getpid())
+	services.DeleteAllBackups()
+
 	// 处理重启服务的函数
 	restartService := func(triggerPath string) {
 		location := "升级"
@@ -236,6 +239,8 @@ func Graceful() {
 					exists, _ := fileExists(triggerPath)
 					if exists {
 						restartService(triggerPath)
+						log.Printf("[进程][%d]: 清理所有旧备份文件", os.Getpid())
+						services.DeleteAllBackups()
 						foundTrigger = true
 						break // 找到一个触发文件后立即处理并停止检查其他路径
 					}
