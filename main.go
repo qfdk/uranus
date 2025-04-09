@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
 	"strconv"
@@ -130,83 +131,6 @@ func initRouter() *gin.Engine {
 	return app
 }
 
-// 监控升级函数
-func monitorForUpgrades(upg *tableflip.Upgrader, triggerCheck *time.Ticker) {
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
-	for {
-		select {
-		case s := <-sig:
-			switch s {
-			case syscall.SIGHUP, syscall.SIGUSR2:
-				log.Printf("[进程][%d]: 收到升级信号，开始升级", os.Getpid())
-				err := upg.Upgrade()
-				if err != nil {
-					log.Printf("[进程][%d]: 升级错误，%s", os.Getpid(), err)
-					continue
-				}
-				log.Printf("[进程][%d]: 升级完成", os.Getpid())
-			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-				log.Printf("[进程][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
-				upg.Stop()
-				log.Printf("[进程][%d]: 服务器完全关闭", os.Getpid())
-				os.Exit(0)
-			}
-		case <-triggerCheck.C:
-			// 检查升级触发文件 - 首先检查固定安装目录
-			triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
-			if _, err := os.Stat(triggerFile); err == nil {
-				log.Printf("[进程][%d]: 发现安装目录中的升级触发文件，开始处理升级", os.Getpid())
-
-				// 先尝试重启服务
-				if services.CheckAndRestartAfterUpgrade() {
-					log.Printf("[进程][%d]: 服务重启成功", os.Getpid())
-					// 删除触发文件
-					os.Remove(triggerFile)
-					continue
-				}
-
-				// 如果服务重启失败，尝试进程内升级
-				os.Remove(triggerFile) // 删除触发文件
-				log.Printf("[进程][%d]: 服务重启失败，尝试进程内升级", os.Getpid())
-
-				err := upg.Upgrade()
-				if err != nil {
-					log.Printf("[进程][%d]: 进程内升级失败，错误：%s", os.Getpid(), err)
-				} else {
-					log.Printf("[进程][%d]: 进程内升级成功启动", os.Getpid())
-				}
-			}
-
-			// 同时检查工作目录中的触发文件
-			triggerFileAlt := path.Join(tools.GetPWD(), ".upgrade_trigger")
-			if _, err := os.Stat(triggerFileAlt); err == nil {
-				log.Printf("[进程][%d]: 发现工作目录中的升级触发文件，开始处理升级", os.Getpid())
-
-				// 先尝试重启服务
-				if services.CheckAndRestartAfterUpgrade() {
-					log.Printf("[进程][%d]: 服务重启成功", os.Getpid())
-					// 删除触发文件
-					os.Remove(triggerFileAlt)
-					continue
-				}
-
-				// 如果服务重启失败，尝试进程内升级
-				os.Remove(triggerFileAlt) // 删除触发文件
-				log.Printf("[进程][%d]: 服务重启失败，尝试进程内升级", os.Getpid())
-
-				err := upg.Upgrade()
-				if err != nil {
-					log.Printf("[进程][%d]: 进程内升级失败，错误：%s", os.Getpid(), err)
-				} else {
-					log.Printf("[进程][%d]: 进程内升级成功启动", os.Getpid())
-				}
-			}
-		}
-	}
-}
-
 func Graceful() {
 	pidFile := path.Join(tools.GetPWD(), "uranus.pid")
 	upg, err := tableflip.New(tableflip.Options{
@@ -225,12 +149,120 @@ func Graceful() {
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-		// 设置触发检查计时器
-		triggerCheck := time.NewTicker(5 * time.Second)
-		defer triggerCheck.Stop()
+		// 在goroutine中处理信号
+		for {
+			select {
+			case s := <-sig:
+				switch s {
+				case syscall.SIGHUP, syscall.SIGUSR2:
+					log.Printf("[进程][%d]: 收到升级信号，开始升级", os.Getpid())
+					err := upg.Upgrade()
+					if err != nil {
+						log.Printf("[进程][%d]: 升级错误，%s", os.Getpid(), err)
+						continue
+					}
+					log.Printf("[进程][%d]: 升级完成", os.Getpid())
+				case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
+					log.Printf("[进程][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
+					upg.Stop()
+					log.Printf("[进程][%d]: 服务器完全关闭", os.Getpid())
+					os.Exit(0)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
-		// 在goroutine中启动信号/升级监控
-		go monitorForUpgrades(upg, triggerCheck)
+	// 创建触发检查计时器
+	triggerCheck := time.NewTicker(5 * time.Second)
+	defer triggerCheck.Stop()
+
+	// 单独的goroutine检查升级触发文件
+	go func() {
+		log.Printf("[进程][%d]: 启动升级触发文件检查器，每5秒检查一次", os.Getpid())
+		checkCount := 0
+
+		for {
+			select {
+			case <-triggerCheck.C:
+				checkCount++
+				if checkCount%12 == 0 { // 每分钟记录一次
+					log.Printf("[进程][%d]: 升级检查器运行中，完成%d次检查", os.Getpid(), checkCount)
+				}
+
+				// 检查标准安装目录中的触发文件
+				triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
+				exists, err := fileExists(triggerFile)
+
+				serviceName := "uranus.service"
+				if err != nil {
+					log.Printf("[进程][%d]: 检查触发文件出错: %v", os.Getpid(), err)
+				} else if exists {
+					log.Printf("[进程][%d]: 发现升级触发文件：%s，准备执行重启", os.Getpid(), triggerFile)
+
+					// 读取文件修改时间
+					fileInfo, _ := os.Stat(triggerFile)
+					modTime := fileInfo.ModTime()
+					log.Printf("[进程][%d]: 触发文件修改时间: %s", os.Getpid(), modTime.Format("2006-01-02 15:04:05"))
+
+					// 执行重启命令
+					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), serviceName)
+					restartCmd := exec.Command("systemctl", "restart", serviceName)
+					output, err := restartCmd.CombinedOutput()
+
+					if err != nil {
+						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
+
+						// 尝试备用方法
+						log.Printf("[进程][%d]: 尝试sudo重启", os.Getpid())
+						sudoCmd := exec.Command("sudo", "systemctl", "restart", serviceName)
+						sudoOutput, sudoErr := sudoCmd.CombinedOutput()
+
+						if sudoErr != nil {
+							log.Printf("[进程][%d]: sudo重启也失败: %v, 输出: %s", os.Getpid(), sudoErr, string(sudoOutput))
+						} else {
+							log.Printf("[进程][%d]: sudo重启成功", os.Getpid())
+							os.Remove(triggerFile)
+						}
+					} else {
+						log.Printf("[进程][%d]: 重启命令成功，输出: %s", os.Getpid(), string(output))
+						os.Remove(triggerFile)
+					}
+				}
+
+				// 检查工作目录中的触发文件
+				workDirTrigger := path.Join(tools.GetPWD(), ".upgrade_trigger")
+				workDirExists, workDirErr := fileExists(workDirTrigger)
+
+				if workDirErr != nil {
+					log.Printf("[进程][%d]: 检查工作目录触发文件出错: %v", os.Getpid(), workDirErr)
+				} else if workDirExists {
+					log.Printf("[进程][%d]: 发现工作目录中的升级触发文件: %s", os.Getpid(), workDirTrigger)
+
+					// 读取文件修改时间
+					fileInfo, _ := os.Stat(workDirTrigger)
+					modTime := fileInfo.ModTime()
+					log.Printf("[进程][%d]: 触发文件修改时间: %s", os.Getpid(), modTime.Format("2006-01-02 15:04:05"))
+
+					// 执行重启命令
+					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), serviceName)
+					restartCmd := exec.Command("systemctl", "restart", serviceName)
+					output, err := restartCmd.CombinedOutput()
+
+					if err != nil {
+						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
+					} else {
+						log.Printf("[进程][%d]: 重启命令成功，输出: %s", os.Getpid(), string(output))
+						os.Remove(workDirTrigger)
+					}
+				}
+
+			case <-ctx.Done():
+				log.Printf("[进程][%d]: 升级检查器收到停止信号，总共执行了%d次检查", os.Getpid(), checkCount)
+				return
+			}
+		}
 	}()
 
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
@@ -277,7 +309,6 @@ func Graceful() {
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
-
 	<-upg.Exit()
 
 	// 设置关闭超时
@@ -293,6 +324,18 @@ func Graceful() {
 	if err := os.Remove(pidFile); err != nil {
 		log.Println("删除PID文件错误:", err)
 	}
+}
+
+// 辅助函数：检查文件是否存在
+func fileExists(filepath string) (bool, error) {
+	_, err := os.Stat(filepath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 func main() {
