@@ -149,7 +149,6 @@ func Graceful() {
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-		// 在goroutine中处理信号
 		for {
 			select {
 			case s := <-sig:
@@ -178,6 +177,19 @@ func Graceful() {
 	triggerCheck := time.NewTicker(5 * time.Second)
 	defer triggerCheck.Stop()
 
+	// 启动时检查并删除可能存在的触发文件
+	triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
+	if _, err := os.Stat(triggerFile); err == nil {
+		log.Printf("[进程][%d]: 启动时发现触发文件，正在删除", os.Getpid())
+		os.Remove(triggerFile)
+	}
+
+	workDirTrigger := path.Join(tools.GetPWD(), ".upgrade_trigger")
+	if _, err := os.Stat(workDirTrigger); err == nil {
+		log.Printf("[进程][%d]: 启动时发现工作目录触发文件，正在删除", os.Getpid())
+		os.Remove(workDirTrigger)
+	}
+
 	// 单独的goroutine检查升级触发文件
 	go func() {
 		log.Printf("[进程][%d]: 启动升级触发文件检查器，每5秒检查一次", os.Getpid())
@@ -195,39 +207,28 @@ func Graceful() {
 				triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
 				exists, err := fileExists(triggerFile)
 
-				serviceName := "uranus.service"
 				if err != nil {
 					log.Printf("[进程][%d]: 检查触发文件出错: %v", os.Getpid(), err)
 				} else if exists {
-					log.Printf("[进程][%d]: 发现升级触发文件：%s，准备执行重启", os.Getpid(), triggerFile)
+					log.Printf("[进程][%d]: 发现升级触发文件，立即删除", os.Getpid())
 
-					// 读取文件修改时间
-					fileInfo, _ := os.Stat(triggerFile)
-					modTime := fileInfo.ModTime()
-					log.Printf("[进程][%d]: 触发文件修改时间: %s", os.Getpid(), modTime.Format("2006-01-02 15:04:05"))
+					// 先删除触发文件，再执行重启
+					err := os.Remove(triggerFile)
+					if err != nil {
+						log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
+					} else {
+						log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
+					}
 
 					// 执行重启命令
-					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), serviceName)
-					restartCmd := exec.Command("systemctl", "restart", serviceName)
+					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
+					restartCmd := exec.Command("systemctl", "restart", "uranus.service")
 					output, err := restartCmd.CombinedOutput()
 
 					if err != nil {
 						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
-
-						// 尝试备用方法
-						log.Printf("[进程][%d]: 尝试sudo重启", os.Getpid())
-						sudoCmd := exec.Command("sudo", "systemctl", "restart", serviceName)
-						sudoOutput, sudoErr := sudoCmd.CombinedOutput()
-
-						if sudoErr != nil {
-							log.Printf("[进程][%d]: sudo重启也失败: %v, 输出: %s", os.Getpid(), sudoErr, string(sudoOutput))
-						} else {
-							log.Printf("[进程][%d]: sudo重启成功", os.Getpid())
-							os.Remove(triggerFile)
-						}
 					} else {
-						log.Printf("[进程][%d]: 重启命令成功，输出: %s", os.Getpid(), string(output))
-						os.Remove(triggerFile)
+						log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
 					}
 				}
 
@@ -238,23 +239,25 @@ func Graceful() {
 				if workDirErr != nil {
 					log.Printf("[进程][%d]: 检查工作目录触发文件出错: %v", os.Getpid(), workDirErr)
 				} else if workDirExists {
-					log.Printf("[进程][%d]: 发现工作目录中的升级触发文件: %s", os.Getpid(), workDirTrigger)
+					log.Printf("[进程][%d]: 发现工作目录中的升级触发文件，立即删除", os.Getpid())
 
-					// 读取文件修改时间
-					fileInfo, _ := os.Stat(workDirTrigger)
-					modTime := fileInfo.ModTime()
-					log.Printf("[进程][%d]: 触发文件修改时间: %s", os.Getpid(), modTime.Format("2006-01-02 15:04:05"))
+					// 先删除触发文件，再执行重启
+					err := os.Remove(workDirTrigger)
+					if err != nil {
+						log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
+					} else {
+						log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
+					}
 
 					// 执行重启命令
-					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), serviceName)
-					restartCmd := exec.Command("systemctl", "restart", serviceName)
+					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
+					restartCmd := exec.Command("systemctl", "restart", "uranus.service")
 					output, err := restartCmd.CombinedOutput()
 
 					if err != nil {
 						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
 					} else {
-						log.Printf("[进程][%d]: 重启命令成功，输出: %s", os.Getpid(), string(output))
-						os.Remove(workDirTrigger)
+						log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
 					}
 				}
 
@@ -270,7 +273,7 @@ func Graceful() {
 		log.Fatalln("无法监听端口:", err)
 	}
 
-	// 配置服务器超时和其他性能设置
+	// 配置服务器
 	server := &http.Server{
 		Handler:           initRouter(),
 		ReadTimeout:       30 * time.Second,
@@ -280,21 +283,20 @@ func Graceful() {
 		MaxHeaderBytes:    1 << 20, // 1 MB
 	}
 
-	// 在goroutine中启动服务器
+	// 启动服务器
 	go func() {
 		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Println("HTTP服务器错误:", err)
 		}
 	}()
 
-	// 使用上下文初始化SQLite数据库
+	// 初始化数据库
 	dbCtx, dbCancel := context.WithCancel(ctx)
 	defer dbCancel()
 	models.InitWithContext(dbCtx)
 
 	go services.RenewSSL()
 
-	// 如果在发布模式下，启动心跳服务
 	if gin.Mode() == gin.ReleaseMode {
 		heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
 		defer heartbeatCancel()
@@ -311,11 +313,10 @@ func Graceful() {
 	}
 	<-upg.Exit()
 
-	// 设置关闭超时
+	// 关闭服务器
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// 优雅关闭服务器
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Println("服务器关闭错误:", err)
 	}
@@ -326,7 +327,7 @@ func Graceful() {
 	}
 }
 
-// 辅助函数：检查文件是否存在
+// 检查文件是否存在
 func fileExists(filepath string) (bool, error) {
 	_, err := os.Stat(filepath)
 	if err == nil {
