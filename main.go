@@ -38,7 +38,7 @@ var cssFS embed.FS
 var iconsFS embed.FS
 
 func init() {
-	// Production mode writes to log
+	// 生产模式写入日志
 	if gin.Mode() == gin.ReleaseMode {
 		logDir := path.Join(tools.GetPWD(), "logs")
 		if err := os.MkdirAll(logDir, 0755); err != nil && !os.IsExist(err) {
@@ -67,7 +67,7 @@ func mustFS() http.FileSystem {
 
 func initRouter() *gin.Engine {
 	app := gin.New()
-	app.Use(gin.Recovery()) // Add recovery middleware for stability
+	app.Use(gin.Recovery()) // 添加恢复中间件以提高稳定性
 	// 创建一个包含自定义函数的模板引擎
 	funcMap := template.FuncMap{
 		"isEven": func(num int) bool {
@@ -96,7 +96,7 @@ func initRouter() *gin.Engine {
 
 	app.SetHTMLTemplate(tmpl)
 
-	// Use cache middleware
+	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 
 	cssSubFS, _ := fs.Sub(cssFS, "assets/css")
@@ -105,10 +105,10 @@ func initRouter() *gin.Engine {
 	iconsSubFS, _ := fs.Sub(iconsFS, "assets/icons")
 	app.StaticFS("/assets/icons", http.FS(iconsSubFS))
 
-	// Set static file routes
+	// 设置静态文件路由
 	app.StaticFS("/public", mustFS())
 
-	// Handle favicon.ico requests
+	// 处理favicon.ico请求
 	app.GET("/favicon.ico", func(c *gin.Context) {
 		file, err := staticFS.ReadFile("web/public/icon/favicon.ico")
 		if err != nil {
@@ -118,13 +118,13 @@ func initRouter() *gin.Engine {
 		c.Data(http.StatusOK, "image/x-icon", file)
 	})
 
-	// Set trusted proxies
+	// 设置受信任的代理
 	err = app.SetTrustedProxies([]string{"127.0.0.1"})
 	if err != nil {
 		return nil
 	}
 
-	// Register routes
+	// 注册路由
 	routes.RegisterRoutes(app)
 
 	return app
@@ -140,51 +140,68 @@ func monitorForUpgrades(upg *tableflip.Upgrader, triggerCheck *time.Ticker) {
 		case s := <-sig:
 			switch s {
 			case syscall.SIGHUP, syscall.SIGUSR2:
-				log.Printf("[PID][%d]: 收到升级信号，开始升级", os.Getpid())
+				log.Printf("[进程][%d]: 收到升级信号，开始升级", os.Getpid())
 				err := upg.Upgrade()
 				if err != nil {
-					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+					log.Printf("[进程][%d]: 升级错误，%s", os.Getpid(), err)
 					continue
 				}
-				log.Printf("[PID][%d]: 升级完成", os.Getpid())
+				log.Printf("[进程][%d]: 升级完成", os.Getpid())
 			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-				log.Printf("[PID][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
+				log.Printf("[进程][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
 				upg.Stop()
-				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
+				log.Printf("[进程][%d]: 服务器完全关闭", os.Getpid())
 				os.Exit(0)
 			}
 		case <-triggerCheck.C:
-			// 检查升级触发文件 - 检查固定安装目录
+			// 检查升级触发文件 - 首先检查固定安装目录
 			triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
 			if _, err := os.Stat(triggerFile); err == nil {
-				log.Printf("[PID][%d]: 发现升级触发文件，开始升级", os.Getpid())
+				log.Printf("[进程][%d]: 发现安装目录中的升级触发文件，开始处理升级", os.Getpid())
+
+				// 先尝试重启服务
+				if services.CheckAndRestartAfterUpgrade() {
+					log.Printf("[进程][%d]: 服务重启成功", os.Getpid())
+					// 删除触发文件
+					os.Remove(triggerFile)
+					continue
+				}
+
+				// 如果服务重启失败，尝试进程内升级
 				os.Remove(triggerFile) // 删除触发文件
+				log.Printf("[进程][%d]: 服务重启失败，尝试进程内升级", os.Getpid())
 
 				err := upg.Upgrade()
 				if err != nil {
-					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+					log.Printf("[进程][%d]: 进程内升级失败，错误：%s", os.Getpid(), err)
 				} else {
-					log.Printf("[PID][%d]: 升级成功启动", os.Getpid())
+					log.Printf("[进程][%d]: 进程内升级成功启动", os.Getpid())
 				}
 			}
 
-			// Also add explicit check for the working directory path in case that's being used
+			// 同时检查工作目录中的触发文件
 			triggerFileAlt := path.Join(tools.GetPWD(), ".upgrade_trigger")
 			if _, err := os.Stat(triggerFileAlt); err == nil {
-				log.Printf("[PID][%d]: 发现工作目录中的升级触发文件，开始升级", os.Getpid())
-				os.Remove(triggerFileAlt)
+				log.Printf("[进程][%d]: 发现工作目录中的升级触发文件，开始处理升级", os.Getpid())
+
+				// 先尝试重启服务
+				if services.CheckAndRestartAfterUpgrade() {
+					log.Printf("[进程][%d]: 服务重启成功", os.Getpid())
+					// 删除触发文件
+					os.Remove(triggerFileAlt)
+					continue
+				}
+
+				// 如果服务重启失败，尝试进程内升级
+				os.Remove(triggerFileAlt) // 删除触发文件
+				log.Printf("[进程][%d]: 服务重启失败，尝试进程内升级", os.Getpid())
 
 				err := upg.Upgrade()
 				if err != nil {
-					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+					log.Printf("[进程][%d]: 进程内升级失败，错误：%s", os.Getpid(), err)
 				} else {
-					log.Printf("[PID][%d]: 升级成功启动", os.Getpid())
+					log.Printf("[进程][%d]: 进程内升级成功启动", os.Getpid())
 				}
-			}
-
-			// 检查是否需要重启
-			if services.CheckAndRestartAfterUpgrade() {
-				log.Printf("[PID][%d]: 升级后触发服务重启", os.Getpid())
 			}
 		}
 	}
@@ -200,11 +217,11 @@ func Graceful() {
 	}
 	defer upg.Stop()
 
-	// Create a context that will be canceled on shutdown signals
+	// 创建一个将在关闭信号时取消的上下文
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle signals
+	// 处理信号
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
@@ -218,10 +235,10 @@ func Graceful() {
 
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
 	if err != nil {
-		log.Fatalln("Unable to listen:", err)
+		log.Fatalln("无法监听端口:", err)
 	}
 
-	// Configure server with timeouts and other performance settings
+	// 配置服务器超时和其他性能设置
 	server := &http.Server{
 		Handler:           initRouter(),
 		ReadTimeout:       30 * time.Second,
@@ -231,30 +248,30 @@ func Graceful() {
 		MaxHeaderBytes:    1 << 20, // 1 MB
 	}
 
-	// Start the server in a goroutine
+	// 在goroutine中启动服务器
 	go func() {
 		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Println("HTTP server:", err)
+			log.Println("HTTP服务器错误:", err)
 		}
 	}()
 
-	// Initialize SQLite database with context
+	// 使用上下文初始化SQLite数据库
 	dbCtx, dbCancel := context.WithCancel(ctx)
 	defer dbCancel()
 	models.InitWithContext(dbCtx)
 
 	go services.RenewSSL()
 
-	// Start heartbeat service with context if in release mode
+	// 如果在发布模式下，启动心跳服务
 	if gin.Mode() == gin.ReleaseMode {
 		heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
 		defer heartbeatCancel()
 		go services.HeartbeatWithContext(heartbeatCtx)
 	}
 
-	log.Printf("[PID][%d]: Server started successfully and wrote PID to file", os.Getpid())
+	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
-		log.Println("Error writing PID file:", err)
+		log.Println("写入PID文件错误:", err)
 	}
 
 	if err := upg.Ready(); err != nil {
@@ -262,30 +279,30 @@ func Graceful() {
 	}
 	<-upg.Exit()
 
-	// Setup shutdown timeout
+	// 设置关闭超时
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// Shutdown the server gracefully
+	// 优雅关闭服务器
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Println("Server shutdown error:", err)
+		log.Println("服务器关闭错误:", err)
 	}
 
-	log.Println("Exiting and deleting pid file")
+	log.Println("退出并删除pid文件")
 	if err := os.Remove(pidFile); err != nil {
-		log.Println("Error deleting PID file:", err)
+		log.Println("删除PID文件错误:", err)
 	}
 }
 
 func main() {
-	// Show version info in production mode
+	// 在生产模式下显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
 	}
 
-	// Initialize configuration file
+	// 初始化配置文件
 	config.InitAppConfig()
 
-	// Start the server with graceful shutdown
+	// 启动带有优雅关闭的服务器
 	Graceful()
 }
