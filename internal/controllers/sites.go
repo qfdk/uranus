@@ -232,7 +232,7 @@ func SaveSiteConf(ctx *gin.Context) {
 
 	// 准备用于文件路径的文件名，确保具有.conf扩展名
 	fullFileName := fileName
-	if fileName != "default" && !strings.HasSuffix(fileName, ".conf") {
+	if !strings.HasSuffix(fileName, ".conf") {
 		fullFileName = fileName + ".conf"
 	}
 

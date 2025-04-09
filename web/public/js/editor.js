@@ -177,7 +177,7 @@ $('#getTemplate').click(() => {
 // 保存配置文件
 $('#saveSitesConf').click(() => {
     let json = {
-        filename: $("#filename").val().split('.conf')[0],
+        filename: $("#filename").val(),
         content: editor.getValue()
     };
 
