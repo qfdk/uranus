@@ -234,14 +234,12 @@ func Graceful() {
 			case <-triggerCheck.C:
 				checkCount++
 
-				foundTrigger := false
 				for _, triggerPath := range triggerPaths {
 					exists, _ := fileExists(triggerPath)
 					if exists {
 						restartService(triggerPath)
 						log.Printf("[进程][%d]: 清理所有旧备份文件", os.Getpid())
 						services.DeleteAllBackups()
-						foundTrigger = true
 						break // 找到一个触发文件后立即处理并停止检查其他路径
 					}
 				}
