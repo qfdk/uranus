@@ -85,7 +85,7 @@ func initRouter() *gin.Engine {
 	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 	// 设置静态文件路由
-	app.StaticFS("/public", http.FS(staticFS))
+	app.Static("/public", "./web/public")
 
 	// 处理favicon.ico请求
 	app.GET("/favicon.ico", func(c *gin.Context) {
