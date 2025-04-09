@@ -86,7 +86,9 @@ func GetSites(ctx *gin.Context) {
 	files, err := ioutil.ReadDir(filepath.Join(vhostPath))
 	if err != nil {
 		log.Println(err)
-		ctx.HTML(http.StatusOK, "sites.html", gin.H{"files": []string{}})
+		ctx.HTML(http.StatusOK, "sites.html", gin.H{
+			"activePage": "sites",
+			"files":      []string{}})
 		return
 	}
 
