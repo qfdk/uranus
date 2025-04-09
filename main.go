@@ -177,20 +177,51 @@ func Graceful() {
 	triggerCheck := time.NewTicker(5 * time.Second)
 	defer triggerCheck.Stop()
 
+	// 触发文件路径
+	triggerPaths := []string{
+		path.Join("/etc/uranus", ".upgrade_trigger"),
+		path.Join(tools.GetPWD(), ".upgrade_trigger"),
+	}
+
 	// 启动时检查并删除可能存在的触发文件
-	triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
-	if _, err := os.Stat(triggerFile); err == nil {
-		log.Printf("[进程][%d]: 启动时发现触发文件，正在删除", os.Getpid())
-		os.Remove(triggerFile)
+	for _, filePath := range triggerPaths {
+		if _, err := os.Stat(filePath); err == nil {
+			location := "标准安装目录"
+			if filePath == triggerPaths[1] {
+				location = "工作目录"
+			}
+			log.Printf("[进程][%d]: 启动时发现%s触发文件，正在删除", os.Getpid(), location)
+			os.Remove(filePath)
+		}
 	}
 
-	workDirTrigger := path.Join(tools.GetPWD(), ".upgrade_trigger")
-	if _, err := os.Stat(workDirTrigger); err == nil {
-		log.Printf("[进程][%d]: 启动时发现工作目录触发文件，正在删除", os.Getpid())
-		os.Remove(workDirTrigger)
+	// 处理重启服务的函数
+	restartService := func(triggerPath string) {
+		location := "升级"
+		if triggerPath == triggerPaths[1] {
+			location = "工作目录中的升级"
+		}
+
+		log.Printf("[进程][%d]: 发现%s触发文件，立即删除", os.Getpid(), location)
+
+		if err := os.Remove(triggerPath); err != nil {
+			log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
+		} else {
+			log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
+		}
+
+		log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
+		restartCmd := exec.Command("systemctl", "restart", "uranus.service")
+		output, err := restartCmd.CombinedOutput()
+
+		if err != nil {
+			log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
+		} else {
+			log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
+		}
 	}
 
-	// 单独的goroutine检查升级触发文件
+	// 升级触发文件检查
 	go func() {
 		log.Printf("[进程][%d]: 启动升级触发文件检查器，每5秒检查一次", os.Getpid())
 		checkCount := 0
@@ -199,66 +230,19 @@ func Graceful() {
 			select {
 			case <-triggerCheck.C:
 				checkCount++
-				if checkCount%12 == 0 { // 每分钟记录一次
+
+				foundTrigger := false
+				for _, triggerPath := range triggerPaths {
+					exists, _ := fileExists(triggerPath)
+					if exists {
+						restartService(triggerPath)
+						foundTrigger = true
+						break // 找到一个触发文件后立即处理并停止检查其他路径
+					}
+				}
+
+				if !foundTrigger && checkCount%12 == 0 {
 					log.Printf("[进程][%d]: 升级检查器运行中，完成%d次检查", os.Getpid(), checkCount)
-				}
-
-				// 检查标准安装目录中的触发文件
-				triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
-				exists, err := fileExists(triggerFile)
-
-				if err != nil {
-					log.Printf("[进程][%d]: 检查触发文件出错: %v", os.Getpid(), err)
-				} else if exists {
-					log.Printf("[进程][%d]: 发现升级触发文件，立即删除", os.Getpid())
-
-					// 先删除触发文件，再执行重启
-					err := os.Remove(triggerFile)
-					if err != nil {
-						log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
-					} else {
-						log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
-					}
-
-					// 执行重启命令
-					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
-					restartCmd := exec.Command("systemctl", "restart", "uranus.service")
-					output, err := restartCmd.CombinedOutput()
-
-					if err != nil {
-						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
-					} else {
-						log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
-					}
-				}
-
-				// 检查工作目录中的触发文件
-				workDirTrigger := path.Join(tools.GetPWD(), ".upgrade_trigger")
-				workDirExists, workDirErr := fileExists(workDirTrigger)
-
-				if workDirErr != nil {
-					log.Printf("[进程][%d]: 检查工作目录触发文件出错: %v", os.Getpid(), workDirErr)
-				} else if workDirExists {
-					log.Printf("[进程][%d]: 发现工作目录中的升级触发文件，立即删除", os.Getpid())
-
-					// 先删除触发文件，再执行重启
-					err := os.Remove(workDirTrigger)
-					if err != nil {
-						log.Printf("[进程][%d]: 删除触发文件失败: %v", os.Getpid(), err)
-					} else {
-						log.Printf("[进程][%d]: 已删除触发文件", os.Getpid())
-					}
-
-					// 执行重启命令
-					log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
-					restartCmd := exec.Command("systemctl", "restart", "uranus.service")
-					output, err := restartCmd.CombinedOutput()
-
-					if err != nil {
-						log.Printf("[进程][%d]: 重启命令失败: %v, 输出: %s", os.Getpid(), err, string(output))
-					} else {
-						log.Printf("[进程][%d]: 重启命令已执行", os.Getpid())
-					}
 				}
 
 			case <-ctx.Done():

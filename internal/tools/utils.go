@@ -3,9 +3,9 @@ package tools
 import "os"
 
 func GetPWD() string {
-	pwd, _ := os.Getwd()
-	if pwd == "/" {
-		pwd = "/etc/uranus"
+	pwd, err := os.Getwd()
+	if err != nil || pwd == "/" {
+		return "/etc/uranus"
 	}
 	return pwd
 }
