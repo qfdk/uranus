@@ -131,7 +131,6 @@ func initRouter() *gin.Engine {
 }
 
 // 监控升级函数
-// 监控升级函数
 func monitorForUpgrades(upg *tableflip.Upgrader, triggerCheck *time.Ticker) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
@@ -155,11 +154,25 @@ func monitorForUpgrades(upg *tableflip.Upgrader, triggerCheck *time.Ticker) {
 				os.Exit(0)
 			}
 		case <-triggerCheck.C:
-			// 检查升级触发文件
-			triggerFile := path.Join(tools.GetPWD(), ".upgrade_trigger")
+			// 检查升级触发文件 - 检查固定安装目录
+			triggerFile := path.Join("/etc/uranus", ".upgrade_trigger")
 			if _, err := os.Stat(triggerFile); err == nil {
 				log.Printf("[PID][%d]: 发现升级触发文件，开始升级", os.Getpid())
 				os.Remove(triggerFile) // 删除触发文件
+
+				err := upg.Upgrade()
+				if err != nil {
+					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+				} else {
+					log.Printf("[PID][%d]: 升级成功启动", os.Getpid())
+				}
+			}
+
+			// Also add explicit check for the working directory path in case that's being used
+			triggerFileAlt := path.Join(tools.GetPWD(), ".upgrade_trigger")
+			if _, err := os.Stat(triggerFileAlt); err == nil {
+				log.Printf("[PID][%d]: 发现工作目录中的升级触发文件，开始升级", os.Getpid())
+				os.Remove(triggerFileAlt)
 
 				err := upg.Upgrade()
 				if err != nil {
