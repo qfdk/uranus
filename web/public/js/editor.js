@@ -150,19 +150,39 @@ const processResponse = (data, redirect = "/admin/sites", successMessage) => {
 $('#enableSSL').click(() => {
     $("#alert").hide();
     $("#alertSuccess").hide();
-    $('#enableSSL').addClass("is-loading");
+
+    // Show spinner, hide icon, update status
+    $('#ssl_spinner').removeClass('hidden');
+    $('#ssl_icon').addClass('hidden');
+    $('#ssl_status').text("处理中...");
+    $('#enableSSL').attr("disabled", true);
+
     const domains = $("#domains").val().split(",");
     const configName = $("#filename").val();
     const proxy = $("#proxy").val();
+
     $.get('/admin/ssl/renew', {domains, configName}, (data) => {
         processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
-        $('#enableSSL').text("Let's Encrypt");
-        $('#enableSSL').removeClass("is-loading");
+
+        // Restore button state
+        $('#ssl_spinner').addClass('hidden');
+        $('#ssl_icon').removeClass('hidden');
+        $('#ssl_status').text("Let's Encrypt");
+        $('#enableSSL').attr("disabled", false);
+
         if (data.message === 'OK') {
             $.get('/admin/sites/template', {domains, ssl: true, proxy, configName}, (data) => {
                 editor.getModel().setValue(data.content);
             });
         }
+    }).fail(function() {
+        // In case of error, restore the button
+        $('#ssl_spinner').addClass('hidden');
+        $('#ssl_icon').removeClass('hidden');
+        $('#ssl_status').text("Let's Encrypt");
+        $('#enableSSL').attr("disabled", false);
+        $("#message").html("证书请求失败，请检查网络连接或查看日志");
+        $("#alert").show();
     });
 });
 
