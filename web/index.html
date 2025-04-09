@@ -214,7 +214,7 @@
             </div>
             <div class="flex justify-between">
                 <dt class="text-sm font-medium text-gray-500">CommitID</dt>
-                <dd class="text-sm text-gray-900 truncate md:max-w-xs" id="upgrade_commitID">{{.commitID}}</dd>
+                <dd class="text-sm text-gray-900 truncate md:max-w-xs" id="upgrade_commitID">{{slice .commitID 0 8}}</dd>
             </div>
         </dl>
     </div>
@@ -361,7 +361,7 @@
                 // 更新版本信息显示
                 $("#buildTime").html(data.buildTime);
                 $("#buildVersion").html(data.buildVersion);
-                $("#commitID").html(data.commitId);
+                $("#commitID").html(data.commitId.slice(0, 8));
             } else {
                 $("#upgrade").attr("disabled", true);
                 $("#upgrade").addClass("bg-gray-400").removeClass("bg-blue-600 hover:bg-blue-700");
