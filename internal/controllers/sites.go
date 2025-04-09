@@ -99,18 +99,25 @@ func GetSites(ctx *gin.Context) {
 	})
 }
 
+// TODO: fixme 这里要修改前端还有后端 保存的时候有问题
 func EditSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
 	configName := strings.Split(filename, ".conf")[0]
-
 	if filename != "default" {
+		// Read default configuration from file
+		content, err := ioutil.ReadFile(path.Join(GetAppConfig().VhostPath, filename))
+		if err != nil {
+			log.Printf("Error reading default configuration: %v", err)
+			ctx.String(http.StatusInternalServerError, "Error reading configuration")
+			return
+		}
+
 		// Get certificate info from database
 		cert := models.GetCertByFilename(configName)
-
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
 			"configFileName": configName,
 			"domains":        cert.Domains,
-			"content":        cert.Content,
+			"content":        string(content),
 			"proxy":          cert.Proxy,
 			"infoPlus":       true,
 			"isDefaultConf":  false,
