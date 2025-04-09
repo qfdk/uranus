@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "build:css": "tailwindcss -i ./src/input.css -o ./assets/css/tailwind.min.css --minify",
-    "dev:css": "tailwindcss -i ./src/input.css -o ./assets/css/tailwind.min.css --watch"
+    "build:css": "tailwindcss -i input.css -o web/public/css/tailwind.min.css --minify",
+    "dev:css": "tailwindcss -i input.css -o web/public/css/tailwind.min.css --watch"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.14",
