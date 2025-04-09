@@ -136,15 +136,15 @@ func EditSiteConf(ctx *gin.Context) {
 		return
 	}
 
-	if filename != "default" {
-		// 从文件读取配置
-		content, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			log.Printf("读取配置文件出错: %v", err)
-			ctx.String(http.StatusInternalServerError, "读取配置出错")
-			return
-		}
+	// 读取默认配置
+	content, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Printf("读取默认配置出错: %v", err)
+		ctx.String(http.StatusInternalServerError, "读取配置出错")
+		return
+	}
 
+	if filename != "default" {
 		// 从数据库获取证书信息
 		cert := models.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
@@ -156,14 +156,6 @@ func EditSiteConf(ctx *gin.Context) {
 			"isDefaultConf":  false,
 		})
 	} else {
-		// 读取默认配置
-		content, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			log.Printf("读取默认配置出错: %v", err)
-			ctx.String(http.StatusInternalServerError, "读取配置出错")
-			return
-		}
-
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
 			"configFileName": configName,
 			"content":        string(content),
