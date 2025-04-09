@@ -53,7 +53,7 @@ func GetAppConfig() *AppConfig {
 func loadConfig() {
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Fatalf("[-] Failed to read configuration file: %v", err)
+		log.Fatalf("[-] 读取配置文件失败: %v", err)
 	}
 
 	// Use write lock when updating configuration
@@ -62,31 +62,31 @@ func loadConfig() {
 
 	_appConfig = &AppConfig{}
 	_ = viper.Unmarshal(&_appConfig)
-	log.Println("[+] Configuration loaded successfully")
+	log.Println("[+] 配置成功加载")
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 
 	if _appConfig.UUID == "" {
-		log.Println("[-] No UUID found, generating automatically")
+		log.Println("[-] 未找到UUID，正在自动生成")
 		newUUID, _ := uuid.NewUUID()
 		_appConfig.UUID = newUUID.String()
 		viper.Set("uuid", _appConfig.UUID)
 		_ = viper.WriteConfig()
-		log.Println("[+] UUID saved successfully")
+		log.Println("[+] UUID保存成功")
 	}
 
 	if _appConfig.IP == "" {
 		ip := getIP()
 		viper.Set("ip", ip)
 		_ = viper.WriteConfig()
-		log.Println("[+] IP saved successfully")
+		log.Println("[+] IP保存成功")
 	}
 }
 
 func InitAppConfig() {
-	log.Println("[+] Initializing configuration file...")
+	log.Println("[+] 正在初始化配置文件...")
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 
@@ -95,14 +95,14 @@ func InitAppConfig() {
 
 	configFile := path.Join(pwd, "config.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		log.Println("[-] Configuration file not found, generating default configuration")
+		log.Println("[-] 未找到配置文件，正在生成默认配置")
 
 		// Default configuration
 		defaultConfig := map[string]interface{}{
 			"url":         "http://localhost:7777",
 			"uuid":        uuid.New().String(),
 			"token":       "myToken",
-			"vhostPath":   "/etc/nginx/sites-enabled",
+			"vhostPath":   "/etc/nginx/conf.d",
 			"sslpath":     "/etc/nginx/ssl",
 			"email":       "hello@world.com",
 			"username":    "admin",
@@ -138,7 +138,7 @@ func InitAppConfig() {
 
 		// Debounce config changes to once per second at most
 		configChangeTimer = time.AfterFunc(1*time.Second, func() {
-			log.Println("[+] Configuration file updated:", in.Name)
+			log.Println("[+] 配置文件已更新:", in.Name)
 
 			configLock.Lock()
 			_ = viper.Unmarshal(&_appConfig)
@@ -154,7 +154,7 @@ func getIP() string {
 		return ipCache
 	}
 
-	log.Println("[-] Retrieving IP...")
+	log.Println("[-] 正在获取IP...")
 
 	// Create an HTTP client with timeout
 	client := &http.Client{
@@ -163,14 +163,14 @@ func getIP() string {
 
 	req, err := http.NewRequest("GET", "https://ip.tar.tn", nil)
 	if err != nil {
-		log.Printf("Request creation failed: %v", err)
+		log.Printf("请求创建失败: %v", err)
 		return ""
 	}
 	req.Header.Set("User-Agent", "Uranus")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Request failed: %v", err)
+		log.Printf("请求失败: %v", err)
 		return ""
 	}
 	defer func(Body io.ReadCloser) {
@@ -178,18 +178,18 @@ func getIP() string {
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Request returned non-200 status code: %d", resp.StatusCode)
+		log.Printf("请求返回非200状态码: %d", resp.StatusCode)
 		return ""
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Failed to read response body: %v", err)
+		log.Printf("读取响应体失败: %v", err)
 		return ""
 	}
 
 	ip := strings.TrimSpace(string(body))
-	log.Printf("[+] IP retrieved successfully: %s", ip)
+	log.Printf("[+] IP获取成功: %s", ip)
 
 	// Update cache
 	ipCache = ip
