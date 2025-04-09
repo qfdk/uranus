@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"html/template"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -32,12 +31,6 @@ var templates embed.FS
 //go:embed web/public
 var staticFS embed.FS
 
-//go:embed assets/css
-var cssFS embed.FS
-
-//go:embed assets/icons
-var iconsFS embed.FS
-
 func init() {
 	// 生产模式写入日志
 	if gin.Mode() == gin.ReleaseMode {
@@ -58,14 +51,6 @@ func init() {
 	}
 }
 
-func mustFS() http.FileSystem {
-	sub, err := fs.Sub(staticFS, "web/public")
-	if err != nil {
-		panic(err)
-	}
-	return http.FS(sub)
-}
-
 func initRouter() *gin.Engine {
 	app := gin.New()
 	app.Use(gin.Recovery()) // 添加恢复中间件以提高稳定性
@@ -78,9 +63,9 @@ func initRouter() *gin.Engine {
 			return a + b
 		},
 		"svgIcon": func(name string) template.HTML {
-			content, err := fs.ReadFile(iconsFS, "assets/icons/"+name+".svg")
+			content, err := staticFS.ReadFile("web/public/icons/" + name + ".svg")
 			if err != nil {
-				return template.HTML("")
+				return ""
 			}
 			return template.HTML(content)
 		},
@@ -99,15 +84,8 @@ func initRouter() *gin.Engine {
 
 	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
-
-	cssSubFS, _ := fs.Sub(cssFS, "assets/css")
-	app.StaticFS("/assets/css", http.FS(cssSubFS))
-
-	iconsSubFS, _ := fs.Sub(iconsFS, "assets/icons")
-	app.StaticFS("/assets/icons", http.FS(iconsSubFS))
-
 	// 设置静态文件路由
-	app.StaticFS("/public", mustFS())
+	app.StaticFS("/public", http.FS(staticFS))
 
 	// 处理favicon.ico请求
 	app.GET("/favicon.ico", func(c *gin.Context) {
