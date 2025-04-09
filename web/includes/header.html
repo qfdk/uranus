@@ -114,11 +114,15 @@
                 {{ svgIcon "shield" }}
                 <span>SSL证书管理</span>
                 </a>
-                <a href="/admin/terminal" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
-                {{ svgIcon "terminal" }}
-                <span>Terminal</span>
-                </a>
             </nav>
+        </div>
+
+        <!-- Terminal按钮放在底部 -->
+        <div class="px-3 mt-auto mb-4">
+            <a href="/admin/terminal" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
+            {{ svgIcon "terminal" }}
+            <span>Terminal</span>
+            </a>
         </div>
     </div>
 </div>
@@ -127,7 +131,7 @@
 <div class="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
     <div class="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
         <div class="flex flex-1 flex-col overflow-y-auto pt-20 pb-4">
-            <nav class="mt-2 px-3">
+            <nav class="mt-2 px-3 flex-1">
                 <a href="/admin/dashboard" class="sidebar-item {{ if eq .activePage "dashboard" }}active{{ end }}">
                 {{ svgIcon "server" }}
                 <span>服务器状态</span>
@@ -144,11 +148,15 @@
                 {{ svgIcon "shield" }}
                 <span>SSL证书管理</span>
                 </a>
+            </nav>
+
+            <!-- Terminal按钮放在底部 -->
+            <div class="px-3 mt-auto">
                 <a href="/admin/terminal" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
                 {{ svgIcon "terminal" }}
                 <span>Terminal</span>
                 </a>
-            </nav>
+            </div>
         </div>
     </div>
 </div>
