@@ -9,20 +9,24 @@ import (
 )
 
 var (
-	// Precompiled regex patterns for better performance
+	// 预编译正则表达式以提高性能
 	staticFilePattern = regexp.MustCompile(`^/public|^/favicon\.ico`)
+	jsFilePattern     = regexp.MustCompile(`\.js$`)
 )
 
-// CacheMiddleware adds appropriate cache headers based on the request path
+// CacheMiddleware 根据请求路径添加适当的缓存头
 func CacheMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.RequestURI
 
-		// Fast path checking with regex
-		if staticFilePattern.MatchString(path) {
-			setCacheHeaders(c, time.Hour*24) // Cache static content for 24 hours
+		// JavaScript 文件不缓存
+		if jsFilePattern.MatchString(path) {
+			setNoCacheHeaders(c)
+		} else if staticFilePattern.MatchString(path) {
+			// 静态内容缓存 24 小时
+			setCacheHeaders(c, time.Hour*24)
 		} else if strings.HasPrefix(path, "/admin") {
-			// Don't cache admin pages
+			// 不缓存管理页面
 			setNoCacheHeaders(c)
 		}
 
@@ -30,7 +34,7 @@ func CacheMiddleware() gin.HandlerFunc {
 	}
 }
 
-// setCacheHeaders sets appropriate cache headers with the given duration
+// setCacheHeaders 设置带有指定持续时间的缓存头
 func setCacheHeaders(c *gin.Context, duration time.Duration) {
 	seconds := int(duration.Seconds())
 	c.Header("Cache-Control", "public, max-age="+string(rune(seconds)))
@@ -40,19 +44,19 @@ func setCacheHeaders(c *gin.Context, duration time.Duration) {
 	c.Header("Expires", time.Now().Add(duration).UTC().Format(http.TimeFormat))
 }
 
-// setNoCacheHeaders sets headers to prevent caching
+// setNoCacheHeaders 设置防止缓存的头信息
 func setNoCacheHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
 }
 
-// getContentType determines the content type based on file extension
+// getContentType 根据文件扩展名确定内容类型
 func getContentType(path string) string {
-	// Default to octet-stream
+	// 默认为 octet-stream
 	contentType := "application/octet-stream"
 
-	// Check file extension
+	// 检查文件扩展名
 	if strings.HasSuffix(path, ".css") {
 		contentType = "text/css"
 	} else if strings.HasSuffix(path, ".js") {
