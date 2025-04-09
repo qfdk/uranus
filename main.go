@@ -130,6 +130,53 @@ func initRouter() *gin.Engine {
 	return app
 }
 
+// 监控升级函数
+// 监控升级函数
+func monitorForUpgrades(upg *tableflip.Upgrader, triggerCheck *time.Ticker) {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	for {
+		select {
+		case s := <-sig:
+			switch s {
+			case syscall.SIGHUP, syscall.SIGUSR2:
+				log.Printf("[PID][%d]: 收到升级信号，开始升级", os.Getpid())
+				err := upg.Upgrade()
+				if err != nil {
+					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+					continue
+				}
+				log.Printf("[PID][%d]: 升级完成", os.Getpid())
+			case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
+				log.Printf("[PID][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
+				upg.Stop()
+				log.Printf("[PID][%d]: 服务器完全关闭", os.Getpid())
+				os.Exit(0)
+			}
+		case <-triggerCheck.C:
+			// 检查升级触发文件
+			triggerFile := path.Join(tools.GetPWD(), ".upgrade_trigger")
+			if _, err := os.Stat(triggerFile); err == nil {
+				log.Printf("[PID][%d]: 发现升级触发文件，开始升级", os.Getpid())
+				os.Remove(triggerFile) // 删除触发文件
+
+				err := upg.Upgrade()
+				if err != nil {
+					log.Printf("[PID][%d]: 升级错误，%s", os.Getpid(), err)
+				} else {
+					log.Printf("[PID][%d]: 升级成功启动", os.Getpid())
+				}
+			}
+
+			// 检查是否需要重启
+			if services.CheckAndRestartAfterUpgrade() {
+				log.Printf("[PID][%d]: 升级后触发服务重启", os.Getpid())
+			}
+		}
+	}
+}
+
 func Graceful() {
 	pidFile := path.Join(tools.GetPWD(), "uranus.pid")
 	upg, err := tableflip.New(tableflip.Options{
@@ -148,44 +195,12 @@ func Graceful() {
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGHUP, syscall.SIGUSR2, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
-		// 定期检查触发文件
+		// 设置触发检查计时器
 		triggerCheck := time.NewTicker(5 * time.Second)
 		defer triggerCheck.Stop()
 
-		for {
-			select {
-			case s := <-sig:
-				switch s {
-				case syscall.SIGHUP, syscall.SIGUSR2:
-					log.Printf("[PID][%d]: Received upgrade signal, starting upgrade", os.Getpid())
-					err := upg.Upgrade()
-					if err != nil {
-						log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
-						continue
-					}
-					log.Printf("[PID][%d]: Upgrade complete", os.Getpid())
-				case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
-					log.Printf("[PID][%d]: Received shutdown signal, preparing to close server", os.Getpid())
-					cancel() // Cancel the context to signal goroutines to stop
-					upg.Stop()
-					log.Printf("[PID][%d]: Server fully closed", os.Getpid())
-					os.Exit(0)
-				}
-			case <-triggerCheck.C:
-				triggerFile := path.Join(tools.GetPWD(), ".upgrade_trigger")
-				if _, err := os.Stat(triggerFile); err == nil {
-					// 触发文件存在，执行升级
-					log.Printf("[PID][%d]: Found upgrade trigger file, starting upgrade", os.Getpid())
-					os.Remove(triggerFile) // 删除触发文件
-
-					err := upg.Upgrade()
-					if err != nil {
-						log.Printf("[PID][%d]: Upgrade error, %s", os.Getpid(), err)
-					}
-				}
-			}
-		}
+		// 在goroutine中启动信号/升级监控
+		go monitorForUpgrades(upg, triggerCheck)
 	}()
 
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")

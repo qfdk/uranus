@@ -224,9 +224,10 @@
 <div class="hidden fixed inset-0 z-50 overflow-auto bg-gray-500 bg-opacity-75 flex items-center justify-center"
      id="upgrade-modal">
     <div class="relative bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl">
+        <!-- 初始升级信息部分 -->
         <div class="p-6" id="upgrade-message">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="text-xl font-medium text-gray-900">系统信息</h3>
+                <h3 class="text-xl font-medium text-gray-900">系统升级</h3>
                 <button class="text-gray-400 hover:text-gray-500"
                         onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -237,7 +238,7 @@
 
             <div class="space-y-4">
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">构建版本</dt>
+                    <dt class="text-gray-600 font-medium">当前版本</dt>
                     <dd class="text-gray-900">{{.buildVersion}}</dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
@@ -276,12 +277,24 @@
             </div>
         </div>
 
+        <!-- 升级结果部分 -->
         <div class="hidden p-6" id="upgradeFinish">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
                 <h3 class="text-xl font-medium text-gray-900">
-                    <span id="upgradeFinish-OK" class="hidden">升级完成, <span
-                            id="countdown">5</span>s 后刷新页面...</span>
-                    <span id="upgradeFinish-KO" class="hidden">已经是最新版本, 不需要升级</span>
+                    <span id="upgradeFinish-OK" class="hidden">
+                        <svg class="h-6 w-6 inline-block text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        升级完成, <span id="countdown">10</span>s 后刷新页面...
+                    </span>
+                    <span id="upgradeFinish-KO" class="hidden">
+                        <svg class="h-6 w-6 inline-block text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        已经是最新版本, 不需要升级
+                    </span>
                 </h3>
                 <button class="text-gray-400 hover:text-gray-500"
                         onclick="document.getElementById('upgrade-modal').classList.add('hidden')">
@@ -291,98 +304,217 @@
                 </button>
             </div>
 
-            <div class="space-y-4">
+            <!-- 版本信息部分 -->
+            <div class="space-y-4 mt-2">
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <dt class="text-gray-600 font-medium">版本</dt>
+                    <dd id="buildVersion" class="text-gray-900"></dd>
+                </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
                     <dt class="text-gray-600 font-medium">构建时间</dt>
                     <dd id="buildTime" class="text-gray-900"></dd>
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <dt class="text-gray-600 font-medium">构建版本</dt>
-                    <dd id="buildVersion" class="text-gray-900"></dd>
-                </div>
-                <div class="flex justify-between items-center py-2 border-b border-gray-100">
                     <dt class="text-gray-600 font-medium">CommitID</dt>
                     <dd id="commitID" class="text-gray-900 truncate max-w-xs"></dd>
+                </div>
+
+                <!-- 升级进度状态部分 -->
+                <div id="upgrade-progress" class="mt-4 hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4 dark:bg-gray-700">
+                        <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-status" class="text-sm text-gray-500 text-center">
+                        正在下载更新...
+                    </p>
+                </div>
+
+                <!-- 手动刷新按钮 -->
+                <div class="flex justify-center mt-2">
+                    <button id="manual-refresh"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors hidden">
+                        手动刷新页面
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script>
-    let updateData = null;
-
     $(document).ready(function () {
+        let updateData = null;
+        let upgradeInProgress = false;
+
+        // 页面加载时检查更新
         $.get('/checkUpdate', (data) => {
             updateData = data;
 
-            const {buildTime, status} = data;
+            const {status} = data;
             if (status === 'OK') {
                 $("#upgrade").attr("disabled", false);
                 $("#upgrade").removeClass("bg-gray-400").addClass("bg-blue-600 hover:bg-blue-700");
                 $("#upgrade_status").text("有新版本可用");
+
+                // 更新版本信息显示
+                $("#buildTime").html(data.buildTime);
+                $("#buildVersion").html(data.buildVersion);
+                $("#commitID").html(data.commitId);
             } else {
                 $("#upgrade").attr("disabled", true);
                 $("#upgrade").addClass("bg-gray-400").removeClass("bg-blue-600 hover:bg-blue-700");
                 $("#upgrade_status").text("已是最新版本");
             }
+        }).fail(() => {
+            // 处理检查更新失败
+            $("#upgrade_status").text("检查更新失败");
         });
 
+        // 显示升级模态框
         $("#openUpgradeModal").click(() => {
             $("#upgrade-modal").removeClass("hidden");
+
+            // 如果之前有升级尝试，重置模态框状态
+            if (upgradeInProgress) {
+                upgradeInProgress = false;
+                $("#upgrade-message").removeClass("hidden");
+                $("#upgradeFinish").addClass("hidden");
+                $('#upgrade_spinner').addClass('hidden');
+                $('#upgrade_icon').removeClass('hidden');
+
+                // 根据updateData重新初始化
+                if (updateData && updateData.status === 'OK') {
+                    $("#upgrade").attr("disabled", false);
+                    $("#upgrade").removeClass("bg-gray-400").addClass("bg-blue-600 hover:bg-blue-700");
+                    $("#upgrade_status").text("有新版本可用");
+                } else {
+                    $("#upgrade").attr("disabled", true);
+                    $("#upgrade").addClass("bg-gray-400").removeClass("bg-blue-600 hover:bg-blue-700");
+                    $("#upgrade_status").text("已是最新版本");
+                }
+            }
         });
 
-        $(".delete, .modal-background").click(() => {
+        // 关闭模态框
+        $(".modal-background, button[onclick*='upgrade-modal']").click(() => {
             $("#upgrade-modal").addClass("hidden");
         });
 
+        // 升级过程
         $("#upgrade").click(() => {
-            if ($("#upgrade").attr("disabled") === "disabled") {
+            if ($("#upgrade").attr("disabled") === "disabled" || upgradeInProgress) {
                 return;
             }
 
+            upgradeInProgress = true;
             $("#upgrade").attr("disabled", true);
             $('#upgrade_spinner').removeClass('hidden');
             $('#upgrade_icon').addClass('hidden');
             $("#upgrade_status").text("正在升级...");
 
-            const {status, buildTime, buildVersion, commitId} = updateData;
-            $("#upgrade-message").addClass("hidden");
-            $("#buildTime").html(buildTime);
-            $("#buildVersion").html(buildVersion);
-            $("#commitID").html(commitId);
+            // 设置超时的升级请求，防止挂起
+            $.ajax({
+                url: '/upgrade',
+                method: 'POST',
+                timeout: 30000, // 30秒超时
+                success: function(response) {
+                    // 处理成功响应
+                    $("#upgrade-message").addClass("hidden");
 
-            $.post('/upgrade')
-                .then(response => {
-                    // 假设 response 中有 status 属性，根据实际情况调整
-                    if (response.status === 'OK') {  // 修改这里，使用 response.status
+                    if (response.status === 'OK') {
                         $("#upgradeFinish-OK").removeClass("hidden");
+                        $("#upgradeFinish-KO").addClass("hidden");
 
-                        // 5秒后刷新页面
-                        let countdown = 5;
+                        // 10秒倒计时，附带可见性检查
+                        let countdown = 10;
+                        $("#countdown").text(countdown);
+
                         const countdownInterval = setInterval(() => {
-                            countdown--;
-                            $("#countdown").text(countdown);
-                            if (countdown <= 0) {
-                                clearInterval(countdownInterval);
-                                location.reload();
+                            // 仅在模态框可见时继续倒计时
+                            if (!$("#upgrade-modal").hasClass("hidden")) {
+                                countdown--;
+                                $("#countdown").text(countdown);
+
+                                // 创建连接测试
+                                if (countdown <= 5) {
+                                    // 尝试ping服务器看是否已重启完成
+                                    $.ajax({
+                                        url: '/info',
+                                        method: 'GET',
+                                        timeout: 1000,
+                                        success: function() {
+                                            // 服务器已恢复在线，刷新页面
+                                            clearInterval(countdownInterval);
+                                            location.reload();
+                                        },
+                                        error: function() {
+                                            // 服务器仍在重启，继续倒计时
+                                        }
+                                    });
+                                }
+
+                                if (countdown <= 0) {
+                                    clearInterval(countdownInterval);
+                                    location.reload();
+                                }
                             }
                         }, 1000);
                     } else {
+                        $("#upgradeFinish-OK").addClass("hidden");
                         $("#upgradeFinish-KO").removeClass("hidden");
                     }
 
                     $("#upgradeFinish").removeClass("hidden");
-                })
-                .catch(error => {
-                    $("#upgrade_status").text("升级失败");
-                    $('#upgrade_spinner').addClass('hidden');
-                    $('#upgrade_icon').removeClass('hidden');
-                    $("#upgrade").attr("disabled", false);
-                    console.error(error);
+                },
+                error: function(xhr, status, error) {
+                    if (status === "timeout") {
+                        // 升级过程中服务器重启导致的超时可能是正常的
+                        $("#upgrade-message").addClass("hidden");
+                        $("#upgradeFinish-OK").removeClass("hidden");
+                        $("#upgradeFinish-KO").addClass("hidden");
+                        $("#upgradeFinish").removeClass("hidden");
 
-                    $("#upgradeFinish").removeClass("hidden");
-                });
+                        // 开始检查服务器是否恢复在线
+                        let checkCount = 0;
+                        const maxChecks = 20; // 最大检查次数
+                        const checkInterval = setInterval(() => {
+                            checkCount++;
+                            $.ajax({
+                                url: '/info',
+                                method: 'GET',
+                                timeout: 2000,
+                                success: function() {
+                                    // 服务器已恢复在线
+                                    clearInterval(checkInterval);
+                                    location.reload();
+                                },
+                                error: function() {
+                                    // 服务器仍在重启
+                                    if (checkCount >= maxChecks) {
+                                        clearInterval(checkInterval);
+                                        $("#upgradeFinish-OK").addClass("hidden");
+                                        $("#upgrade_status").text("升级超时，请手动刷新页面");
+                                        $("#manual-refresh").removeClass("hidden");
+                                    }
+                                }
+                            });
+                        }, 3000); // 每3秒检查一次
+                    } else {
+                        // 真正的错误
+                        $("#upgrade_status").text("升级失败: " + error);
+                        $('#upgrade_spinner').addClass('hidden');
+                        $('#upgrade_icon').removeClass('hidden');
+                        upgradeInProgress = false;
+                        console.error("升级错误:", error);
+                    }
+                }
+            });
+        });
+
+        // 手动刷新按钮
+        $("#manual-refresh").click(() => {
+            location.reload();
         });
     });
 </script>
