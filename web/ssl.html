@@ -18,7 +18,8 @@
         </div>
     </div>
 
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <!-- 桌面版表格视图 - 在中等尺寸(md)以上的屏幕显示 -->
+    <div class="hidden md:block bg-white shadow overflow-hidden sm:rounded-lg">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
             <tr>
@@ -31,8 +32,7 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     到期时间
                 </th>
-                <th scope="col"
-                    class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider pr-11">
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider pr-11">
                     操作
                 </th>
             </tr>
@@ -69,7 +69,7 @@
                             续命
                         </button>
                         <a href="/admin/ssl/delete?configName={{$value.configName}}"
-                           class="text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-md flex items-center">
+                           class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-md flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -85,6 +85,57 @@
             {{end}}
             </tbody>
         </table>
+    </div>
+
+    <!-- 移动端卡片视图 - 在中等尺寸(md)以下的屏幕显示 -->
+    <div class="md:hidden space-y-4">
+        {{range $key, $value :=.results}}
+        <div class="bg-white shadow overflow-hidden rounded-lg">
+            <div class="px-4 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">{{$value.configName}}</h3>
+                <p class="mt-1 text-sm text-gray-600">
+                    {{range $key, $domain :=$value.domains}}
+                    <a href="https://{{$domain}}" class="text-indigo-600 hover:text-indigo-900" target="_blank">{{$domain}}</a>{{if
+                    not (eq (add $key 1) (len $value.domains))}}, {{end}}
+                    {{end}}
+                </p>
+            </div>
+            <div class="px-4 py-3 bg-gray-50 flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    到期时间: <span class="font-medium">{{$value.expiredAt}}</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button data-config="{{$value.configName}}"
+                            class="renew text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 spinner hidden animate-spin"
+                             viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 icon-renew" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
+                        </svg>
+                        续命
+                    </button>
+                    <a href="/admin/ssl/delete?configName={{$value.configName}}"
+                       class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-md flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                        删除
+                    </a>
+                </div>
+            </div>
+        </div>
+        {{end}}
     </div>
 </div>
 
@@ -117,5 +168,10 @@
                 button.find('.icon-renew').show();
                 alert("操作失败: " + error);
             });
+    });
+
+    // 确认删除
+    $(".delete-btn").on('click', function(e) {
+        return confirm('确定要删除此SSL证书吗？');
     });
 </script>
