@@ -70,7 +70,6 @@ func sendHeartbeat(client *http.Client) {
 		return
 	}
 
-	// Use context with timeout for the HTTP request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
