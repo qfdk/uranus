@@ -4,6 +4,8 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"github.com/cloudflare/tableflip"
+	"github.com/gin-gonic/gin"
 	"html/template"
 	"io/fs"
 	"log"
@@ -20,9 +22,6 @@ import (
 	"uranus/internal/routes"
 	"uranus/internal/services"
 	"uranus/internal/tools"
-
-	"github.com/cloudflare/tableflip"
-	"github.com/gin-gonic/gin"
 )
 
 //go:embed web
