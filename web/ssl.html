@@ -18,65 +18,75 @@
         </div>
     </div>
 
+    <div id="alertSuccess" style="display: none;" class="bg-green-50 border-l-4 border-green-400 p-4 mb-4 rounded">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                     fill="currentColor">
+                    <path fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p id="successMessage" class="text-sm text-green-700"></p>
+            </div>
+        </div>
+    </div>
+
     <div class="shadow overflow-hidden border-b border-gray-200 rounded-lg">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
             <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    配置名称
-                </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    域名
-                </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    到期时间
-                </th>
-                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配置名称</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">域名</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">到期时间</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
             </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
             {{range $key, $value :=.results}}
             <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{$value.configName}}</td>
-                <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate lg:max-w-none lg:whitespace-normal">
-                    {{range $key, $domain :=$value.domains}}
-                    <a href="https://{{$domain}}" class="text-indigo-600 hover:text-indigo-900" target="_blank">{{$domain}}</a>{{if
-                    not (eq (add $key 1) (len $value.domains))}}, {{end}}
-                    {{end}}
+                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{$value.configName}}</td>
+                <td class="px-4 py-4 text-sm text-gray-500">
+                    <div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;">
+                        {{range $key, $domain :=$value.domains}}
+                        <a href="https://{{$domain}}" class="text-indigo-600 hover:text-indigo-900" target="_blank">{{$domain}}</a>{{if
+                        not (eq (add $key 1) (len $value.domains))}}, {{end}}
+                        {{end}}
+                    </div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{$value.expiredAt}}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
-                    <button data-config="{{$value.configName}}"
-                            class="renew text-indigo-600 hover:text-indigo-900 inline-flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 spinner hidden animate-spin"
-                             viewBox="0 0 24 24" fill="none">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 icon-renew" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
-                        </svg>
-                        续命
-                    </button>
-                    <a href="/admin/ssl/delete?configName={{$value.configName}}"
-                       class="delete-btn text-red-600 hover:text-red-900 inline-flex items-center ml-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                        </svg>
-                        删除
-                    </a>
+                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{{$value.expiredAt}}</td>
+                <td class="px-4 py-4 whitespace-nowrap text-sm text-right">
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <button data-config="{{$value.configName}}"
+                                class="renew bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md px-3 py-1 inline-flex items-center transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 spinner" style="display: none; animation: spin 1s linear infinite;"
+                                 viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 icon-renew" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                 stroke-linejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path>
+                            </svg>
+                            <span>续命</span>
+                        </button>
+                        <a href="/admin/ssl/delete?configName={{$value.configName}}"
+                           class="delete-btn bg-red-100 hover:bg-red-200 text-red-700 rounded-md px-3 py-1 inline-flex items-center transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                            <span>删除</span>
+                        </a>
+                    </div>
                 </td>
             </tr>
             {{end}}
@@ -84,6 +94,12 @@
         </table>
     </div>
 </div>
+
+<style>
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
 
 {{template "footer.html" .}}
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
@@ -96,23 +112,35 @@
 
         button.find('.icon-renew').hide();
         button.find('.spinner').show();
+        button.css('background-color', '#c7d2fe'); // 更深的背景色
 
-        $.get(`/admin/ssl/renew?configName=${configName}`)
-            .then(response => {
+        $.get('/admin/ssl/renew?configName=' + configName)
+            .then(function(response) {
                 button.find('.spinner').hide();
                 button.find('.icon-renew').show();
+                button.css('background-color', ''); // 恢复原背景色
 
                 if (response.message === "OK") {
-                    alert("续签成功");
+                    $("#successMessage").text("证书续签成功");
+                    $("#alertSuccess").show();
+
+                    // 3秒后自动隐藏成功消息
+                    setTimeout(function() {
+                        $("#alertSuccess").hide();
+                    }, 3000);
+
                     // 续签成功后刷新页面以显示更新后的信息
-                    window.location.reload();
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1500);
                 } else {
                     alert(response.message);
                 }
             })
-            .catch(error => {
+            .fail(function(error) {
                 button.find('.spinner').hide();
                 button.find('.icon-renew').show();
+                button.css('background-color', ''); // 恢复原背景色
                 alert("操作失败: " + error);
             });
     });
