@@ -257,7 +257,7 @@ func Graceful() {
 				checkCount++
 
 				for _, triggerPath := range triggerPaths {
-					exists, _ := fileExists(triggerPath)
+					exists, _ := tools.FileExists(triggerPath)
 					if exists {
 						restartService(triggerPath)
 						log.Printf("[进程][%d]: 清理所有旧备份文件", os.Getpid())
@@ -328,18 +328,6 @@ func Graceful() {
 	if err := os.Remove(pidFile); err != nil {
 		log.Println("删除PID文件错误:", err)
 	}
-}
-
-// 检查文件是否存在
-func fileExists(filepath string) (bool, error) {
-	_, err := os.Stat(filepath)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
 }
 
 func main() {
