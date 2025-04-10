@@ -37,9 +37,9 @@
                     <span class="ml-1 text-gray-900">{{$value.expiredAt}}</span>
                 </div>
             </div>
-            <div class="px-4 py-4 bg-gray-50 flex flex-col sm:flex-row gap-2">
+            <div class="px-4 py-3 bg-gray-50 flex items-center justify-end space-x-2">
                 <button data-config="{{$value.configName}}"
-                        class="renew text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md flex items-center justify-center">
+                        class="renew text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-2 py-1 rounded-md inline-flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 spinner hidden animate-spin"
                          viewBox="0 0 24 24" fill="none">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
@@ -55,7 +55,7 @@
                     续命
                 </button>
                 <a href="/admin/ssl/delete?configName={{$value.configName}}"
-                   class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-md flex items-center justify-center">
+                   class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-2 py-1 rounded-md inline-flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -106,7 +106,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-right pr-8">
                         <div class="flex items-center justify-end space-x-2">
                             <button data-config="{{$value.configName}}"
-                                    class="renew text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md flex items-center">
+                                    class="renew text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-2 py-1 rounded-md inline-flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 spinner hidden animate-spin"
                                      viewBox="0 0 24 24" fill="none">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
@@ -122,7 +122,7 @@
                                 续命
                             </button>
                             <a href="/admin/ssl/delete?configName={{$value.configName}}"
-                               class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-md flex items-center">
+                               class="delete-btn text-red-600 hover:text-red-900 bg-red-50 px-2 py-1 rounded-md inline-flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none"
                                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="3 6 5 6 21 6"></polyline>
