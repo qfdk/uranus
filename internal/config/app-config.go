@@ -99,16 +99,17 @@ func InitAppConfig() {
 
 		// Default configuration
 		defaultConfig := map[string]interface{}{
-			"url":         "http://localhost:7777",
-			"uuid":        uuid.New().String(),
-			"token":       "myToken",
-			"vhostPath":   "/etc/nginx/conf.d",
-			"sslpath":     "/etc/nginx/ssl",
-			"email":       "hello@world.com",
-			"username":    "admin",
-			"password":    "admin",
-			"installPath": pwd,
-			"ip":          getIP(),
+			"url":           "http://localhost:7777",
+			"uuid":          uuid.New().String(),
+			"token":         "myToken",
+			"vhostPath":     "/etc/nginx/conf.d",
+			"sslpath":       "/etc/nginx/ssl",
+			"email":         "hello@world.com",
+			"username":      "admin",
+			"password":      "admin",
+			"installPath":   pwd,
+			"controlCenter": "http://localhost:3000",
+			"ip":            getIP(),
 		}
 
 		// Set all default values
