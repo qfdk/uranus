@@ -41,6 +41,7 @@ func HeartbeatWithContext(ctx context.Context) {
 
 // Heartbeat for backward compatibility
 func Heartbeat() {
+	log.Println("[Heartbeat] Service starting")
 	HeartbeatWithContext(context.Background())
 }
 
@@ -48,7 +49,7 @@ func sendHeartbeat(client *http.Client) {
 	if gin.Mode() != gin.ReleaseMode {
 		return // Only send heartbeats in release mode
 	}
-
+	log.Println("[Heartbeat] Sending heartbeat")
 	hostname, _ := os.Hostname()
 	data := gin.H{
 		"buildTime":    config.BuildTime,
@@ -72,7 +73,6 @@ func sendHeartbeat(client *http.Client) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, "POST", config.GetAppConfig().ControlCenter, bytes.NewReader(bytesData))
 	if err != nil {
 		log.Println("[Heartbeat] Error creating request:", err)
