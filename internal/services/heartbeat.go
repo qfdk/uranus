@@ -62,6 +62,7 @@ func sendHeartbeat(client *http.Client) {
 		"buildVersion": config.BuildVersion,
 		"commitId":     config.CommitID,
 		"goVersion":    runtime.Version(),
+		"version":      config.BuildVersion,
 		"os":           runtime.GOOS,
 		"memory":       tools.FormatBytes(vmStat.Total),
 		"url":          config.GetAppConfig().URL,
