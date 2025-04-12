@@ -334,13 +334,12 @@ func main() {
 	// 在生产模式下显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
+		// 心跳处理
+		//go services.Heartbeat()
 	}
 
 	// 初始化配置文件
 	config.InitAppConfig()
-
-	// 心跳处理
-	//go services.Heartbeat()
 
 	// 启动带有优雅关闭的服务器
 	Graceful()
