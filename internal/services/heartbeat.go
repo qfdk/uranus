@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"time"
 	"uranus/internal/config"
+	"uranus/internal/tools"
 )
 
 // HeartbeatWithContext runs heartbeat service with context support for graceful shutdown
@@ -46,17 +49,21 @@ func Heartbeat() {
 }
 
 func sendHeartbeat(client *http.Client) {
-	if gin.Mode() != gin.ReleaseMode {
-		return // Only send heartbeats in release mode
-	}
 	log.Println("[Heartbeat] Sending heartbeat")
 	hostname, _ := os.Hostname()
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		fmt.Println("获取内存信息失败:", err)
+		return
+	}
+
 	data := gin.H{
 		"buildTime":    config.BuildTime,
 		"buildVersion": config.BuildVersion,
 		"commitId":     config.CommitID,
 		"goVersion":    runtime.Version(),
 		"os":           runtime.GOOS,
+		"memory":       tools.FormatBytes(vmStat.Total),
 		"url":          config.GetAppConfig().URL,
 		"uuid":         config.GetAppConfig().UUID,
 		"token":        config.GetAppConfig().Token,
@@ -73,7 +80,7 @@ func sendHeartbeat(client *http.Client) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "POST", config.GetAppConfig().ControlCenter, bytes.NewReader(bytesData))
+	req, err := http.NewRequestWithContext(ctx, "POST", config.GetAppConfig().ControlCenter+"/api/agents", bytes.NewReader(bytesData))
 	if err != nil {
 		log.Println("[Heartbeat] Error creating request:", err)
 		return
