@@ -67,7 +67,6 @@ func sendHeartbeat(client *http.Client) {
 		"buildVersion": config.BuildVersion,
 		"commitId":     config.CommitID,
 		"goVersion":    runtime.Version(),
-		"version":      config.BuildVersion,
 		//系统信息
 		"hostname":   hostname,
 		"ip":         config.GetAppConfig().IP,
