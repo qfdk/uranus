@@ -61,19 +61,22 @@ func sendHeartbeat(client *http.Client) {
 	}
 
 	data := gin.H{
+		"uuid": config.GetAppConfig().UUID,
+
+		// 构建信息
 		"buildTime":    config.BuildTime,
 		"buildVersion": config.BuildVersion,
 		"commitId":     config.CommitID,
 		"goVersion":    runtime.Version(),
 		"version":      config.BuildVersion,
-		"os":           runtime.GOOS,
-		"memory":       tools.FormatBytes(vmStat.Total),
-		"url":          config.GetAppConfig().URL,
-		"uuid":         config.GetAppConfig().UUID,
-		"token":        config.GetAppConfig().Token,
-		"ip":           config.GetAppConfig().IP,
-		"hostname":     hostname,
-		"activeTime":   time.Now().Format("2006-01-02 15:04:05"),
+		//系统信息
+		"hostname":   hostname,
+		"ip":         config.GetAppConfig().IP,
+		"os":         runtime.GOOS,
+		"memory":     tools.FormatBytes(vmStat.Total),
+		"url":        config.GetAppConfig().URL,
+		"token":      config.GetAppConfig().Token,
+		"activeTime": time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	bytesData, err := json.Marshal(data)
