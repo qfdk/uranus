@@ -62,7 +62,6 @@ func sendHeartbeat(client *http.Client) {
 
 	data := gin.H{
 		"uuid": config.GetAppConfig().UUID,
-
 		// 构建信息
 		"buildTime":    config.BuildTime,
 		"buildVersion": config.BuildVersion,
