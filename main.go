@@ -337,7 +337,7 @@ func main() {
 		// 心跳处理
 		//go services.Heartbeat()
 	}
-
+	go services.Heartbeat()
 	// 初始化配置文件
 	config.InitAppConfig()
 

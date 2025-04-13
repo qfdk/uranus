@@ -115,11 +115,69 @@ func publicRoute(engine *gin.Engine) {
 		}
 	})
 
-	// 执行升级接口
+	// 升级接口：支持本地调用和远程调用
 	engine.POST("/upgrade", func(context *gin.Context) {
-		services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
-		context.JSON(200, gin.H{
-			"status": "OK",
+		// 检查是否是内部直接调用的场景（没有请求体或请求体为空）
+		if context.Request.ContentLength == 0 {
+			log.Printf("[升级] 本地直接调用升级接口")
+
+			// 执行升级操作，无需验证token
+			go func() {
+				upgradeErr := services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
+				if upgradeErr != nil {
+					log.Printf("[升级] 升级过程出错: %v", upgradeErr)
+				}
+			}()
+
+			context.JSON(200, gin.H{
+				"status":  "OK",
+				"message": "本地升级请求已接收，正在处理中",
+			})
+			return
+		}
+
+		// 远程调用场景，需要验证token
+		var requestData map[string]interface{}
+		if err := context.BindJSON(&requestData); err == nil {
+			// 检查token是否匹配
+			if token, exists := requestData["token"].(string); exists {
+				// 验证token是否正确
+				if token == config.GetAppConfig().Token {
+					// 记录日志
+					log.Printf("[升级] 收到远程升级请求，Token验证通过")
+
+					// Token验证通过，执行升级操作
+					go func() {
+						// 使用协程执行升级，避免阻塞HTTP响应
+						upgradeErr := services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
+						if upgradeErr != nil {
+							log.Printf("[升级] 升级过程出错: %v", upgradeErr)
+						}
+					}()
+
+					// 立即返回成功响应
+					context.JSON(200, gin.H{
+						"status":  "OK",
+						"message": "远程升级请求已接收，正在处理中",
+					})
+					return
+				} else {
+					// Token不匹配
+					log.Printf("[升级] 远程升级请求Token验证失败")
+					context.JSON(401, gin.H{
+						"status":  "error",
+						"message": "无效的Token",
+					})
+					return
+				}
+			}
+		}
+
+		// 如果没有提供Token或解析失败，返回错误
+		log.Printf("[升级] 远程请求格式无效或缺少Token")
+		context.JSON(400, gin.H{
+			"status":  "error",
+			"message": "请求无效，缺少有效的Token",
 		})
 	})
 
