@@ -23,7 +23,7 @@ func HeartbeatWithContext(ctx context.Context) {
 
 	// Create an HTTP client that can be reused across requests
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 5,
@@ -44,12 +44,15 @@ func HeartbeatWithContext(ctx context.Context) {
 
 // Heartbeat for backward compatibility
 func Heartbeat() {
-	log.Println("[Heartbeat] Service starting")
+	log.Println("[Heartbeat] 心跳包初始化")
 	HeartbeatWithContext(context.Background())
 }
 
 func sendHeartbeat(client *http.Client) {
-	log.Println("[Heartbeat] Sending heartbeat")
+	if gin.Mode() != gin.ReleaseMode {
+		log.Println("[Heartbeat] 发送心跳包")
+	}
+
 	hostname, _ := os.Hostname()
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
