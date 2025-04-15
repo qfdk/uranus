@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -36,6 +38,27 @@ var (
 	ipCache    string
 	ipCacheTTL time.Time
 )
+
+// GenerateSecureToken 创建一个加密安全的随机令牌
+// 返回4字节（32位）随机数据的base64编码字符串
+func GenerateSecureToken() string {
+	// 创建一个字节切片来存储随机字节
+	randomBytes := make([]byte, 4) // 32位熵
+
+	// 使用随机数据填充字节切片
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		// 记录错误但继续使用备用方案
+		log.Printf("[-] 警告: 无法生成安全令牌: %v", err)
+		return "myToken_" + uuid.New().String()[0:8] // UUID备用方案，截取8个字符
+	}
+
+	// 将随机字节编码为base64
+	// 使用URLEncoding确保令牌是URL安全的
+	token := base64.URLEncoding.EncodeToString(randomBytes)
+
+	return token
+}
 
 // GetAppConfig returns the application configuration with thread-safe singleton pattern
 func GetAppConfig() *AppConfig {
@@ -97,22 +120,22 @@ func InitAppConfig() {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		log.Println("[-] 未找到配置文件，正在生成默认配置")
 
-		// Default configuration
+		// 默认配置
 		defaultConfig := map[string]interface{}{
-			"url":           "http://localhost:7777",
+			"url":           "http://" + getIP() + ":7777",
 			"uuid":          uuid.New().String(),
-			"token":         "myToken",
+			"token":         GenerateSecureToken(), // 使用我们的安全令牌生成器
 			"vhostPath":     "/etc/nginx/conf.d",
 			"sslpath":       "/etc/nginx/ssl",
 			"email":         "hello@world.com",
 			"username":      "admin",
 			"password":      "admin",
 			"installPath":   pwd,
-			"controlCenter": "http://localhost:3000",
+			"controlCenter": "https://uranus-control.vercel.app",
 			"ip":            getIP(),
 		}
 
-		// Set all default values
+		// 设置所有默认值
 		for key, value := range defaultConfig {
 			viper.Set(key, value)
 		}
@@ -122,10 +145,10 @@ func InitAppConfig() {
 
 	loadConfig()
 
-	// Setup config watcher with buffered reloading to prevent excessive reloads
+	// 设置配置监视器，带缓冲重新加载以防止过度重新加载
 	viper.WatchConfig()
 
-	// Debounce config changes
+	// 防抖配置更改
 	var configChangeTimer *time.Timer
 	var configChangeMutex sync.Mutex
 
@@ -137,7 +160,7 @@ func InitAppConfig() {
 			configChangeTimer.Stop()
 		}
 
-		// Debounce config changes to once per second at most
+		// 将配置更改防抖至最多每秒一次
 		configChangeTimer = time.AfterFunc(1*time.Second, func() {
 			log.Println("[+] 配置文件已更新:", in.Name)
 
