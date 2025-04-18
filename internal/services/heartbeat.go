@@ -18,7 +18,7 @@ import (
 
 // HeartbeatWithContext runs heartbeat service with context support for graceful shutdown
 func HeartbeatWithContext(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
 	// Create an HTTP client that can be reused across requests
