@@ -300,11 +300,11 @@ func Graceful() {
 
 	go services.RenewSSL()
 
-	if gin.Mode() == gin.ReleaseMode {
-		heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
-		defer heartbeatCancel()
-		go services.HeartbeatWithContext(heartbeatCtx)
-	}
+	// 启动MQTT心跳服务
+	mqttCtx, mqttCancel := context.WithCancel(ctx)
+	defer mqttCancel()
+	go services.StartMQTTHeartbeatWithContext(mqttCtx)
+	log.Printf("[进程][%d]: MQTT心跳服务已启动", os.Getpid())
 
 	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
@@ -334,12 +334,14 @@ func main() {
 	// 在生产模式下显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
-		// 心跳处理
-		//go services.Heartbeat()
 	}
-	go services.Heartbeat()
+
 	// 初始化配置文件
 	config.InitAppConfig()
+
+	// 检查是否使用MQTT
+	appConfig := config.GetAppConfig()
+	log.Println("[+] MQTT心跳已启用，服务器地址:", appConfig.MQTTBroker)
 
 	// 启动带有优雅关闭的服务器
 	Graceful()
