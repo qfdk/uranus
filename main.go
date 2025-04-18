@@ -311,9 +311,7 @@ func Graceful() {
 	})
 
 	// 启动MQTT心跳服务
-	mqttCtx, mqttCancel := context.WithCancel(ctx)
-	defer mqttCancel()
-	go services.StartMQTTHeartbeatWithContext(mqttCtx)
+	go services.StartMQTTHeartbeat()
 	log.Printf("[进程][%d]: MQTT心跳服务已启动", os.Getpid())
 
 	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
