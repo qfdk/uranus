@@ -300,6 +300,16 @@ func Graceful() {
 
 	go services.RenewSSL()
 
+	// 发送一次注册心跳
+	services.SendHttpHeartbeat(&http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 5,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	})
+
 	// 启动MQTT心跳服务
 	mqttCtx, mqttCancel := context.WithCancel(ctx)
 	defer mqttCancel()
@@ -338,10 +348,6 @@ func main() {
 
 	// 初始化配置文件
 	config.InitAppConfig()
-
-	// 检查是否使用MQTT
-	appConfig := config.GetAppConfig()
-	log.Println("[+] MQTT心跳已启用，服务器地址:", appConfig.MQTTBroker)
 
 	// 启动带有优雅关闭的服务器
 	Graceful()
