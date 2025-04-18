@@ -29,6 +29,8 @@ type AppConfig struct {
 	Token         string `json:"token"`
 	InstallPath   string `json:"installPath"`
 	IP            string `json:"ip"`
+	// MQTT配置
+	MQTTBroker string `json:"mqttBroker"` // MQTT服务器地址
 }
 
 var (
@@ -133,6 +135,12 @@ func InitAppConfig() {
 			"installPath":   pwd,
 			"controlCenter": "https://uranus-control.vercel.app",
 			"ip":            getIP(),
+			// 默认MQTT配置
+			"mqttEnabled": true,
+			"mqttBroker":  "mqtt://mqtt.qfdk.me:1883",
+			//"mqttUsername": "",
+			//"mqttPassword": "",
+			//"mqttTopic":    "uranus",
 		}
 
 		// 设置所有默认值
