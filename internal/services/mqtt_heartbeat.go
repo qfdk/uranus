@@ -91,14 +91,6 @@ func InitMQTT() error {
 	clientID := fmt.Sprintf("uranus-%s", appConfig.UUID)
 	opts.SetClientID(clientID)
 
-	// 设置凭据 (如果配置了)
-	//if appConfig.MQTTUsername != "" {
-	//	opts.SetUsername(appConfig.MQTTUsername)
-	//}
-	//if appConfig.MQTTPassword != "" {
-	//	opts.SetPassword(appConfig.MQTTPassword)
-	//}
-
 	// 设置保持连接时间
 	opts.SetKeepAlive(MQTTKeepAlive * time.Second)
 
