@@ -34,7 +34,7 @@ func HeartbeatWithContext(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			go sendHeartbeat(client)
+			go SendHttpHeartbeat(client)
 		case <-ctx.Done():
 			log.Println("[Heartbeat] Service stopping due to context cancellation")
 			return
@@ -48,7 +48,7 @@ func Heartbeat() {
 	HeartbeatWithContext(context.Background())
 }
 
-func sendHeartbeat(client *http.Client) {
+func SendHttpHeartbeat(client *http.Client) {
 	if gin.Mode() != gin.ReleaseMode {
 		log.Println("[Heartbeat] 发送心跳包")
 	}
