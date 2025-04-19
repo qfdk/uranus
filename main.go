@@ -300,16 +300,6 @@ func Graceful() {
 
 	go services.RenewSSL()
 
-	// 发送一次注册心跳
-	services.SendHttpHeartbeat(&http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 5,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	})
-
 	// 启动MQTT心跳服务
 	go services.StartMQTTHeartbeat()
 	log.Printf("[进程][%d]: MQTT心跳服务已启动", os.Getpid())
