@@ -58,18 +58,22 @@ type HeartbeatData struct {
 
 // CommandMessage 命令消息结构
 type CommandMessage struct {
-	Command   string            `json:"command"`          // 命令类型: reload, restart, stop, etc.
-	Params    map[string]string `json:"params,omitempty"` // 可选参数
-	RequestID string            `json:"requestId"`        // 请求ID，用于匹配响应
+	Command   string                 `json:"command"`             // 命令类型: reload, restart, stop, execute等
+	Params    map[string]interface{} `json:"params,omitempty"`    // 可选参数，支持更复杂的结构
+	RequestID string                 `json:"requestId"`           // 请求ID，用于匹配响应
+	ClientID  string                 `json:"clientId,omitempty"`  // 客户端ID
+	Timestamp int64                  `json:"timestamp,omitempty"` // 时间戳
 }
 
 // ResponseMessage 响应消息结构
 type ResponseMessage struct {
-	Command   string `json:"command"`        // 对应的命令
-	RequestID string `json:"requestId"`      // 对应的请求ID
-	Success   bool   `json:"success"`        // 是否成功
-	Message   string `json:"message"`        // 响应消息
-	Data      any    `json:"data,omitempty"` // 可选的返回数据
+	Command   string      `json:"command"`          // 对应的命令
+	RequestID string      `json:"requestId"`        // 对应的请求ID
+	Success   bool        `json:"success"`          // 是否成功
+	Message   string      `json:"message"`          // 响应消息
+	Output    string      `json:"output,omitempty"` // 命令输出
+	Data      interface{} `json:"data,omitempty"`   // 可选的返回数据
+	Timestamp int64       `json:"timestamp"`        // 时间戳
 }
 
 // InitMQTT 初始化MQTT客户端
@@ -263,26 +267,27 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		RequestID: command.RequestID,
 		Success:   true,
 		Message:   "OK",
+		Timestamp: time.Now().UnixMilli(),
 	}
 
 	// 根据命令类型执行相应操作
 	switch command.Command {
-	case "reload":
+	case "reload", "reload_nginx":
 		result := ReloadNginx()
 		response.Message = result
 
-	case "restart":
+	case "restart", "restart_nginx":
 		result := StopNginx()
 		if result == "OK" {
 			result = StartNginx()
 		}
 		response.Message = result
 
-	case "stop":
+	case "stop", "stop_nginx":
 		result := StopNginx()
 		response.Message = result
 
-	case "start":
+	case "start", "start_nginx":
 		result := StartNginx()
 		response.Message = result
 
@@ -290,8 +295,10 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		// 异步执行更新操作
 		go func() {
 			updateUrl := "https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH
-			if url, ok := command.Params["url"]; ok && url != "" {
-				updateUrl = url
+			if params, ok := command.Params["url"]; ok {
+				if url, ok := params.(string); ok && url != "" {
+					updateUrl = url
+				}
 			}
 
 			err := ToUpdateProgram(updateUrl)
@@ -308,19 +315,59 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 			"nginx": NginxStatus() != "KO",
 		}
 
+	case "execute":
+		// 处理终端命令执行
+		if cmdParam, ok := command.Params["command"]; ok {
+			if cmdStr, ok := cmdParam.(string); ok && cmdStr != "" {
+				log.Printf("[MQTT] 执行命令: %s", cmdStr)
+				output, err := tools.ExecuteCommand(cmdStr)
+				if err != nil {
+					response.Success = false
+					response.Message = fmt.Sprintf("命令执行失败: %v", err)
+					response.Output = output // 即使失败也返回输出
+					log.Printf("[MQTT] 命令执行失败: %v", err)
+				} else {
+					response.Success = true
+					response.Message = "命令执行成功"
+					response.Output = output
+					if response.Output == "" {
+						response.Output = "命令执行成功，无输出"
+					}
+					log.Printf("[MQTT] 命令执行成功，输出长度: %d", len(output))
+				}
+			} else {
+				response.Success = false
+				response.Message = "无效的命令格式"
+				log.Printf("[MQTT] 无效的命令格式")
+			}
+		} else {
+			response.Success = false
+			response.Message = "未提供execute命令"
+			log.Printf("[MQTT] 未提供execute命令")
+		}
+
 	default:
 		response.Success = false
-		response.Message = "未知命令"
+		response.Message = "未知命令: " + command.Command
+		log.Printf("[MQTT] 未知命令: %s", command.Command)
 	}
 
 	// 发送响应
 	appConfig := config.GetAppConfig()
 	responseTopic := ResponseTopic + appConfig.UUID
 
-	payload, _ := json.Marshal(response)
+	payload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTT] 响应序列化失败: %v", err)
+		return
+	}
+
+	log.Printf("[MQTT] 发送响应到 %s: %+v", responseTopic, response)
 	token := mqttClient.Publish(responseTopic, byte(MQTTQoS), false, payload)
 
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTT] 响应发送失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTT] 响应发送成功")
 	}
 }
