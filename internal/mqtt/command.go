@@ -6,6 +6,7 @@ import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
+	"syscall"
 	"time"
 	"uranus/internal/config"
 )
@@ -28,6 +29,7 @@ type CommandMessage struct {
 	SessionID       string                 `json:"sessionId,omitempty"`       // 终端会话ID
 	Streaming       bool                   `json:"streaming,omitempty"`       // 是否流式输出
 	TargetRequestID string                 `json:"targetRequestId,omitempty"` // 目标请求ID（用于中断命令）
+	Input           string                 `json:"input,omitempty"`           // 终端输入（用于交互式命令）
 }
 
 // ResponseMessage 响应消息结构
@@ -92,6 +94,73 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 				Timestamp: time.Now().UnixMilli(),
 			})
 		}
+		return
+	}
+
+	// 终端输入命令的特殊处理
+	if command.Command == "terminal_input" && command.SessionID != "" && command.Input != "" {
+		log.Printf("[MQTT] 收到终端输入，会话ID: %s", command.SessionID)
+
+		// 处理输入
+		success := HandleTerminalInput(command.SessionID, command.Input)
+
+		// 处理结果消息
+		message := "处理输入失败"
+		if success {
+			message = "输入已处理"
+		}
+
+		// 发送输入处理结果响应
+		SendResponse(&ResponseMessage{
+			Command:   command.Command,
+			RequestID: command.RequestID,
+			Success:   success,
+			Message:   message,
+			SessionID: command.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		})
+		return
+	}
+
+	if command.Command == "force_interrupt" && command.SessionID != "" {
+		log.Printf("[MQTT] 收到强制中断命令，会话ID: %s", command.SessionID)
+
+		// 记录中断尝试
+		interrupted := false
+
+		// 尝试通过会话ID中断
+		if InterruptSessionCommand(command.SessionID) {
+			interrupted = true
+		}
+
+		// 尝试终止与会话关联的所有命令
+		activeCommandsLock.RLock()
+		for requestID, cmd := range activeCommands {
+			if cmd.SessionID == command.SessionID {
+				log.Printf("[MQTT] 强制中断会话相关的命令: %s", requestID)
+				InterruptCommand(requestID)
+				interrupted = true
+			}
+		}
+		activeCommandsLock.RUnlock()
+
+		// 尝试发送系统信号
+		terminated := false
+		for _, pid := range getProcessesBySession(command.SessionID) {
+			log.Printf("[MQTT] 强制终止进程: %d", pid)
+			syscall.Kill(pid, syscall.SIGKILL)
+			terminated = true
+		}
+
+		// 发送响应
+		SendResponse(&ResponseMessage{
+			Command:   command.Command,
+			RequestID: command.RequestID,
+			Success:   true,
+			Message:   fmt.Sprintf("强制中断处理: 中断命令=%v, 终止进程=%v", interrupted, terminated),
+			SessionID: command.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		})
 		return
 	}
 

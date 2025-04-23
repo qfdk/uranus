@@ -7,6 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cloudflare/tableflip v1.2.3
+	github.com/creack/pty v1.1.9
 	github.com/dustin/go-humanize v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-contrib/sessions v0.0.5

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"time"
 	"uranus/internal/services"
 )
@@ -144,6 +145,24 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 				}
 			}
 
+			// 判断是否为交互式命令
+			interactive := false
+			if interactiveParam, ok := cmd.Params["interactive"]; ok {
+				if interactiveBool, ok := interactiveParam.(bool); ok {
+					interactive = interactiveBool
+				} else {
+					// 尝试自动检测交互式命令
+					cmdFields := strings.Fields(cmdStr)
+					if len(cmdFields) > 0 {
+						cmdName := cmdFields[0]
+						switch cmdName {
+						case "vim", "vi", "nano", "emacs", "less", "more", "top", "htop":
+							interactive = true
+						}
+					}
+				}
+			}
+
 			// 使用终端处理程序执行命令
 			go func() {
 				output, err := executeTerminalCommand(
@@ -151,6 +170,7 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 					cmd.SessionID,
 					cmd.RequestID,
 					streaming,
+					interactive,
 				)
 
 				// 如果不是流式输出，或者发生错误，发送完整响应
