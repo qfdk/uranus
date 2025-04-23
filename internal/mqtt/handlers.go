@@ -128,26 +128,74 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
+	// 如果提供了会话ID，添加到响应
+	if cmd.SessionID != "" {
+		response.SessionID = cmd.SessionID
+	}
+
 	// 检查是否提供了命令参数
 	if cmdParam, ok := cmd.Params["command"]; ok {
 		if cmdStr, ok := cmdParam.(string); ok && cmdStr != "" {
-			// 使用终端处理程序执行命令
-			output, err := executeTerminalCommand(cmdStr)
-
-			if err != nil {
-				response.Success = false
-				response.Message = fmt.Sprintf("命令执行失败: %v", err)
-				response.Output = output // 即使失败也返回输出
-				log.Printf("[MQTT] 命令执行失败: %v", err)
-			} else {
-				response.Success = true
-				response.Message = "命令执行成功"
-				response.Output = output
-				if response.Output == "" {
-					response.Output = "命令执行成功，无输出"
+			// 判断是否为流式执行
+			streaming := false
+			if streamParam, ok := cmd.Params["streaming"]; ok {
+				if streamBool, ok := streamParam.(bool); ok {
+					streaming = streamBool
 				}
-				log.Printf("[MQTT] 命令执行成功，输出长度: %d", len(output))
 			}
+
+			// 使用终端处理程序执行命令
+			go func() {
+				output, err := executeTerminalCommand(
+					cmdStr,
+					cmd.SessionID,
+					cmd.RequestID,
+					streaming,
+				)
+
+				// 如果不是流式输出，或者发生错误，发送完整响应
+				if !streaming || err != nil {
+					errMsg := ""
+					if err != nil {
+						errMsg = err.Error()
+						response.Success = false
+						response.Message = fmt.Sprintf("命令执行失败: %v", err)
+					} else {
+						response.Success = true
+						response.Message = "命令执行成功"
+					}
+
+					response.Output = output
+					if response.Output == "" && errMsg == "" {
+						response.Output = "命令执行成功，无输出"
+					}
+
+					// 如果是流式输出的错误情况，设置为最终响应
+					if streaming {
+						response.Streaming = true
+						response.Final = true
+					}
+
+					SendResponse(response)
+				}
+			}()
+
+			// 只有在流式模式下，立即返回确认响应
+			if streaming {
+				return &ResponseMessage{
+					Command:   cmd.Command,
+					RequestID: cmd.RequestID,
+					Success:   true,
+					Message:   "",
+					SessionID: cmd.SessionID,
+					Streaming: true,
+					Final:     false,
+					Timestamp: time.Now().UnixMilli(),
+				}
+			}
+
+			// 非流式模式不返回响应，由goroutine处理完成后发送
+			return nil
 		} else {
 			response.Success = false
 			response.Message = "无效的命令格式"
