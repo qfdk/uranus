@@ -45,7 +45,7 @@ func StartHeartbeat(ctx context.Context) {
 	}
 
 	// 创建定时器
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	// 立即发送一次心跳
