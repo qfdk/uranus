@@ -71,6 +71,9 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
+	// 处理潜在的命令参数结构问题
+	fixCommandStructure(&command)
+
 	// 中断命令的特殊处理
 	if command.Command == "interrupt" && command.TargetRequestID != "" {
 		log.Printf("[MQTT] 收到中断命令，目标请求ID: %s", command.TargetRequestID)
@@ -182,15 +185,21 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		// 使用对应的处理器处理命令
 		response = handler.Handle(&command)
 	} else {
-		// 如果找不到处理器，返回错误响应
-		response = &ResponseMessage{
-			Command:   command.Command,
-			RequestID: command.RequestID,
-			Success:   false,
-			Message:   fmt.Sprintf("未知命令: %s", command.Command),
-			Timestamp: time.Now().UnixMilli(),
+		// 如果找不到处理器，尝试使用终端命令处理器处理
+		if terminalHandler, ok := commandHandlers["execute"]; ok {
+			log.Printf("[MQTT] 尝试将未知命令 '%s' 作为终端命令处理", command.Command)
+			response = terminalHandler.Handle(&command)
+		} else {
+			// 如果终端命令处理器也不存在，返回错误响应
+			response = &ResponseMessage{
+				Command:   command.Command,
+				RequestID: command.RequestID,
+				Success:   false,
+				Message:   fmt.Sprintf("未知命令: %s", command.Command),
+				Timestamp: time.Now().UnixMilli(),
+			}
+			log.Printf("[MQTT] 未知命令: %s", command.Command)
 		}
-		log.Printf("[MQTT] 未知命令: %s", command.Command)
 	}
 
 	// 如果是会话命令，添加会话ID
@@ -200,6 +209,27 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 
 	// 发送响应
 	SendResponse(response)
+}
+
+// fixCommandStructure 修复命令结构问题，增加与前端的兼容性
+func fixCommandStructure(cmd *CommandMessage) {
+	// 如果命令不是标准命令，且没有参数，尝试修复结构
+	standardCommands := map[string]bool{
+		"execute": true, "reload": true, "restart": true,
+		"stop": true, "start": true, "status": true,
+		"update": true, "interrupt": true, "terminal_input": true,
+		"force_interrupt": true,
+	}
+
+	if !standardCommands[cmd.Command] && cmd.Params == nil {
+		// 可能是前端直接发送了命令名称，我们修复为execute命令
+		actualCommand := cmd.Command
+		cmd.Params = make(map[string]interface{})
+		cmd.Params["command"] = actualCommand
+		cmd.Command = "execute"
+
+		log.Printf("[MQTT] 修复命令结构: '%s' -> 'execute' 命令, 参数command='%s'", actualCommand, actualCommand)
+	}
 }
 
 // SendResponse 发送命令响应

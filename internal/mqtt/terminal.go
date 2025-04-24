@@ -29,6 +29,7 @@ type ActiveCommand struct {
 	Pty           *os.File           // 伪终端文件描述符
 	IsInteractive bool               // 是否为交互式命令
 	InputChan     chan string        // 交互式输入通道
+	Output        string             // 累积的输出
 }
 
 // MaxOutputLength 命令输出最大长度限制
@@ -115,10 +116,23 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 		cmd = exec.CommandContext(ctx, parts[0])
 	}
 
+	// 设置命令工作目录为当前目录
+	pwd, err := os.Getwd()
+	if err != nil {
+		pwd = "/"
+	}
+	cmd.Dir = pwd
+
+	// 继承当前进程的环境变量
+	cmd.Env = os.Environ()
+
 	// 设置进程组ID，以便后续可以终止整个进程组
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true, // 创建新的进程组
 	}
+
+	// 增加调试日志
+	log.Printf("[MQTT] 命令准备执行: %s，工作目录: %s", cmdStr, cmd.Dir)
 
 	// 如果是流式输出，设置输出通道
 	outputChan := make(chan string, 100)
@@ -127,7 +141,7 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 
 	// 处理交互式命令和普通命令的区别
 	var cmdOutput string
-	var err error
+	var cmdErr error
 
 	if interactive || isInteractiveCommand(cmdStr) {
 		interactive = true
@@ -137,10 +151,10 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 		inputChan = make(chan string, 100)
 
 		// 使用伪终端(pty)来处理交互式命令
-		cmdOutput, err = executeInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done, inputChan)
+		cmdOutput, cmdErr = executeInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done, inputChan)
 	} else {
 		// 使用标准管道处理非交互式命令
-		cmdOutput, err = executeNonInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done)
+		cmdOutput, cmdErr = executeNonInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done)
 	}
 
 	// 保存活动命令，以便可以中断
@@ -155,6 +169,7 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 			OutputChan:    outputChan,
 			Done:          done,
 			IsInteractive: interactive,
+			Output:        cmdOutput,
 		}
 
 		if interactive && inputChan != nil {
@@ -185,7 +200,12 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 		defer cancel()
 	}
 
-	return cmdOutput, err
+	// 如果没有输出但有错误，将错误信息作为输出返回
+	if cmdOutput == "" && cmdErr != nil {
+		return fmt.Sprintf("命令执行错误: %v", cmdErr), cmdErr
+	}
+
+	return cmdOutput, cmdErr
 }
 
 // executeInteractiveCommand 使用伪终端执行交互式命令
@@ -204,6 +224,8 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 		return executeNonInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done)
 	}
 	defer ptmx.Close()
+
+	log.Printf("[MQTT] 交互式命令已启动，PID: %d", cmd.Process.Pid)
 
 	// 保存伪终端引用
 	activeCommandsLock.Lock()
@@ -251,6 +273,7 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 					// 发送到输出通道
 					select {
 					case outputChan <- output:
+						log.Printf("[MQTT] 交互式输出: %d 字节", n)
 					default:
 						log.Printf("[MQTT] 输出通道已满，丢弃部分输出")
 					}
@@ -259,6 +282,8 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 				if err != nil {
 					if err != io.EOF {
 						log.Printf("[MQTT] 读取伪终端输出错误: %v", err)
+					} else {
+						log.Printf("[MQTT] 伪终端输出已结束 (EOF)")
 					}
 					return
 				}
@@ -346,6 +371,11 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 
 	// 等待命令完成
 	cmdErr := cmd.Wait()
+	if cmdErr != nil {
+		log.Printf("[MQTT] 交互式命令执行完成但返回错误: %v", cmdErr)
+	} else {
+		log.Printf("[MQTT] 交互式命令执行成功完成")
+	}
 
 	// 等待所有输出处理完成
 	<-outputDone
@@ -375,21 +405,29 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	// 创建输出管道
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		log.Printf("[MQTT] 创建标准输出管道失败: %v", err)
 		cancel()
 		return "", fmt.Errorf("创建标准输出管道失败: %v", err)
 	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
+		log.Printf("[MQTT] 创建标准错误管道失败: %v", err)
 		cancel()
 		return "", fmt.Errorf("创建标准错误管道失败: %v", err)
 	}
 
+	// 增加启动前日志
+	log.Printf("[MQTT] 启动非交互式命令: %s %v", cmd.Path, cmd.Args)
+
 	// 启动命令
 	if err := cmd.Start(); err != nil {
+		log.Printf("[MQTT] 启动命令失败: %v", err)
 		cancel()
 		return "", fmt.Errorf("启动命令失败: %v", err)
 	}
+
+	log.Printf("[MQTT] 命令已启动，PID: %d", cmd.Process.Pid)
 
 	// 缓冲区用于收集输出
 	var outputBuffer strings.Builder
@@ -398,14 +436,22 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// 启动goroutine发送输出
+	// 启动goroutine发送输出 - 修改这部分，保证累积所有输出
 	go func() {
+		var allOutput strings.Builder
+
 		for output := range outputChan {
-			// 发送输出到MQTT
+			// 累积所有输出，确保最终响应包含完整内容
+			allOutput.WriteString(output)
+
+			// 发送流式更新 - 不是最终响应
 			SendStreamingResponse(sessionID, requestID, output, false)
 		}
-		// 发送终止信号
-		SendStreamingResponse(sessionID, requestID, "", true)
+
+		// 最终响应，包含整个输出内容
+		finalOutput := allOutput.String()
+		log.Printf("[MQTT] 发送最终响应，总长度: %d 字节", len(finalOutput))
+		SendStreamingResponse(sessionID, requestID, finalOutput, true)
 		close(done)
 	}()
 
@@ -423,11 +469,14 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 				// 保存到缓冲区
 				outputBuffer.WriteString(output)
 
-				// internal/mqtt/terminal.go (继续)
-
 				// 如果启用了流式输出，将输出发送到通道
 				select {
 				case outputChan <- output:
+					preview := output
+					if len(preview) > 30 {
+						preview = preview[:30] + "..."
+					}
+					log.Printf("[MQTT] 标准输出: %d 字节, 内容预览: %s", n, strings.ReplaceAll(preview, "\n", "\\n"))
 				default:
 					// 通道已满，丢弃输出
 					log.Printf("[MQTT] 输出通道已满，丢弃部分输出")
@@ -437,6 +486,8 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 			if err != nil {
 				if err != io.EOF {
 					log.Printf("[MQTT] 读取标准输出错误: %v", err)
+				} else {
+					log.Printf("[MQTT] 标准输出已结束 (EOF)")
 				}
 				break
 			}
@@ -460,6 +511,11 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 				// 如果启用了流式输出，将输出发送到通道
 				select {
 				case outputChan <- output:
+					preview := output
+					if len(preview) > 30 {
+						preview = preview[:30] + "..."
+					}
+					log.Printf("[MQTT] 标准错误: %d 字节, 内容预览: %s", n, strings.ReplaceAll(preview, "\n", "\\n"))
 				default:
 					// 通道已满，丢弃输出
 					log.Printf("[MQTT] 输出通道已满，丢弃部分输出")
@@ -469,6 +525,8 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 			if err != nil {
 				if err != io.EOF {
 					log.Printf("[MQTT] 读取标准错误输出错误: %v", err)
+				} else {
+					log.Printf("[MQTT] 标准错误已结束 (EOF)")
 				}
 				break
 			}
@@ -477,6 +535,11 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 
 	// 等待命令完成
 	err = cmd.Wait()
+	if err != nil {
+		log.Printf("[MQTT] 命令执行完成但返回错误: %v", err)
+	} else {
+		log.Printf("[MQTT] 命令执行成功完成")
+	}
 
 	// 等待所有输出处理完成
 	wg.Wait()
@@ -632,7 +695,7 @@ func HandleTerminalInput(sessionID string, input string) bool {
 			// 获取进程组ID
 			pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
 			if err == nil && pgid > 0 {
-				// 发送SIGINT到整个进程组而不仅是主进程
+				// 发送SIGINT到整个进程组而不是主进程
 				log.Printf("[MQTT] 发送SIGINT到进程组: %d", pgid)
 				syscall.Kill(-pgid, syscall.SIGINT)
 			} else {
@@ -700,15 +763,28 @@ func HandleTerminalInput(sessionID string, input string) bool {
 
 // SendStreamingResponse 发送流式响应
 func SendStreamingResponse(sessionID string, requestID string, output string, final bool) {
+	// 添加调试日志
+	if final {
+		log.Printf("[MQTT] 发送最终流式响应: requestID=%s, 输出长度=%d字节", requestID, len(output))
+	} else {
+		log.Printf("[MQTT] 发送流式更新: requestID=%s, 片段长度=%d字节", requestID, len(output))
+	}
+
+	// 创建响应对象
 	response := ResponseMessage{
 		Command:   "execute",
 		RequestID: requestID,
 		Success:   true,
-		Output:    output,
+		Output:    output, // 确保输出包含在响应中
 		SessionID: sessionID,
 		Streaming: true,
 		Final:     final,
 		Timestamp: time.Now().UnixMilli(),
+	}
+
+	// 添加适当的消息
+	if final {
+		response.Message = "命令执行完成"
 	}
 
 	// 发送响应
