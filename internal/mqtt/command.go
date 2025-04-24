@@ -4,11 +4,12 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"syscall"
 	"time"
 	"uranus/internal/config"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 
 // CommandMessage 命令消息结构
 type CommandMessage struct {
-	Command         string                 `json:"command"`                   // 命令类型: reload, restart, stop, execute等
+	Command         string                 `json:"command"`                   // 命令类型
 	Params          map[string]interface{} `json:"params,omitempty"`          // 可选参数，支持更复杂的结构
 	RequestID       string                 `json:"requestId"`                 // 请求ID，用于匹配响应
 	ClientID        string                 `json:"clientId,omitempty"`        // 客户端ID
@@ -122,6 +123,7 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
+	// 强制中断命令的特殊处理
 	if command.Command == "force_interrupt" && command.SessionID != "" {
 		log.Printf("[MQTT] 收到强制中断命令，会话ID: %s", command.SessionID)
 
@@ -148,7 +150,12 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		terminated := false
 		for _, pid := range getProcessesBySession(command.SessionID) {
 			log.Printf("[MQTT] 强制终止进程: %d", pid)
-			syscall.Kill(pid, syscall.SIGKILL)
+			// 如果pid是负数，表示它是进程组ID
+			if pid < 0 {
+				syscall.Kill(pid, syscall.SIGKILL) // 向进程组发送SIGKILL
+			} else {
+				syscall.Kill(pid, syscall.SIGKILL) // 向单个进程发送SIGKILL
+			}
 			terminated = true
 		}
 
@@ -164,6 +171,7 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
+	// 标准命令处理
 	// 查找对应的处理器
 	handler, exists := commandHandlers[command.Command]
 
@@ -196,6 +204,10 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 
 // SendResponse 发送命令响应
 func SendResponse(response *ResponseMessage) {
+	if response == nil {
+		return
+	}
+
 	appConfig := config.GetAppConfig()
 	responseTopic := ResponseTopic + appConfig.UUID
 

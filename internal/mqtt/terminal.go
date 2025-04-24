@@ -46,6 +46,7 @@ func isInteractiveCommand(cmdStr string) bool {
 	interactiveCmds := []string{
 		"vim", "vi", "nano", "emacs", "pico", "less", "more",
 		"top", "htop", "mysql", "psql", "mongo", "redis-cli",
+		"ssh", "telnet", "tmux", "screen",
 	}
 
 	cmdName := strings.Fields(cmdStr)[0]
@@ -115,7 +116,9 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 	}
 
 	// 设置进程组ID，以便后续可以终止整个进程组
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true, // 创建新的进程组
+	}
 
 	// 如果是流式输出，设置输出通道
 	outputChan := make(chan string, 100)
@@ -206,6 +209,13 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 	activeCommandsLock.Lock()
 	if cmd, exists := activeCommands[requestID]; exists && cmd != nil {
 		cmd.Pty = ptmx
+		// 获取并记录进程组ID，便于后续精确中断
+		if cmd.Cmd.Process != nil {
+			pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+			if err == nil {
+				log.Printf("[MQTT] 交互式命令的进程组ID: %d", pgid)
+			}
+		}
 	}
 	activeCommandsLock.Unlock()
 
@@ -269,38 +279,57 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 				if input == "\u0003" {
 					log.Printf("[MQTT] 收到Ctrl+C，发送中断信号到进程组")
 
-					// 直接向进程发送SIGINT信号
+					// 获取进程组ID
 					if cmd.Process != nil {
-						syscall.Kill(cmd.Process.Pid, syscall.SIGINT)
-					}
+						// 先向进程组发送SIGINT信号
+						pgid, err := syscall.Getpgid(cmd.Process.Pid)
+						if err == nil && pgid > 0 {
+							// 向整个进程组发送SIGINT信号
+							log.Printf("[MQTT] 发送SIGINT到进程组: %d", pgid)
+							syscall.Kill(-pgid, syscall.SIGINT)
+						} else {
+							// 如果无法获取进程组ID，发送给主进程
+							log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Process.Pid)
+							syscall.Kill(cmd.Process.Pid, syscall.SIGINT)
+						}
 
-					// 同时将Ctrl+C写入伪终端，某些程序会拦截此信号
-					_, err := ptmx.Write([]byte{3})
-					if err != nil {
-						log.Printf("[MQTT] 写入Ctrl+C到伪终端失败: %v", err)
-					}
+						// 同时将Ctrl+C写入伪终端，某些程序会拦截此信号
+						_, err = ptmx.Write([]byte{3})
+						if err != nil {
+							log.Printf("[MQTT] 写入Ctrl+C到伪终端失败: %v", err)
+						}
 
-					// 延迟一点时间后，如果进程仍在运行，尝试强制终止
-					go func() {
-						time.Sleep(500 * time.Millisecond)
-						if cmd.Process != nil && cmd.ProcessState == nil {
-							// 进程仍在运行，尝试获取进程组并终止整个组
-							pgid, err := syscall.Getpgid(cmd.Process.Pid)
-							if err == nil {
-								syscall.Kill(-pgid, syscall.SIGTERM)
-								log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
+						// 延迟一点时间后检查进程是否仍在运行
+						go func() {
+							time.Sleep(500 * time.Millisecond)
 
-								// 再给一些时间
-								time.Sleep(300 * time.Millisecond)
+							// 检查进程是否仍在运行
+							if cmd.Process != nil && cmd.ProcessState == nil {
+								log.Printf("[MQTT] 进程未退出，发送SIGTERM信号")
 
-								// 如果仍在运行，强制终止
-								if cmd.ProcessState == nil {
-									syscall.Kill(-pgid, syscall.SIGKILL)
-									log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
+								// 再次发送SIGTERM信号
+								pgid, err := syscall.Getpgid(cmd.Process.Pid)
+								if err == nil && pgid > 0 {
+									log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
+									syscall.Kill(-pgid, syscall.SIGTERM)
+								} else {
+									syscall.Kill(cmd.Process.Pid, syscall.SIGTERM)
+								}
+
+								// 最后检查是否需要SIGKILL
+								time.Sleep(500 * time.Millisecond)
+								if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
+									log.Printf("[MQTT] 进程仍未退出，发送SIGKILL信号")
+									if pgid > 0 {
+										log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
+										syscall.Kill(-pgid, syscall.SIGKILL)
+									} else {
+										syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)
+									}
 								}
 							}
-						}
-					}()
+						}()
+					}
 				} else {
 					// 正常输入，写入伪终端
 					_, err := ptmx.Write([]byte(input))
@@ -393,6 +422,8 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 
 				// 保存到缓冲区
 				outputBuffer.WriteString(output)
+
+				// internal/mqtt/terminal.go (继续)
 
 				// 如果启用了流式输出，将输出发送到通道
 				select {
@@ -516,11 +547,11 @@ func InterruptCommand(requestID string) bool {
 
 			// 给命令一些时间处理中断
 			time.Sleep(300 * time.Millisecond)
-
-			// 直接向进程发送SIGINT
-			syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
-			log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
 		}
+
+		// 直接向进程发送SIGINT
+		syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
+		log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
 
 		// 在Linux上终止整个进程组
 		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
@@ -529,17 +560,19 @@ func InterruptCommand(requestID string) bool {
 			syscall.Kill(-pgid, syscall.SIGINT) // 先尝试SIGINT
 
 			// 给进程一些时间响应
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 
 			// 如果仍在运行，发送SIGTERM
 			if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+				log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
 				syscall.Kill(-pgid, syscall.SIGTERM)
 
 				// 再给一些时间
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 
 				// 如果进程还在运行，发送SIGKILL
 				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+					log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
 					syscall.Kill(-pgid, syscall.SIGKILL)
 				}
 			}
@@ -594,9 +627,51 @@ func HandleTerminalInput(sessionID string, input string) bool {
 	if input == "\u0003" {
 		log.Printf("[MQTT] 收到Ctrl+C请求，会话ID: %s", sessionID)
 
-		// 多种方式尝试中断
+		// 1. 直接向进程发送SIGINT (关键改进)
+		if cmd.Cmd.Process != nil {
+			// 获取进程组ID
+			pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+			if err == nil && pgid > 0 {
+				// 发送SIGINT到整个进程组而不仅是主进程
+				log.Printf("[MQTT] 发送SIGINT到进程组: %d", pgid)
+				syscall.Kill(-pgid, syscall.SIGINT)
+			} else {
+				// 如果无法获取进程组ID，至少向主进程发送SIGINT
+				log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
+				syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
+			}
 
-		// 1. 发送Ctrl+C到伪终端
+			// 强制启动一个goroutine等待短暂时间后再次检查，如果进程仍在运行则发送更强信号
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+
+				// 检查进程是否仍在运行
+				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+					log.Printf("[MQTT] 进程未退出，发送SIGTERM信号")
+
+					// 再次尝试获取进程组ID
+					pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+					if err == nil && pgid > 0 {
+						syscall.Kill(-pgid, syscall.SIGTERM)
+					} else {
+						syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGTERM)
+					}
+
+					// 再等待一会儿，检查是否需要SIGKILL
+					time.Sleep(500 * time.Millisecond)
+					if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+						log.Printf("[MQTT] 进程仍未退出，发送SIGKILL信号")
+						if pgid > 0 {
+							syscall.Kill(-pgid, syscall.SIGKILL)
+						} else {
+							syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGKILL)
+						}
+					}
+				}
+			}()
+		}
+
+		// 2. 如果存在伪终端，也发送Ctrl+C字符
 		if cmd.Pty != nil {
 			_, err := cmd.Pty.Write([]byte{3})
 			if err != nil {
@@ -604,52 +679,7 @@ func HandleTerminalInput(sessionID string, input string) bool {
 			}
 		}
 
-		// 2. 直接向进程发送SIGINT
-		if cmd.Cmd.Process != nil {
-			// 发送给进程
-			syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
-			log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
-
-			// 发送给进程组
-			pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
-			if err == nil {
-				syscall.Kill(-pgid, syscall.SIGINT)
-				log.Printf("[MQTT] 发送SIGINT到进程组: %d", pgid)
-			}
-
-			// 启动定时器，如果进程没有在短时间内退出，则发送更强的信号
-			go func() {
-				time.Sleep(300 * time.Millisecond)
-
-				// 检查进程是否仍在运行
-				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
-					// 发送更强的信号
-					syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGTERM)
-					log.Printf("[MQTT] 发送SIGTERM到进程: %d", cmd.Cmd.Process.Pid)
-
-					if pgid > 0 {
-						syscall.Kill(-pgid, syscall.SIGTERM)
-						log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
-					}
-
-					// 再次等待
-					time.Sleep(300 * time.Millisecond)
-
-					// 最终发送SIGKILL
-					if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
-						syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGKILL)
-						log.Printf("[MQTT] 发送SIGKILL到进程: %d", cmd.Cmd.Process.Pid)
-
-						if pgid > 0 {
-							syscall.Kill(-pgid, syscall.SIGKILL)
-							log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
-						}
-					}
-				}
-			}()
-		}
-
-		// 仍将输入发送到通道
+		// 3. 仍将输入发送到通道以保持一致性
 		select {
 		case cmd.InputChan <- input:
 			return true

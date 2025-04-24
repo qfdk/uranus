@@ -12,15 +12,11 @@ import (
 
 // 初始化函数，注册所有命令处理器
 func init() {
-	// 注册Nginx相关命令处理器
+	// 注册Nginx相关命令处理器 - 使用统一的命令名称
 	RegisterHandler("reload", &NginxCommandHandler{command: "reload"})
-	RegisterHandler("reload_nginx", &NginxCommandHandler{command: "reload"})
 	RegisterHandler("restart", &NginxCommandHandler{command: "restart"})
-	RegisterHandler("restart_nginx", &NginxCommandHandler{command: "restart"})
 	RegisterHandler("stop", &NginxCommandHandler{command: "stop"})
-	RegisterHandler("stop_nginx", &NginxCommandHandler{command: "stop"})
 	RegisterHandler("start", &NginxCommandHandler{command: "start"})
-	RegisterHandler("start_nginx", &NginxCommandHandler{command: "start"})
 
 	// 注册状态命令处理器
 	RegisterHandler("status", &StatusCommandHandler{})
@@ -68,6 +64,7 @@ func (h *NginxCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		Success:   success,
 		Message:   result,
 		Timestamp: time.Now().UnixMilli(),
+		SessionID: cmd.SessionID, // 保留会话ID以支持终端操作
 	}
 }
 
@@ -86,6 +83,7 @@ func (h *StatusCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 			"nginx": nginxStatus != "KO",
 		},
 		Timestamp: time.Now().UnixMilli(),
+		SessionID: cmd.SessionID,
 	}
 }
 
@@ -115,6 +113,7 @@ func (h *UpdateCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		Success:   true,
 		Message:   "更新操作已开始执行",
 		Timestamp: time.Now().UnixMilli(),
+		SessionID: cmd.SessionID,
 	}
 }
 
@@ -127,11 +126,7 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		Command:   cmd.Command,
 		RequestID: cmd.RequestID,
 		Timestamp: time.Now().UnixMilli(),
-	}
-
-	// 如果提供了会话ID，添加到响应
-	if cmd.SessionID != "" {
-		response.SessionID = cmd.SessionID
+		SessionID: cmd.SessionID,
 	}
 
 	// 检查是否提供了命令参数
