@@ -30,6 +30,8 @@ type ActiveCommand struct {
 	IsInteractive bool               // 是否为交互式命令
 	InputChan     chan string        // 交互式输入通道
 	Output        string             // 累积的输出
+	CommandName   string             // 命令名称
+	IsSpecial     bool               // 是否为特殊命令(如ping)
 }
 
 // MaxOutputLength 命令输出最大长度限制
@@ -42,6 +44,12 @@ var (
 	sessionCommands    = make(map[string]string)         // 会话ID -> 请求ID映射
 )
 
+// 特殊命令列表 - 需要特殊处理中断的命令
+var specialCommands = []string{
+	"ping", "traceroute", "top", "htop", "telnet", "ssh",
+	"nc", "netcat", "tail", "tcpdump", "watch", "nslookup",
+}
+
 // 判断命令是否为交互式
 func isInteractiveCommand(cmdStr string) bool {
 	interactiveCmds := []string{
@@ -50,13 +58,43 @@ func isInteractiveCommand(cmdStr string) bool {
 		"ssh", "telnet", "tmux", "screen",
 	}
 
-	cmdName := strings.Fields(cmdStr)[0]
+	cmdFields := strings.Fields(cmdStr)
+	if len(cmdFields) == 0 {
+		return false
+	}
+
+	cmdName := cmdFields[0]
 	for _, icmd := range interactiveCmds {
 		if cmdName == icmd {
 			return true
 		}
 	}
 	return false
+}
+
+// 判断命令是否为特殊命令
+func isSpecialCommand(cmdStr string) bool {
+	cmdFields := strings.Fields(cmdStr)
+	if len(cmdFields) == 0 {
+		return false
+	}
+
+	cmdName := cmdFields[0]
+	for _, scmd := range specialCommands {
+		if cmdName == scmd {
+			return true
+		}
+	}
+	return false
+}
+
+// 获取命令名称
+func getCommandName(cmdStr string) string {
+	cmdFields := strings.Fields(cmdStr)
+	if len(cmdFields) == 0 {
+		return ""
+	}
+	return cmdFields[0]
 }
 
 // 获取会话关联的所有进程ID
@@ -106,6 +144,10 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 
 	// 创建可取消的上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+
+	// 判断是否为特殊命令（如ping）
+	isSpecial := isSpecialCommand(cmdStr)
+	commandName := getCommandName(cmdStr)
 
 	// 解析命令和参数
 	parts := strings.Fields(cmdStr)
@@ -170,6 +212,8 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 			Done:          done,
 			IsInteractive: interactive,
 			Output:        cmdOutput,
+			CommandName:   commandName,
+			IsSpecial:     isSpecial,
 		}
 
 		if interactive && inputChan != nil {
@@ -324,6 +368,57 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 							log.Printf("[MQTT] 写入Ctrl+C到伪终端失败: %v", err)
 						}
 
+						// 检查命令名称并应用特殊处理
+						activeCommandsLock.RLock()
+						activeCmd := activeCommands[requestID]
+						isSpecial := false
+						cmdName := ""
+						if activeCmd != nil {
+							isSpecial = activeCmd.IsSpecial
+							cmdName = activeCmd.CommandName
+						}
+						activeCommandsLock.RUnlock()
+
+						// 对于特殊命令（如ping）进行额外处理
+						if isSpecial {
+							log.Printf("[MQTT] 对特殊命令 %s 应用强制中断策略", cmdName)
+
+							// 尝试不同类型的信号
+							signals := []syscall.Signal{
+								syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL,
+							}
+
+							// 立即发送多个信号
+							for _, sig := range signals {
+								if pgid > 0 {
+									log.Printf("[MQTT] 发送信号 %v 到进程组: %d", sig, pgid)
+									syscall.Kill(-pgid, sig)
+								} else {
+									log.Printf("[MQTT] 发送信号 %v 到进程: %d", sig, cmd.Process.Pid)
+									syscall.Kill(cmd.Process.Pid, sig)
+								}
+								time.Sleep(50 * time.Millisecond)
+							}
+
+							// 尝试使用命令终止特定进程
+							go func() {
+								if cmdName == "ping" {
+									terminateCmd := exec.Command("pkill", "-9", "ping")
+									terminateCmd.Run()
+
+									// 再尝试 killall
+									terminateCmd = exec.Command("killall", "-9", "ping")
+									terminateCmd.Run()
+								} else if len(cmdName) > 0 {
+									terminateCmd := exec.Command("pkill", "-9", cmdName)
+									terminateCmd.Run()
+
+									terminateCmd = exec.Command("killall", "-9", cmdName)
+									terminateCmd.Run()
+								}
+							}()
+						}
+
 						// 延迟一点时间后检查进程是否仍在运行
 						go func() {
 							time.Sleep(500 * time.Millisecond)
@@ -343,7 +438,7 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 
 								// 最后检查是否需要SIGKILL
 								time.Sleep(500 * time.Millisecond)
-								if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
+								if cmd.Process != nil && (cmd.ProcessState == nil || !cmd.ProcessState.Exited()) {
 									log.Printf("[MQTT] 进程仍未退出，发送SIGKILL信号")
 									if pgid > 0 {
 										log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
@@ -428,6 +523,23 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	}
 
 	log.Printf("[MQTT] 命令已启动，PID: %d", cmd.Process.Pid)
+
+	// 检查是否为特殊命令
+	activeCommandsLock.RLock()
+	activeCmd := activeCommands[requestID]
+	isSpecial := false
+	if activeCmd != nil {
+		isSpecial = activeCmd.IsSpecial
+	}
+	activeCommandsLock.RUnlock()
+
+	// 对于特殊命令如ping，设置进程和进程组ID，确保可以正确终止
+	if isSpecial && cmd.Process != nil {
+		pgid, err := syscall.Getpgid(cmd.Process.Pid)
+		if err == nil {
+			log.Printf("[MQTT] 特殊命令的进程组ID: %d", pgid)
+		}
+	}
 
 	// 缓冲区用于收集输出
 	var outputBuffer strings.Builder
@@ -585,7 +697,7 @@ func IsCommandSafe(cmd string) bool {
 	return true
 }
 
-// InterruptCommand 中断正在执行的命令
+// InterruptCommand 中断正在执行的命令 - 增强版，支持特殊命令处理
 func InterruptCommand(requestID string) bool {
 	activeCommandsLock.RLock()
 	cmd, exists := activeCommands[requestID]
@@ -595,11 +707,22 @@ func InterruptCommand(requestID string) bool {
 		return false
 	}
 
+	// 是否为特殊命令
+	isSpecial := cmd.IsSpecial
+	cmdName := cmd.CommandName
+
 	// 取消上下文
 	cmd.Cancel()
 
 	// 如果命令已经启动
 	if cmd.Cmd.Process != nil {
+		// 获取进程组ID（这是关键所在）
+		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+		if err != nil {
+			log.Printf("[MQTT] 获取进程组ID失败: %v", err)
+			pgid = 0
+		}
+
 		// 如果是交互式命令且有伪终端
 		if cmd.IsInteractive && cmd.Pty != nil {
 			// 发送中断信号（Ctrl+C）到伪终端
@@ -609,39 +732,88 @@ func InterruptCommand(requestID string) bool {
 			}
 
 			// 给命令一些时间处理中断
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 
-		// 直接向进程发送SIGINT
-		syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
-		log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
+		// 对于特殊命令（如ping）使用特殊处理
+		if isSpecial {
+			log.Printf("[MQTT] 使用增强中断流程处理特殊命令: %s", cmdName)
 
-		// 在Linux上终止整个进程组
-		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
-		if err == nil {
-			// 尝试优雅地终止进程组
-			syscall.Kill(-pgid, syscall.SIGINT) // 先尝试SIGINT
+			// 1. 首先通过ptrace尝试强制终止
+			if cmd.Cmd.Process != nil {
+				pid := cmd.Cmd.Process.Pid
 
-			// 给进程一些时间响应
-			time.Sleep(300 * time.Millisecond)
-
-			// 如果仍在运行，发送SIGTERM
-			if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
-				log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
-				syscall.Kill(-pgid, syscall.SIGTERM)
-
-				// 再给一些时间
-				time.Sleep(300 * time.Millisecond)
-
-				// 如果进程还在运行，发送SIGKILL
-				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
-					log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
-					syscall.Kill(-pgid, syscall.SIGKILL)
+				// 先发送多个强力信号
+				signals := []syscall.Signal{
+					syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL,
 				}
+
+				// 向进程和进程组发送所有类型的信号
+				for _, sig := range signals {
+					// 先向进程发送信号
+					log.Printf("[MQTT] 向进程 %d 发送信号 %v", pid, sig)
+					syscall.Kill(pid, sig)
+
+					// 然后向进程组发送信号
+					if pgid > 0 {
+						log.Printf("[MQTT] 向进程组 %d 发送信号 %v", pgid, sig)
+						syscall.Kill(-pgid, sig)
+					}
+
+					// 短暂等待
+					time.Sleep(50 * time.Millisecond)
+				}
+
+				// 2. 使用命令行工具强制终止
+				go func() {
+					// 使用pkill和killall尝试终止进程
+					if len(cmdName) > 0 {
+						killCmds := []string{
+							fmt.Sprintf("pkill -9 %s", cmdName),
+							fmt.Sprintf("killall -9 %s", cmdName),
+						}
+
+						for _, killCmd := range killCmds {
+							execCmd := exec.Command("bash", "-c", killCmd)
+							execCmd.Run()
+							time.Sleep(50 * time.Millisecond)
+						}
+					}
+				}()
 			}
 		} else {
-			// 如果获取进程组ID失败，则直接终止进程
-			cmd.Cmd.Process.Kill()
+			// 标准中断处理
+
+			// 直接向进程发送SIGINT
+			syscall.Kill(cmd.Cmd.Process.Pid, syscall.SIGINT)
+			log.Printf("[MQTT] 发送SIGINT到进程: %d", cmd.Cmd.Process.Pid)
+
+			// 在Linux上终止整个进程组
+			if pgid > 0 {
+				// 尝试优雅地终止进程组
+				syscall.Kill(-pgid, syscall.SIGINT) // 先尝试SIGINT
+
+				// 给进程一些时间响应
+				time.Sleep(300 * time.Millisecond)
+
+				// 如果仍在运行，发送SIGTERM
+				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+					log.Printf("[MQTT] 发送SIGTERM到进程组: %d", pgid)
+					syscall.Kill(-pgid, syscall.SIGTERM)
+
+					// 再给一些时间
+					time.Sleep(300 * time.Millisecond)
+
+					// 如果进程还在运行，发送SIGKILL
+					if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+						log.Printf("[MQTT] 发送SIGKILL到进程组: %d", pgid)
+						syscall.Kill(-pgid, syscall.SIGKILL)
+					}
+				}
+			} else {
+				// 如果获取进程组ID失败，则直接终止进程
+				cmd.Cmd.Process.Kill()
+			}
 		}
 	}
 
@@ -690,6 +862,55 @@ func HandleTerminalInput(sessionID string, input string) bool {
 	if input == "\u0003" {
 		log.Printf("[MQTT] 收到Ctrl+C请求，会话ID: %s", sessionID)
 
+		// 判断是否是特殊命令
+		isSpecial := cmd.IsSpecial
+		cmdName := cmd.CommandName
+
+		// 对于特殊命令（如ping）使用增强中断
+		if isSpecial {
+			log.Printf("[MQTT] 对特殊命令 %s 使用增强中断", cmdName)
+
+			// 获取进程ID和进程组ID
+			var pid, pgid int
+			if cmd.Cmd.Process != nil {
+				pid = cmd.Cmd.Process.Pid
+				pgid, _ = syscall.Getpgid(pid)
+			}
+
+			// 1. 发送多个信号尝试终止
+			if pid > 0 {
+				signals := []syscall.Signal{
+					syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL,
+				}
+
+				for _, sig := range signals {
+					if pgid > 0 {
+						log.Printf("[MQTT] 发送信号 %v 到进程组 %d", sig, pgid)
+						syscall.Kill(-pgid, sig)
+					}
+					log.Printf("[MQTT] 发送信号 %v 到进程 %d", sig, pid)
+					syscall.Kill(pid, sig)
+					time.Sleep(50 * time.Millisecond)
+				}
+			}
+
+			// 2. 使用命令行工具强制终止
+			if len(cmdName) > 0 {
+				go func() {
+					killCmds := []string{
+						fmt.Sprintf("pkill -9 %s", cmdName),
+						fmt.Sprintf("killall -9 %s", cmdName),
+					}
+
+					for _, killCmd := range killCmds {
+						log.Printf("[MQTT] 执行中断命令: %s", killCmd)
+						execCmd := exec.Command("bash", "-c", killCmd)
+						execCmd.Run()
+					}
+				}()
+			}
+		}
+
 		// 1. 直接向进程发送SIGINT (关键改进)
 		if cmd.Cmd.Process != nil {
 			// 获取进程组ID
@@ -706,7 +927,7 @@ func HandleTerminalInput(sessionID string, input string) bool {
 
 			// 强制启动一个goroutine等待短暂时间后再次检查，如果进程仍在运行则发送更强信号
 			go func() {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 
 				// 检查进程是否仍在运行
 				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
@@ -721,7 +942,7 @@ func HandleTerminalInput(sessionID string, input string) bool {
 					}
 
 					// 再等待一会儿，检查是否需要SIGKILL
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(300 * time.Millisecond)
 					if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
 						log.Printf("[MQTT] 进程仍未退出，发送SIGKILL信号")
 						if pgid > 0 {

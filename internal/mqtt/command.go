@@ -31,6 +31,9 @@ type CommandMessage struct {
 	Streaming       bool                   `json:"streaming,omitempty"`       // 是否流式输出
 	TargetRequestID string                 `json:"targetRequestId,omitempty"` // 目标请求ID（用于中断命令）
 	Input           string                 `json:"input,omitempty"`           // 终端输入（用于交互式命令）
+	Interactive     bool                   `json:"interactive,omitempty"`     // 是否交互式
+	SpecialCommand  bool                   `json:"specialCommand,omitempty"`  // 是否为特殊命令(如ping)
+	Silent          bool                   `json:"silent,omitempty"`          // 是否静默执行(不输出结果)
 }
 
 // ResponseMessage 响应消息结构
@@ -112,6 +115,11 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		message := "处理输入失败"
 		if success {
 			message = "输入已处理"
+		}
+
+		// 如果是Ctrl+C，不发送响应
+		if command.Input == "\u0003" {
+			return
 		}
 
 		// 发送输入处理结果响应
@@ -207,8 +215,11 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		response.SessionID = command.SessionID
 	}
 
-	// 发送响应
-	SendResponse(response)
+	// 如果不是静默命令，则发送响应
+	if !command.Silent && response != nil {
+		// 发送响应
+		SendResponse(response)
+	}
 }
 
 // fixCommandStructure 修复命令结构问题，增加与前端的兼容性
@@ -229,6 +240,33 @@ func fixCommandStructure(cmd *CommandMessage) {
 		cmd.Command = "execute"
 
 		log.Printf("[MQTT] 修复命令结构: '%s' -> 'execute' 命令, 参数command='%s'", actualCommand, actualCommand)
+	}
+
+	// 从params中提取特殊字段
+	if cmd.Params != nil {
+		// 提取交互式标志
+		if interactive, ok := cmd.Params["interactive"]; ok {
+			if interactiveBool, ok := interactive.(bool); ok {
+				cmd.Interactive = interactiveBool
+				delete(cmd.Params, "interactive")
+			}
+		}
+
+		// 提取特殊命令标志
+		if specialCommand, ok := cmd.Params["specialCommand"]; ok {
+			if specialBool, ok := specialCommand.(bool); ok {
+				cmd.SpecialCommand = specialBool
+				delete(cmd.Params, "specialCommand")
+			}
+		}
+
+		// 提取静默标志
+		if silent, ok := cmd.Params["silent"]; ok {
+			if silentBool, ok := silent.(bool); ok {
+				cmd.Silent = silentBool
+				delete(cmd.Params, "silent")
+			}
+		}
 	}
 }
 

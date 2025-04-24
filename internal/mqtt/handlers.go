@@ -133,6 +133,7 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 	var commandToExecute string
 	var streaming bool
 	var interactive bool
+	var isSpecial bool
 
 	// 命令参数处理：兼容两种不同的消息结构
 	if cmd.Params != nil {
@@ -151,11 +152,25 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 				}
 
 				// 判断是否为交互式命令
-				if interactiveParam, ok := cmd.Params["interactive"]; ok {
-					if interactiveBool, ok := interactiveParam.(bool); ok {
-						interactive = interactiveBool
+				interactive = cmd.Interactive // 优先使用顶层字段
+				if !interactive && cmd.Params != nil {
+					if interactiveParam, ok := cmd.Params["interactive"]; ok {
+						if interactiveBool, ok := interactiveParam.(bool); ok {
+							interactive = interactiveBool
+						}
 					}
-				} else {
+				}
+
+				// 优先使用传入的特殊命令标志
+				isSpecial = cmd.SpecialCommand
+
+				// 如果未指定，尝试自动检测是否为特殊命令
+				if !isSpecial {
+					isSpecial = isSpecialCommand(commandToExecute)
+				}
+
+				// 如果未指定交互式，自动检测
+				if !interactive {
 					// 尝试自动检测交互式命令
 					cmdFields := strings.Fields(commandToExecute)
 					if len(cmdFields) > 0 {
@@ -183,15 +198,23 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		// 可能是前端直接发送了命令名称作为Command
 		commandToExecute = cmd.Command
 		streaming = cmd.Streaming
-		interactive = false // 默认非交互式
+		interactive = cmd.Interactive
+		isSpecial = cmd.SpecialCommand
 
-		// 尝试自动检测交互式命令
-		cmdFields := strings.Fields(commandToExecute)
-		if len(cmdFields) > 0 {
-			cmdName := cmdFields[0]
-			switch cmdName {
-			case "vim", "vi", "nano", "emacs", "less", "more", "top", "htop":
-				interactive = true
+		// 如果未指定特殊命令标志，尝试自动检测
+		if !isSpecial {
+			isSpecial = isSpecialCommand(commandToExecute)
+		}
+
+		// 如果未指定交互式，尝试自动检测交互式命令
+		if !interactive {
+			cmdFields := strings.Fields(commandToExecute)
+			if len(cmdFields) > 0 {
+				cmdName := cmdFields[0]
+				switch cmdName {
+				case "vim", "vi", "nano", "emacs", "less", "more", "top", "htop":
+					interactive = true
+				}
 			}
 		}
 
@@ -212,6 +235,14 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		return response
 	}
 
+	// 是否启用安静模式（不返回响应）
+	silent := cmd.Silent
+
+	// 记录特殊命令检测结果
+	if isSpecial {
+		log.Printf("[MQTT] 检测到特殊命令: %s，将使用增强的中断处理", commandToExecute)
+	}
+
 	// 使用终端处理程序执行命令
 	go func() {
 		output, err := executeTerminalCommand(
@@ -223,7 +254,7 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		)
 
 		// 如果不是流式输出，或者发生错误，发送完整响应
-		if !streaming || err != nil {
+		if (!streaming || err != nil) && !silent {
 			errMsg := ""
 			if err != nil {
 				errMsg = err.Error()
@@ -249,8 +280,8 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		}
 	}()
 
-	// 只有在流式模式下，立即返回确认响应
-	if streaming {
+	// 只有在流式模式下且非静默模式，立即返回确认响应
+	if streaming && !silent {
 		return &ResponseMessage{
 			Command:   "execute", // 始终使用"execute"作为命令名称
 			RequestID: cmd.RequestID,
@@ -263,6 +294,6 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		}
 	}
 
-	// 非流式模式不返回响应，由goroutine处理完成后发送
+	// 非流式模式或静默模式不返回响应，由goroutine处理完成后发送
 	return nil
 }
