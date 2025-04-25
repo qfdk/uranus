@@ -6,8 +6,10 @@ import (
 	"log"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 	"uranus/internal/services"
+	"uranus/internal/terminal"
 )
 
 // 初始化函数，注册所有命令处理器
@@ -29,6 +31,12 @@ func init() {
 
 	// 注册终端会话处理器
 	RegisterHandler("terminal", &TerminalSessionHandler{})
+
+	// 添加终端大小调整命令处理器
+	RegisterHandler("terminal_resize", &TerminalResizeHandler{})
+
+	// 添加终端信号命令处理器
+	RegisterHandler("terminal_signal", &TerminalSignalHandler{})
 }
 
 // NginxCommandHandler 处理Nginx相关命令
@@ -548,6 +556,244 @@ func (h *TerminalSessionHandler) handleListTerminals(cmd *CommandMessage) *Respo
 		Success:   true,
 		Message:   "获取终端列表成功",
 		Data:      sessions,
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// TerminalResizeHandler 处理终端大小调整命令
+type TerminalResizeHandler struct{}
+
+func (h *TerminalResizeHandler) Handle(cmd *CommandMessage) *ResponseMessage {
+	log.Printf("[MQTT] 正在处理终端大小调整命令，会话ID: %s, 行: %d, 列: %d",
+		cmd.SessionID, cmd.Rows, cmd.Cols)
+
+	// 如果终端管理器未初始化
+	if TerminalMgr == nil {
+		log.Printf("[MQTT] 终端管理器未初始化，无法调整终端大小")
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "终端管理器未初始化",
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 方法1: 通过终端管理器调整大小
+	err := TerminalMgr.ResizeTerminal(cmd.SessionID, uint16(cmd.Rows), uint16(cmd.Cols))
+	if err == nil {
+		log.Printf("[MQTT] 通过终端管理器调整终端大小成功")
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   true,
+			Message:   "终端大小调整成功",
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 方法2: 尝试直接通过会话ID调整大小
+	log.Printf("[MQTT] 通过终端管理器调整失败: %v，尝试直接通过会话ID调整", err)
+	err = terminal.ResizeBySessionID(cmd.SessionID, uint16(cmd.Rows), uint16(cmd.Cols))
+	if err == nil {
+		log.Printf("[MQTT] 通过会话ID直接调整终端大小成功")
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   true,
+			Message:   "终端大小调整成功（直接访问方式）",
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 方法3: 尝试使用 stty 命令（但在macOS上可能会失败）
+	log.Printf("[MQTT] 直接调整也失败: %v，尝试使用stty命令", err)
+
+	// 针对macOS返回特殊消息，避免再次尝试
+	if runtime.GOOS == "darwin" {
+		log.Printf("[MQTT] 在macOS上，终端大小调整可能不可用")
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   true, // 返回成功但提示用户
+			Message:   "在macOS上，终端大小调整可能不完全支持",
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 非macOS系统尝试使用stty命令
+	execCmd := &CommandMessage{
+		Command:   "execute",
+		RequestID: fmt.Sprintf("resize-stty-%d", time.Now().UnixMilli()),
+		SessionID: cmd.SessionID,
+		Params: map[string]interface{}{
+			"command": fmt.Sprintf("stty rows %d cols %d", cmd.Rows, cmd.Cols),
+		},
+		Silent: true,
+	}
+
+	// 如果找到execute命令处理器，使用它
+	if execHandler, ok := commandHandlers["execute"]; ok {
+		execHandler.Handle(execCmd)
+
+		// 通知前端已通过替代方案处理
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   true,
+			Message:   "通过stty命令调整终端大小",
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 如果所有方法都失败
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   false,
+		Message:   fmt.Sprintf("终端大小调整失败: %v", err),
+		SessionID: cmd.SessionID,
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// TerminalSignalHandler 处理终端信号命令
+type TerminalSignalHandler struct{}
+
+func (h *TerminalSignalHandler) Handle(cmd *CommandMessage) *ResponseMessage {
+	log.Printf("[MQTT] 处理终端信号命令，会话ID: %s, 信号: %s",
+		cmd.SessionID, cmd.Signal)
+
+	// 处理逻辑
+	success := false
+	message := "处理信号失败"
+
+	switch cmd.Signal {
+	case "CTRL_C", "SIGINT":
+		// 获取进程PID并发送SIGINT
+		if requestID, exists := sessionCommands[cmd.SessionID]; exists {
+			if activeCmd, exists := activeCommands[requestID]; exists && activeCmd.Cmd != nil && activeCmd.Cmd.Process != nil {
+				// 获取进程组ID
+				pgid, err := syscall.Getpgid(activeCmd.Cmd.Process.Pid)
+				if err == nil {
+					// 向进程组发送SIGINT
+					err = syscall.Kill(-pgid, syscall.SIGINT)
+					if err == nil {
+						success = true
+						message = "SIGINT信号已发送"
+					} else {
+						message = fmt.Sprintf("发送SIGINT信号失败: %v", err)
+					}
+				} else {
+					// 如果无法获取进程组ID，直接向进程发送信号
+					err = activeCmd.Cmd.Process.Signal(syscall.SIGINT)
+					if err == nil {
+						success = true
+						message = "SIGINT信号已发送到进程"
+					} else {
+						message = fmt.Sprintf("发送SIGINT信号失败: %v", err)
+					}
+				}
+
+				// 如果命令是交互式的且使用了伪终端，也向伪终端发送Ctrl+C
+				if activeCmd.IsInteractive && activeCmd.Pty != nil {
+					_, err := activeCmd.Pty.Write([]byte{3}) // ASCII 3 = Ctrl+C
+					if err != nil {
+						log.Printf("[MQTT] 向伪终端发送Ctrl+C失败: %v", err)
+					}
+				}
+			}
+		} else {
+			// 尝试使用终端管理器
+			if TerminalMgr != nil {
+				term, err := TerminalMgr.GetTerminal(cmd.SessionID)
+				if err == nil && term != nil && term.Cmd != nil && term.Cmd.Process != nil {
+					pgid, err := syscall.Getpgid(term.Cmd.Process.Pid)
+					if err == nil {
+						syscall.Kill(-pgid, syscall.SIGINT)
+						success = true
+						message = "SIGINT信号已通过终端管理器发送"
+					} else {
+						term.Cmd.Process.Signal(syscall.SIGINT)
+						success = true
+						message = "SIGINT信号已通过终端管理器发送到进程"
+					}
+				}
+			}
+		}
+
+	case "CTRL_D", "EOF":
+		// 向伪终端发送EOF
+		if requestID, exists := sessionCommands[cmd.SessionID]; exists {
+			if activeCmd, exists := activeCommands[requestID]; exists && activeCmd.IsInteractive && activeCmd.Pty != nil {
+				_, err := activeCmd.Pty.Write([]byte{4}) // ASCII 4 = Ctrl+D
+				if err == nil {
+					success = true
+					message = "EOF信号已发送"
+				} else {
+					message = fmt.Sprintf("发送EOF信号失败: %v", err)
+				}
+			}
+		} else if TerminalMgr != nil {
+			term, err := TerminalMgr.GetTerminal(cmd.SessionID)
+			if err == nil && term != nil && term.Pty != nil {
+				_, err := term.Pty.Write([]byte{4})
+				if err == nil {
+					success = true
+					message = "EOF信号已通过终端管理器发送"
+				} else {
+					message = fmt.Sprintf("发送EOF信号失败: %v", err)
+				}
+			}
+		}
+
+	case "SIGTERM":
+		// 发送SIGTERM信号
+		if requestID, exists := sessionCommands[cmd.SessionID]; exists {
+			if activeCmd, exists := activeCommands[requestID]; exists && activeCmd.Cmd != nil && activeCmd.Cmd.Process != nil {
+				pgid, err := syscall.Getpgid(activeCmd.Cmd.Process.Pid)
+				if err == nil {
+					syscall.Kill(-pgid, syscall.SIGTERM)
+					success = true
+					message = "SIGTERM信号已发送"
+				} else {
+					activeCmd.Cmd.Process.Signal(syscall.SIGTERM)
+					success = true
+					message = "SIGTERM信号已发送到进程"
+				}
+			}
+		} else if TerminalMgr != nil {
+			term, err := TerminalMgr.GetTerminal(cmd.SessionID)
+			if err == nil && term != nil && term.Cmd != nil && term.Cmd.Process != nil {
+				pgid, err := syscall.Getpgid(term.Cmd.Process.Pid)
+				if err == nil {
+					syscall.Kill(-pgid, syscall.SIGTERM)
+					success = true
+					message = "SIGTERM信号已通过终端管理器发送"
+				} else {
+					term.Cmd.Process.Signal(syscall.SIGTERM)
+					success = true
+					message = "SIGTERM信号已通过终端管理器发送到进程"
+				}
+			}
+		}
+
+	default:
+		message = fmt.Sprintf("不支持的信号类型: %s", cmd.Signal)
+	}
+
+	// 发送响应
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   success,
+		Message:   message,
+		SessionID: cmd.SessionID,
 		Timestamp: time.Now().UnixMilli(),
 	}
 }

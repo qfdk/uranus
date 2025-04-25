@@ -9,12 +9,18 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/creack/pty"
+)
+
+var (
+	activeTerminals = make(map[string]*os.File) // 会话ID -> PTY映射
+	terminalMutex   sync.RWMutex                // 保护上述映射的互斥锁
 )
 
 // ActiveCommand 表示正在执行的命令
@@ -264,20 +270,52 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 		// 发送警告信息给客户端
 		outputChan <- "警告: 无法启动完全交互模式，某些交互式命令可能无法正常工作\n"
 
+		// 重要：确保在出错时cancel已设置的上下文
+		cancel()
+
+		// 创建新的上下文和取消函数用于非交互模式
+		newCtx, newCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+
+		// 重新创建命令，确保没有之前的配置
+		newCmd := exec.CommandContext(newCtx, cmd.Path)
+		if len(cmd.Args) > 1 {
+			newCmd.Args = cmd.Args
+		}
+		newCmd.Env = os.Environ()
+		newCmd.Dir = cmd.Dir
+
+		// 针对macOS设置特殊的进程属性
+		if runtime.GOOS == "darwin" {
+			newCmd.SysProcAttr = &syscall.SysProcAttr{
+				Setpgid: true,
+				Setsid:  false, // 不设置Setsid，避免与Setctty冲突
+			}
+		} else {
+			newCmd.SysProcAttr = &syscall.SysProcAttr{
+				Setpgid: true,
+			}
+		}
+
 		// 回退到非交互式命令处理
-		return executeNonInteractiveCommand(cmd, sessionID, requestID, ctx, cancel, outputChan, done)
+		return executeNonInteractiveCommand(newCmd, sessionID, requestID, newCtx, newCancel, outputChan, done)
 	}
+
 	defer ptmx.Close()
+
+	// 将PTY存储到全局映射
+	terminalMutex.Lock()
+	activeTerminals[sessionID] = ptmx
+	terminalMutex.Unlock()
 
 	log.Printf("[MQTT] 交互式命令已启动，PID: %d", cmd.Process.Pid)
 
 	// 保存伪终端引用
 	activeCommandsLock.Lock()
-	if cmd, exists := activeCommands[requestID]; exists && cmd != nil {
-		cmd.Pty = ptmx
+	if activeCmd, exists := activeCommands[requestID]; exists && activeCmd != nil {
+		activeCmd.Pty = ptmx
 		// 获取并记录进程组ID，便于后续精确中断
-		if cmd.Cmd.Process != nil {
-			pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+		if activeCmd.Cmd.Process != nil {
+			pgid, err := syscall.Getpgid(activeCmd.Cmd.Process.Pid)
 			if err == nil {
 				log.Printf("[MQTT] 交互式命令的进程组ID: %d", pgid)
 			}
@@ -493,6 +531,7 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 }
 
 // executeNonInteractiveCommand 使用标准管道执行非交互式命令
+// executeNonInteractiveCommand 使用标准管道执行非交互式命令
 func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string,
 	ctx context.Context, cancel context.CancelFunc,
 	outputChan chan string, done chan struct{}) (string, error) {
@@ -502,6 +541,27 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	if err != nil {
 		log.Printf("[MQTT] 创建标准输出管道失败: %v", err)
 		cancel()
+
+		// 确保通道被正确关闭
+		select {
+		case _, ok := <-outputChan:
+			if ok {
+				close(outputChan)
+			}
+		default:
+			close(outputChan)
+		}
+
+		// 确保done通道被关闭
+		select {
+		case _, ok := <-done:
+			if ok {
+				close(done)
+			}
+		default:
+			close(done)
+		}
+
 		return "", fmt.Errorf("创建标准输出管道失败: %v", err)
 	}
 
@@ -509,6 +569,30 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	if err != nil {
 		log.Printf("[MQTT] 创建标准错误管道失败: %v", err)
 		cancel()
+
+		// 关闭已创建的管道
+		stdoutPipe.Close()
+
+		// 确保通道被正确关闭
+		select {
+		case _, ok := <-outputChan:
+			if ok {
+				close(outputChan)
+			}
+		default:
+			close(outputChan)
+		}
+
+		// 确保done通道被关闭
+		select {
+		case _, ok := <-done:
+			if ok {
+				close(done)
+			}
+		default:
+			close(done)
+		}
+
 		return "", fmt.Errorf("创建标准错误管道失败: %v", err)
 	}
 
@@ -519,6 +603,31 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	if err := cmd.Start(); err != nil {
 		log.Printf("[MQTT] 启动命令失败: %v", err)
 		cancel()
+
+		// 关闭已创建的管道
+		stdoutPipe.Close()
+		stderrPipe.Close()
+
+		// 确保通道被正确关闭
+		select {
+		case _, ok := <-outputChan:
+			if ok {
+				close(outputChan)
+			}
+		default:
+			close(outputChan)
+		}
+
+		// 确保done通道被关闭
+		select {
+		case _, ok := <-done:
+			if ok {
+				close(done)
+			}
+		default:
+			close(done)
+		}
+
 		return "", fmt.Errorf("启动命令失败: %v", err)
 	}
 

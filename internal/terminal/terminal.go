@@ -1,6 +1,4 @@
 // internal/terminal/terminal.go
-// 完全基于MQTT的终端实现
-
 package terminal
 
 import (
@@ -10,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -52,6 +51,12 @@ type Terminal struct {
 	closed    bool
 }
 
+// 全局终端映射，用于直接访问PTY
+var (
+	ptyHandles   = make(map[string]*os.File)
+	ptyHandleMux sync.RWMutex
+)
+
 // NewTerminal 创建一个新的终端会话
 func NewTerminal(sessionID string, mqttClient mqtt.Client, shell string) (*Terminal, error) {
 	if shell == "" {
@@ -63,18 +68,115 @@ func NewTerminal(sessionID string, mqttClient mqtt.Client, shell string) (*Termi
 
 	// 创建命令
 	cmd := exec.CommandContext(ctx, shell)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
-	// 设置进程组ID，便于后续终止整个进程组
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	var ptmx *os.File
+	var err error
 
-	// 创建伪终端
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("创建伪终端失败: %v", err)
+	// 针对不同操作系统采用不同的策略
+	if runtime.GOOS == "darwin" {
+		// macOS 特殊处理
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true, // 只设置 Setsid，不设置 Setpgid
+		}
+
+		// 方式一：创建PTY
+		ptmx, err = pty.Start(cmd)
+		if err != nil {
+			log.Printf("[终端] macOS PTY创建失败: %v, 尝试备选方案", err)
+
+			// 备选方案：直接使用管道
+			cmd = exec.CommandContext(ctx, shell)
+			cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+
+			// 创建管道
+			stdin, err := cmd.StdinPipe()
+			if err != nil {
+				cancel()
+				return nil, fmt.Errorf("创建标准输入管道失败: %v", err)
+			}
+
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				cancel()
+				stdin.Close()
+				return nil, fmt.Errorf("创建标准输出管道失败: %v", err)
+			}
+
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				cancel()
+				stdin.Close()
+				stdout.Close()
+				return nil, fmt.Errorf("创建标准错误管道失败: %v", err)
+			}
+
+			// 启动命令
+			if err := cmd.Start(); err != nil {
+				cancel()
+				stdin.Close()
+				stdout.Close()
+				stderr.Close()
+				return nil, fmt.Errorf("启动命令失败: %v", err)
+			}
+
+			// 创建自定义的PTY-like文件
+			ptmx = &os.File{}
+
+			// 启动goroutines来处理输出
+			go func() {
+				buf := make([]byte, 4096)
+				for {
+					n, err := stdout.Read(buf)
+					if n > 0 {
+						mqttClient.Publish(fmt.Sprintf("uranus/terminal/%s/output", sessionID), 1, false, buf[:n])
+					}
+					if err != nil {
+						break
+					}
+				}
+			}()
+
+			go func() {
+				buf := make([]byte, 4096)
+				for {
+					n, err := stderr.Read(buf)
+					if n > 0 {
+						mqttClient.Publish(fmt.Sprintf("uranus/terminal/%s/output", sessionID), 1, false, buf[:n])
+					}
+					if err != nil {
+						break
+					}
+				}
+			}()
+
+			// 存储stdin用于后续输入
+			ptyHandleMux.Lock()
+			ptyHandles[sessionID] = os.NewFile(stdin.(*os.File).Fd(), "stdin")
+			ptyHandleMux.Unlock()
+		} else {
+			// 如果PTY创建成功，存储PTY句柄
+			ptyHandleMux.Lock()
+			ptyHandles[sessionID] = ptmx
+			ptyHandleMux.Unlock()
+		}
+	} else {
+		// Linux和其他系统
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
+
+		// 创建PTY
+		ptmx, err = pty.Start(cmd)
+		if err != nil {
+			cancel()
+			return nil, fmt.Errorf("创建伪终端失败: %v", err)
+		}
+
+		// 存储PTY句柄
+		ptyHandleMux.Lock()
+		ptyHandles[sessionID] = ptmx
+		ptyHandleMux.Unlock()
 	}
 
 	// 设置默认终端大小
@@ -122,6 +224,31 @@ func NewTerminal(sessionID string, mqttClient mqtt.Client, shell string) (*Termi
 func (t *Terminal) Resize(rows, cols uint16) error {
 	t.Rows = rows
 	t.Cols = cols
+
+	// 尝试直接访问终端句柄
+	ptyHandleMux.RLock()
+	ptyHandle, exists := ptyHandles[t.SessionID]
+	ptyHandleMux.RUnlock()
+
+	if exists && ptyHandle != nil {
+		// 尝试调整大小
+		err := pty.Setsize(ptyHandle, &pty.Winsize{
+			Rows: rows,
+			Cols: cols,
+			X:    0,
+			Y:    0,
+		})
+
+		if err != nil {
+			log.Printf("[终端] 调整会话 %s 大小失败: %v", t.SessionID, err)
+		} else {
+			log.Printf("[终端] 会话 %s 大小已调整为 %dx%d", t.SessionID, cols, rows)
+		}
+
+		return err
+	}
+
+	// 如果没有句柄，使用t.Pty
 	return pty.Setsize(t.Pty, &pty.Winsize{
 		Rows: rows,
 		Cols: cols,
@@ -146,12 +273,17 @@ func (t *Terminal) Close() error {
 	// 发送终止消息
 	t.publishOutput("\r\n[终端会话已关闭]\r\n")
 
+	// 移除PTY句柄
+	ptyHandleMux.Lock()
+	delete(ptyHandles, t.SessionID)
+	ptyHandleMux.Unlock()
+
 	// 先尝试正常终止进程
 	if t.Cmd.Process != nil {
 		// 获取进程组ID
 		pgid, err := syscall.Getpgid(t.Cmd.Process.Pid)
-		if err == nil {
-			// 向整个进程组发送SIGTERM信号
+		if err == nil && runtime.GOOS != "darwin" {
+			// 向整个进程组发送SIGTERM信号 (在非macOS系统上)
 			syscall.Kill(-pgid, syscall.SIGTERM)
 
 			// 等待进程终止
@@ -164,7 +296,7 @@ func (t *Terminal) Close() error {
 				syscall.Kill(-pgid, syscall.SIGKILL)
 			}
 		} else {
-			// 如果无法获取进程组ID，直接终止进程
+			// 在macOS上或无法获取进程组ID时直接终止进程
 			t.Cmd.Process.Kill()
 		}
 	}
@@ -187,20 +319,40 @@ func (t *Terminal) handleInput(client mqtt.Client, msg mqtt.Message) {
 
 	// 检查是否为特殊控制序列
 	if len(input) == 1 && input[0] == 3 { // Ctrl+C (ASCII 3)
-		// 获取进程组ID并发送SIGINT
-		if t.Cmd.Process != nil {
-			pgid, err := syscall.Getpgid(t.Cmd.Process.Pid)
-			if err == nil {
-				syscall.Kill(-pgid, syscall.SIGINT)
-			} else {
+		// 根据系统不同采用不同的中断策略
+		if runtime.GOOS == "darwin" {
+			// macOS上不使用进程组ID
+			if t.Cmd.Process != nil {
 				t.Cmd.Process.Signal(syscall.SIGINT)
+			}
+		} else {
+			// 其他系统尝试使用进程组ID
+			if t.Cmd.Process != nil {
+				pgid, err := syscall.Getpgid(t.Cmd.Process.Pid)
+				if err == nil {
+					syscall.Kill(-pgid, syscall.SIGINT)
+				} else {
+					t.Cmd.Process.Signal(syscall.SIGINT)
+				}
 			}
 		}
 	}
 
-	// 写入伪终端
-	if _, err := t.Pty.Write(input); err != nil {
-		log.Printf("[终端] 会话 %s 写入失败: %v", t.SessionID, err)
+	// 尝试直接访问PTY句柄
+	ptyHandleMux.RLock()
+	ptyHandle, exists := ptyHandles[t.SessionID]
+	ptyHandleMux.RUnlock()
+
+	if exists && ptyHandle != nil {
+		// 写入输入
+		if _, err := ptyHandle.Write(input); err != nil {
+			log.Printf("[终端] 会话 %s 写入失败: %v", t.SessionID, err)
+		}
+	} else {
+		// 回退到t.Pty
+		if _, err := t.Pty.Write(input); err != nil {
+			log.Printf("[终端] 会话 %s 写入失败: %v", t.SessionID, err)
+		}
 	}
 }
 
@@ -273,4 +425,31 @@ func findDefaultShell() string {
 
 	// 默认返回/bin/sh
 	return "/bin/sh"
+}
+
+// ResizeBySessionID 通过会话ID调整终端大小（用于外部直接调用）
+func ResizeBySessionID(sessionID string, rows, cols uint16) error {
+	ptyHandleMux.RLock()
+	ptyHandle, exists := ptyHandles[sessionID]
+	ptyHandleMux.RUnlock()
+
+	if !exists || ptyHandle == nil {
+		return fmt.Errorf("找不到会话 %s 的PTY句柄", sessionID)
+	}
+
+	// 调整终端大小
+	err := pty.Setsize(ptyHandle, &pty.Winsize{
+		Rows: rows,
+		Cols: cols,
+		X:    0,
+		Y:    0,
+	})
+
+	if err != nil {
+		log.Printf("[终端] 通过会话ID调整大小失败: %v", err)
+		return err
+	}
+
+	log.Printf("[终端] 通过会话ID成功调整会话 %s 大小为 %dx%d", sessionID, cols, rows)
+	return nil
 }
