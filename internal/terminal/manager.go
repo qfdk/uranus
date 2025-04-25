@@ -11,10 +11,8 @@ import (
 )
 
 var (
-	// ErrSessionNotFound 表示找不到指定会话ID的终端
-	ErrSessionNotFound = errors.New("终端会话不存在")
-
-	// ErrSessionAlreadyExists 表示会话ID已存在
+	// 错误定义
+	ErrSessionNotFound      = errors.New("终端会话不存在")
 	ErrSessionAlreadyExists = errors.New("终端会话已存在")
 )
 
@@ -34,23 +32,36 @@ func NewManager(mqttClient mqtt.Client) *Manager {
 }
 
 // CreateTerminal 创建一个新的终端会话
-func (m *Manager) CreateTerminal(shell string) (string, error) {
-	// 生成唯一会话ID
-	sessionID := uuid.New().String()
+func (m *Manager) CreateTerminal(sessionID string, shell string, rows, cols uint16) (*Terminal, error) {
+	// 如果未提供会话ID，生成一个新的
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+	}
 
-	// 创建终端
+	// 检查会话ID是否已存在
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if _, exists := m.terminals[sessionID]; exists {
+		return nil, ErrSessionAlreadyExists
+	}
+
+	// 创建终端实例
 	term, err := NewTerminal(sessionID, m.mqttClient, shell)
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+
+	// 初始化终端大小
+	if rows > 0 && cols > 0 {
+		term.Resize(rows, cols)
 	}
 
 	// 存储终端实例
-	m.mutex.Lock()
 	m.terminals[sessionID] = term
-	m.mutex.Unlock()
-
 	log.Printf("[终端管理器] 创建新会话: %s", sessionID)
-	return sessionID, nil
+
+	return term, nil
 }
 
 // GetTerminal 获取终端会话

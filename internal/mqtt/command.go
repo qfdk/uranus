@@ -79,9 +79,6 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	// 处理潜在的命令参数结构问题
-	fixCommandStructure(&command)
-
 	// 中断命令的特殊处理
 	if command.Command == "interrupt" && command.TargetRequestID != "" {
 		log.Printf("[MQTT] 收到中断命令，目标请求ID: %s", command.TargetRequestID)
@@ -224,78 +221,6 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 	if !command.Silent && response != nil {
 		// 发送响应
 		SendResponse(response)
-	}
-}
-
-// fixCommandStructure 修复命令结构问题，增加与前端的兼容性
-func fixCommandStructure(cmd *CommandMessage) {
-	// 如果命令不是标准命令，且没有参数，尝试修复结构
-	standardCommands := map[string]bool{
-		"execute": true, "reload": true, "restart": true,
-		"stop": true, "start": true, "status": true,
-		"update": true, "interrupt": true, "terminal_input": true,
-		"force_interrupt": true, "terminal_resize": true, "terminal_signal": true,
-	}
-
-	if !standardCommands[cmd.Command] && cmd.Params == nil {
-		// 可能是前端直接发送了命令名称，我们修复为execute命令
-		actualCommand := cmd.Command
-		cmd.Params = make(map[string]interface{})
-		cmd.Params["command"] = actualCommand
-		cmd.Command = "execute"
-
-		log.Printf("[MQTT] 修复命令结构: '%s' -> 'execute' 命令, 参数command='%s'", actualCommand, actualCommand)
-	}
-
-	// 从params中提取终端大小参数
-	if cmd.Params != nil {
-		// 提取行数
-		if rows, ok := cmd.Params["rows"]; ok {
-			if rowsInt, ok := rows.(float64); ok {
-				cmd.Rows = int(rowsInt)
-				delete(cmd.Params, "rows")
-			}
-		}
-
-		// 提取列数
-		if cols, ok := cmd.Params["cols"]; ok {
-			if colsInt, ok := cols.(float64); ok {
-				cmd.Cols = int(colsInt)
-				delete(cmd.Params, "cols")
-			}
-		}
-
-		// 提取信号类型
-		if signal, ok := cmd.Params["signal"]; ok {
-			if signalStr, ok := signal.(string); ok {
-				cmd.Signal = signalStr
-				delete(cmd.Params, "signal")
-			}
-		}
-
-		// 提取交互式标志
-		if interactive, ok := cmd.Params["interactive"]; ok {
-			if interactiveBool, ok := interactive.(bool); ok {
-				cmd.Interactive = interactiveBool
-				delete(cmd.Params, "interactive")
-			}
-		}
-
-		// 提取特殊命令标志
-		if specialCommand, ok := cmd.Params["specialCommand"]; ok {
-			if specialBool, ok := specialCommand.(bool); ok {
-				cmd.SpecialCommand = specialBool
-				delete(cmd.Params, "specialCommand")
-			}
-		}
-
-		// 提取静默标志
-		if silent, ok := cmd.Params["silent"]; ok {
-			if silentBool, ok := silent.(bool); ok {
-				cmd.Silent = silentBool
-				delete(cmd.Params, "silent")
-			}
-		}
 	}
 }
 

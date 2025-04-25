@@ -642,3 +642,160 @@ func (h *UpdateCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 		SessionID: cmd.SessionID,
 	}
 }
+
+// InterruptCommand 中断正在执行的命令
+func InterruptCommand(requestID string) bool {
+	activeCommandsLock.RLock()
+	cmd, exists := activeCommands[requestID]
+	activeCommandsLock.RUnlock()
+
+	if !exists || cmd == nil {
+		return false
+	}
+
+	// 取消上下文
+	cmd.Cancel()
+
+	// 如果命令已经启动
+	if cmd.Cmd.Process != nil {
+		// 获取进程组ID
+		pgid, err := syscall.Getpgid(cmd.Cmd.Process.Pid)
+		if err != nil {
+			log.Printf("[MQTT] 获取进程组ID失败: %v", err)
+			pgid = 0
+		}
+
+		// 发送中断信号
+		if pgid > 0 {
+			syscall.Kill(-pgid, syscall.SIGINT)
+			time.Sleep(100 * time.Millisecond)
+
+			// 如果进程还在运行，发送SIGTERM
+			if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+				syscall.Kill(-pgid, syscall.SIGTERM)
+				time.Sleep(100 * time.Millisecond)
+
+				// 如果进程还在运行，发送SIGKILL
+				if cmd.Cmd.ProcessState == nil || !cmd.Cmd.ProcessState.Exited() {
+					syscall.Kill(-pgid, syscall.SIGKILL)
+				}
+			}
+		} else {
+			cmd.Cmd.Process.Kill()
+		}
+	}
+
+	log.Printf("[MQTT] 已中断命令: %s", requestID)
+	return true
+}
+
+// InterruptSessionCommand 通过会话ID中断命令
+func InterruptSessionCommand(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+
+	activeCommandsLock.RLock()
+	requestID, exists := sessionCommands[sessionID]
+	activeCommandsLock.RUnlock()
+
+	if !exists || requestID == "" {
+		log.Printf("[MQTT] 未找到会话 %s 对应的活动命令", sessionID)
+		return false
+	}
+
+	log.Printf("[MQTT] 通过会话ID %s 中断命令: %s", sessionID, requestID)
+	return InterruptCommand(requestID)
+}
+
+// 注册终端相关命令处理器
+func init() {
+	// 确保已注册的处理器不会重复注册
+	if _, exists := commandHandlers["interactiveShell"]; !exists {
+		RegisterHandler("interactiveShell", &InteractiveShellHandler{})
+	}
+	if _, exists := commandHandlers["terminal_input"]; !exists {
+		RegisterHandler("terminal_input", &TerminalInputHandler{})
+	}
+	if _, exists := commandHandlers["terminal_resize"]; !exists {
+		RegisterHandler("terminal_resize", &TerminalResizeHandler{})
+	}
+	if _, exists := commandHandlers["closeTerminal"]; !exists {
+		RegisterHandler("closeTerminal", &CloseTerminalHandler{})
+	}
+	if _, exists := commandHandlers["terminal_signal"]; !exists {
+		RegisterHandler("terminal_signal", &TerminalSignalHandler{})
+	}
+}
+
+// TerminalSignalHandler 处理终端信号
+type TerminalSignalHandler struct{}
+
+func (h *TerminalSignalHandler) Handle(cmd *CommandMessage) *ResponseMessage {
+	if cmd.SessionID == "" || cmd.Signal == "" || TerminalMgr == nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "缺少会话ID、信号类型或终端管理器未初始化",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 获取终端
+	term, err := TerminalMgr.GetTerminal(cmd.SessionID)
+	if err != nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   fmt.Sprintf("找不到会话: %v", err),
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 发送信号
+	err = term.SendSignal(cmd.Signal)
+	if err != nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   fmt.Sprintf("发送信号失败: %v", err),
+			SessionID: cmd.SessionID,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   true,
+		Message:   fmt.Sprintf("已发送信号: %s", cmd.Signal),
+		SessionID: cmd.SessionID,
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// HandleTerminalInput 处理终端输入的全局函数
+func HandleTerminalInput(sessionID string, input string) bool {
+	if sessionID == "" || input == "" || TerminalMgr == nil {
+		return false
+	}
+
+	term, err := TerminalMgr.GetTerminal(sessionID)
+	if err != nil {
+		log.Printf("[MQTT] 找不到会话 %s: %v", sessionID, err)
+		return false
+	}
+
+	// 发送输入到终端
+	err = term.SendInput(input)
+	if err != nil {
+		log.Printf("[MQTT] 发送输入到会话 %s 失败: %v", sessionID, err)
+		return false
+	}
+
+	return true
+}
