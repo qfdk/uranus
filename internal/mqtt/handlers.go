@@ -26,6 +26,9 @@ func init() {
 
 	// 注册终端命令处理器
 	RegisterHandler("execute", &TerminalCommandHandler{})
+
+	// 注册终端会话处理器
+	RegisterHandler("terminal", &TerminalSessionHandler{})
 }
 
 // NginxCommandHandler 处理Nginx相关命令
@@ -296,4 +299,255 @@ func (h *TerminalCommandHandler) Handle(cmd *CommandMessage) *ResponseMessage {
 
 	// 非流式模式或静默模式不返回响应，由goroutine处理完成后发送
 	return nil
+}
+
+// TerminalSessionHandler 处理终端会话相关命令
+type TerminalSessionHandler struct{}
+
+func (h *TerminalSessionHandler) Handle(cmd *CommandMessage) *ResponseMessage {
+	// 检查终端管理器是否初始化
+	if TerminalMgr == nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "终端管理器未初始化",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 解析action参数
+	actionParam, ok := cmd.Params["action"]
+	if !ok {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "缺少action参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 转换action为字符串
+	action, ok := actionParam.(string)
+	if !ok {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "action参数类型错误",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 处理不同类型的终端命令
+	switch action {
+	case "create":
+		return h.handleCreateTerminal(cmd)
+	case "close":
+		return h.handleCloseTerminal(cmd)
+	case "resize":
+		return h.handleResizeTerminal(cmd)
+	case "list":
+		return h.handleListTerminals(cmd)
+	default:
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "未知的终端命令: " + action,
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+}
+
+// handleCreateTerminal 处理创建终端命令
+func (h *TerminalSessionHandler) handleCreateTerminal(cmd *CommandMessage) *ResponseMessage {
+	// 提取shell参数
+	var shell string
+	if shellParam, ok := cmd.Params["shell"]; ok {
+		if shellStr, ok := shellParam.(string); ok {
+			shell = shellStr
+		}
+	}
+
+	// 提取行列参数
+	var rows, cols uint16 = 24, 80
+	if rowsParam, ok := cmd.Params["rows"]; ok {
+		if rowsFloat, ok := rowsParam.(float64); ok && rowsFloat > 0 {
+			rows = uint16(rowsFloat)
+		}
+	}
+	if colsParam, ok := cmd.Params["cols"]; ok {
+		if colsFloat, ok := colsParam.(float64); ok && colsFloat > 0 {
+			cols = uint16(colsFloat)
+		}
+	}
+
+	// 创建终端会话
+	sessionID, err := TerminalMgr.CreateTerminal(shell)
+	if err != nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "创建终端失败: " + err.Error(),
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 调整终端大小
+	if rows > 0 && cols > 0 {
+		term, _ := TerminalMgr.GetTerminal(sessionID)
+		if term != nil {
+			term.Resize(rows, cols)
+		}
+	}
+
+	// 返回成功响应
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   true,
+		Message:   "终端创建成功",
+		Data: map[string]string{
+			"sessionId":   sessionID,
+			"inputTopic":  "uranus/terminal/" + sessionID + "/input",
+			"outputTopic": "uranus/terminal/" + sessionID + "/output",
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// handleCloseTerminal 处理关闭终端命令
+func (h *TerminalSessionHandler) handleCloseTerminal(cmd *CommandMessage) *ResponseMessage {
+	// 提取会话ID参数
+	sessionIDParam, ok := cmd.Params["sessionId"]
+	if !ok {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "缺少会话ID参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	sessionID, ok := sessionIDParam.(string)
+	if !ok || sessionID == "" {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "无效的会话ID参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 关闭终端会话
+	err := TerminalMgr.CloseTerminal(sessionID)
+	if err != nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "关闭终端失败: " + err.Error(),
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 返回成功响应
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   true,
+		Message:   "终端已关闭",
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// handleResizeTerminal 处理调整终端大小命令
+func (h *TerminalSessionHandler) handleResizeTerminal(cmd *CommandMessage) *ResponseMessage {
+	// 提取会话ID参数
+	sessionIDParam, ok := cmd.Params["sessionId"]
+	if !ok {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "缺少会话ID参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	sessionID, ok := sessionIDParam.(string)
+	if !ok || sessionID == "" {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "无效的会话ID参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 提取行列参数
+	var rows, cols uint16 = 0, 0
+	if rowsParam, ok := cmd.Params["rows"]; ok {
+		if rowsFloat, ok := rowsParam.(float64); ok && rowsFloat > 0 {
+			rows = uint16(rowsFloat)
+		}
+	}
+	if colsParam, ok := cmd.Params["cols"]; ok {
+		if colsFloat, ok := colsParam.(float64); ok && colsFloat > 0 {
+			cols = uint16(colsFloat)
+		}
+	}
+
+	if rows == 0 || cols == 0 {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "无效的终端尺寸参数",
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 调整终端大小
+	err := TerminalMgr.ResizeTerminal(sessionID, rows, cols)
+	if err != nil {
+		return &ResponseMessage{
+			Command:   cmd.Command,
+			RequestID: cmd.RequestID,
+			Success:   false,
+			Message:   "调整终端大小失败: " + err.Error(),
+			Timestamp: time.Now().UnixMilli(),
+		}
+	}
+
+	// 返回成功响应
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   true,
+		Message:   "终端大小已调整",
+		Timestamp: time.Now().UnixMilli(),
+	}
+}
+
+// handleListTerminals 处理列出终端命令
+func (h *TerminalSessionHandler) handleListTerminals(cmd *CommandMessage) *ResponseMessage {
+	// 获取所有会话
+	sessions := TerminalMgr.ListSessions()
+
+	// 返回成功响应
+	return &ResponseMessage{
+		Command:   cmd.Command,
+		RequestID: cmd.RequestID,
+		Success:   true,
+		Message:   "获取终端列表成功",
+		Data:      sessions,
+		Timestamp: time.Now().UnixMilli(),
+	}
 }

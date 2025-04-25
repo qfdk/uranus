@@ -145,15 +145,3 @@ func publishStatus(status string) {
 		log.Printf("[MQTT] 状态消息发送失败: %v", err)
 	}
 }
-
-// createStatusMessage 创建状态消息
-func createStatusMessage(status string) ([]byte, error) {
-	appConfig := config.GetAppConfig()
-	statusData := map[string]interface{}{
-		"uuid":      appConfig.UUID,
-		"status":    status,
-		"timestamp": time.Now(),
-	}
-
-	return json.Marshal(statusData)
-}
