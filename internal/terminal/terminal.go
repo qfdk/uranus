@@ -161,9 +161,10 @@ func NewTerminal(sessionID string, mqttClient mqtt.Client, shell string) (*Termi
 			ptyHandleMux.Unlock()
 		}
 	} else {
-		// Linux和其他系统
+		// Linux和其他系统 - 修改: 调整SysProcAttr配置
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
+			Setsid:  true, // 添加Setsid，确保有效的控制终端
 		}
 
 		// 创建PTY
@@ -186,6 +187,9 @@ func NewTerminal(sessionID string, mqttClient mqtt.Client, shell string) (*Termi
 		X:    0,
 		Y:    0,
 	})
+
+	// 修改: 记录PTY句柄存储日志
+	log.Printf("[终端] 会话 %s 的PTY句柄已存储", sessionID)
 
 	// 创建终端对象
 	terminal := &Terminal{
@@ -225,6 +229,9 @@ func (t *Terminal) Resize(rows, cols uint16) error {
 	t.Rows = rows
 	t.Cols = cols
 
+	// 修改: 调整日志记录
+	log.Printf("[终端] 尝试调整会话 %s 大小为 %dx%d", t.SessionID, cols, rows)
+
 	// 尝试直接访问终端句柄
 	ptyHandleMux.RLock()
 	ptyHandle, exists := ptyHandles[t.SessionID]
@@ -248,13 +255,27 @@ func (t *Terminal) Resize(rows, cols uint16) error {
 		return err
 	}
 
+	// 修改: 如果通过映射找不到句柄，检查t.Pty是否可用
+	if t.Pty == nil {
+		log.Printf("[终端] 会话 %s 的PTY句柄不可用，无法调整大小", t.SessionID)
+		return fmt.Errorf("PTY句柄不可用，无法调整大小")
+	}
+
 	// 如果没有句柄，使用t.Pty
-	return pty.Setsize(t.Pty, &pty.Winsize{
+	err := pty.Setsize(t.Pty, &pty.Winsize{
 		Rows: rows,
 		Cols: cols,
 		X:    0,
 		Y:    0,
 	})
+
+	if err != nil {
+		log.Printf("[终端] 使用实例PTY调整会话 %s 大小失败: %v", t.SessionID, err)
+	} else {
+		log.Printf("[终端] 使用实例PTY调整会话 %s 大小为 %dx%d", t.SessionID, cols, rows)
+	}
+
+	return err
 }
 
 // Close 关闭终端会话
@@ -429,11 +450,15 @@ func findDefaultShell() string {
 
 // ResizeBySessionID 通过会话ID调整终端大小（用于外部直接调用）
 func ResizeBySessionID(sessionID string, rows, cols uint16) error {
+	// 修改: 增加详细日志记录
+	log.Printf("[终端] 尝试通过会话ID %s 调整终端大小为 %dx%d", sessionID, cols, rows)
+
 	ptyHandleMux.RLock()
 	ptyHandle, exists := ptyHandles[sessionID]
 	ptyHandleMux.RUnlock()
 
 	if !exists || ptyHandle == nil {
+		log.Printf("[终端] 找不到会话 %s 的PTY句柄", sessionID)
 		return fmt.Errorf("找不到会话 %s 的PTY句柄", sessionID)
 	}
 

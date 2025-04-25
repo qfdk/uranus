@@ -175,8 +175,10 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 	cmd.Env = os.Environ()
 
 	// 设置进程组ID，以便后续可以终止整个进程组
+	// 修改: 为解决PTY问题，调整SysProcAttr设置
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true, // 创建新的进程组
+		Setsid:  true, // 创建新的会话
 	}
 
 	// 增加调试日志
@@ -231,6 +233,7 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 		// 更新会话到命令的映射
 		if sessionID != "" {
 			sessionCommands[sessionID] = requestID
+			log.Printf("[MQTT] 添加会话映射: %s -> %s", sessionID, requestID)
 		}
 
 		activeCommandsLock.Unlock()
@@ -242,6 +245,7 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 			// 如果会话ID存在且映射到此请求ID，也清理会话映射
 			if sessionID != "" && sessionCommands[sessionID] == requestID {
 				delete(sessionCommands, sessionID)
+				log.Printf("[MQTT] 删除会话映射: %s", sessionID)
 			}
 			activeCommandsLock.Unlock()
 		}()
@@ -262,6 +266,19 @@ func executeTerminalCommand(cmdStr string, sessionID string, requestID string, s
 func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string,
 	ctx context.Context, cancel context.CancelFunc,
 	outputChan chan string, done chan struct{}, inputChan chan string) (string, error) {
+
+	// 修改: 调整SysProcAttr设置，以解决伪终端问题
+	// 根据不同操作系统设置不同的SysProcAttr
+	if runtime.GOOS == "darwin" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true, // 在macOS上只设置Setsid
+		}
+	} else {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Setsid:  true, // 添加Setsid，确保有效的控制终端
+		}
+	}
 
 	// 创建伪终端
 	ptmx, err := pty.Start(cmd)
@@ -288,11 +305,12 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 		if runtime.GOOS == "darwin" {
 			newCmd.SysProcAttr = &syscall.SysProcAttr{
 				Setpgid: true,
-				Setsid:  false, // 不设置Setsid，避免与Setctty冲突
+				Setsid:  true, // 确保设置Setsid而不是Setctty
 			}
 		} else {
 			newCmd.SysProcAttr = &syscall.SysProcAttr{
 				Setpgid: true,
+				Setsid:  true, // 添加Setsid
 			}
 		}
 
@@ -302,12 +320,17 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 
 	defer ptmx.Close()
 
-	// 将PTY存储到全局映射
+	// 将PTY存储到全局映射 - 修改: 确保正确存储PTY句柄
 	terminalMutex.Lock()
 	activeTerminals[sessionID] = ptmx
 	terminalMutex.Unlock()
 
-	log.Printf("[MQTT] 交互式命令已启动，PID: %d", cmd.Process.Pid)
+	// 修改: 同时在ptyHandles中存储PTY句柄，确保终端大小调整可以工作
+	ptyHandleMux.Lock()
+	ptyHandles[sessionID] = ptmx
+	ptyHandleMux.Unlock()
+
+	log.Printf("[MQTT] 交互式命令已启动，PID: %d，已存储PTY句柄到会话ID: %s", cmd.Process.Pid, sessionID)
 
 	// 保存伪终端引用
 	activeCommandsLock.Lock()
@@ -530,7 +553,6 @@ func executeInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string
 	return output, cmdErr
 }
 
-// executeNonInteractiveCommand 使用标准管道执行非交互式命令
 // executeNonInteractiveCommand 使用标准管道执行非交互式命令
 func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID string,
 	ctx context.Context, cancel context.CancelFunc,
@@ -782,6 +804,12 @@ func executeNonInteractiveCommand(cmd *exec.Cmd, sessionID string, requestID str
 	return output, err
 }
 
+// 添加PTY句柄全局访问 - 用于外部模块访问PTY句柄
+var (
+	ptyHandles   = make(map[string]*os.File) // 会话ID -> PTY句柄映射
+	ptyHandleMux sync.RWMutex                // 保护映射的互斥锁
+)
+
 // IsCommandSafe 检查命令是否安全
 func IsCommandSafe(cmd string) bool {
 	// 这里可以实现一些安全检查，例如禁止某些危险命令
@@ -941,9 +969,11 @@ func InterruptSessionCommand(sessionID string) bool {
 	activeCommandsLock.RUnlock()
 
 	if !exists || requestID == "" {
+		log.Printf("[MQTT] 未找到会话 %s 对应的活动命令", sessionID)
 		return false
 	}
 
+	log.Printf("[MQTT] 通过会话ID %s 中断命令: %s", sessionID, requestID)
 	return InterruptCommand(requestID)
 }
 
@@ -953,10 +983,14 @@ func HandleTerminalInput(sessionID string, input string) bool {
 		return false
 	}
 
+	// 修改: 增加日志记录
+	log.Printf("[MQTT] 处理会话 %s 的终端输入，长度: %d", sessionID, len(input))
+
 	activeCommandsLock.RLock()
 	requestID, exists := sessionCommands[sessionID]
 	if !exists || requestID == "" {
 		activeCommandsLock.RUnlock()
+		log.Printf("[MQTT] 未找到会话 %s 对应的请求ID", sessionID)
 		return false
 	}
 
@@ -964,6 +998,7 @@ func HandleTerminalInput(sessionID string, input string) bool {
 	activeCommandsLock.RUnlock()
 
 	if !exists || cmd == nil || !cmd.IsInteractive || cmd.InputChan == nil {
+		log.Printf("[MQTT] 找不到有效的交互式命令，会话ID: %s, 请求ID: %s", sessionID, requestID)
 		return false
 	}
 
