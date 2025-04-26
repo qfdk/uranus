@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 	"uranus/internal/config"
-	"uranus/internal/terminal"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -23,17 +21,12 @@ const (
 )
 
 var (
-	mqttClient    mqtt.Client       // MQTT客户端实例
-	mqttConnected bool              // MQTT连接状态
-	clientLock    sync.Mutex        // 客户端操作互斥锁
-	statusLock    sync.Mutex        // 状态发布互斥锁
-	TerminalMgr   *terminal.Manager // 终端管理器全局实例
+	mqttClient    mqtt.Client // MQTT客户端实例
+	mqttConnected bool        // MQTT连接状态
 )
 
 // InitMQTT 初始化MQTT客户端
 func InitMQTT() error {
-	clientLock.Lock()
-	defer clientLock.Unlock()
 
 	// 如果客户端已存在且已连接，直接返回成功
 	if mqttClient != nil && mqttClient.IsConnected() {
@@ -181,14 +174,9 @@ func Publish(topic string, payload []byte) error {
 
 // Disconnect 断开MQTT连接
 func Disconnect() {
-	clientLock.Lock()
-	defer clientLock.Unlock()
-
 	if mqttClient != nil && mqttClient.IsConnected() {
 		// 先发布离线状态
-		statusLock.Lock()
 		publishStatusInternal("offline")
-		statusLock.Unlock()
 
 		// 断开连接，合理的超时时间
 		mqttClient.Disconnect(250)

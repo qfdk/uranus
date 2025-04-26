@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"syscall"
 	"time"
 	"uranus/internal/config"
 
@@ -76,111 +75,6 @@ func handleCommand(client mqtt.Client, msg mqtt.Message) {
 	var command CommandMessage
 	if err := json.Unmarshal(msg.Payload(), &command); err != nil {
 		log.Printf("[MQTT] 命令解析失败: %v", err)
-		return
-	}
-
-	// 中断命令的特殊处理
-	if command.Command == "interrupt" && command.TargetRequestID != "" {
-		log.Printf("[MQTT] 收到中断命令，目标请求ID: %s", command.TargetRequestID)
-		if InterruptCommand(command.TargetRequestID) {
-			// 发送中断成功响应
-			SendResponse(&ResponseMessage{
-				Command:   command.Command,
-				RequestID: command.RequestID,
-				Success:   true,
-				Message:   "命令已中断",
-				SessionID: command.SessionID,
-				Timestamp: time.Now().UnixMilli(),
-			})
-		} else {
-			// 发送中断失败响应
-			SendResponse(&ResponseMessage{
-				Command:   command.Command,
-				RequestID: command.RequestID,
-				Success:   false,
-				Message:   "命令未找到或已完成",
-				SessionID: command.SessionID,
-				Timestamp: time.Now().UnixMilli(),
-			})
-		}
-		return
-	}
-
-	// 终端输入命令的特殊处理
-	if command.Command == "terminal_input" && command.SessionID != "" && command.Input != "" {
-		log.Printf("[MQTT] 收到终端输入，会话ID: %s", command.SessionID)
-
-		// 处理输入
-		success := HandleTerminalInput(command.SessionID, command.Input)
-
-		// 处理结果消息
-		message := "处理输入失败"
-		if success {
-			message = "输入已处理"
-		}
-
-		// 如果是Ctrl+C，不发送响应
-		if command.Input == "\u0003" {
-			return
-		}
-
-		// 发送输入处理结果响应
-		SendResponse(&ResponseMessage{
-			Command:   command.Command,
-			RequestID: command.RequestID,
-			Success:   success,
-			Message:   message,
-			SessionID: command.SessionID,
-			Timestamp: time.Now().UnixMilli(),
-		})
-		return
-	}
-
-	// 强制中断命令的特殊处理
-	if command.Command == "force_interrupt" && command.SessionID != "" {
-		log.Printf("[MQTT] 收到强制中断命令，会话ID: %s", command.SessionID)
-
-		// 记录中断尝试
-		interrupted := false
-
-		// 尝试通过会话ID中断
-		if InterruptSessionCommand(command.SessionID) {
-			interrupted = true
-		}
-
-		// 尝试终止与会话关联的所有命令
-		activeCommandsLock.RLock()
-		for requestID, cmd := range activeCommands {
-			if cmd.SessionID == command.SessionID {
-				log.Printf("[MQTT] 强制中断会话相关的命令: %s", requestID)
-				InterruptCommand(requestID)
-				interrupted = true
-			}
-		}
-		activeCommandsLock.RUnlock()
-
-		// 尝试发送系统信号
-		terminated := false
-		for _, pid := range getProcessesBySession(command.SessionID) {
-			log.Printf("[MQTT] 强制终止进程: %d", pid)
-			// 如果pid是负数，表示它是进程组ID
-			if pid < 0 {
-				syscall.Kill(pid, syscall.SIGKILL) // 向进程组发送SIGKILL
-			} else {
-				syscall.Kill(pid, syscall.SIGKILL) // 向单个进程发送SIGKILL
-			}
-			terminated = true
-		}
-
-		// 发送响应
-		SendResponse(&ResponseMessage{
-			Command:   command.Command,
-			RequestID: command.RequestID,
-			Success:   true,
-			Message:   fmt.Sprintf("强制中断处理: 中断命令=%v, 终止进程=%v", interrupted, terminated),
-			SessionID: command.SessionID,
-			Timestamp: time.Now().UnixMilli(),
-		})
 		return
 	}
 

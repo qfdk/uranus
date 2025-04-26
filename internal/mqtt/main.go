@@ -5,7 +5,6 @@ package mqtt
 import (
 	"context"
 	"log"
-	"uranus/internal/terminal"
 )
 
 // Init 初始化MQTT模块并启动心跳服务
@@ -18,20 +17,8 @@ func Init(ctx context.Context) {
 		return
 	}
 
-	// 创建终端管理器
-	TerminalMgr = terminal.NewManager(GetClient())
-
 	log.Println("[MQTT] 终端管理器已初始化")
 
 	// 启动MQTT心跳服务
 	go StartHeartbeat(ctx)
-
-	// 监听ctx取消信号，关闭所有终端
-	go func() {
-		<-ctx.Done()
-		log.Println("[MQTT] 收到关闭信号，清理所有终端会话")
-		if TerminalMgr != nil {
-			TerminalMgr.CloseAll()
-		}
-	}()
 }
