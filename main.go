@@ -22,6 +22,7 @@ import (
 	"uranus/internal/middlewares"
 	"uranus/internal/models"
 	"uranus/internal/mqtt"
+	"uranus/internal/mqtty"
 	"uranus/internal/routes"
 	"uranus/internal/services"
 	"uranus/internal/tools"
@@ -196,6 +197,7 @@ func Graceful() {
 			}
 		}
 	}()
+
 	// 创建触发检查计时器
 	triggerCheck := time.NewTicker(5 * time.Second)
 	defer triggerCheck.Stop()
@@ -272,6 +274,7 @@ func Graceful() {
 			}
 		}
 	}()
+
 	ln, err := upg.Fds.Listen("tcp", "0.0.0.0:7777")
 	if err != nil {
 		log.Fatalln("无法监听端口:", err)
@@ -303,8 +306,18 @@ func Graceful() {
 
 	// 启动MQTT心跳服务
 	go mqtt.Init(context.Background())
-
 	log.Printf("[进程][%d]: MQTT心跳服务已启动", os.Getpid())
+
+	// 启动MQTT终端服务
+	mqttyOpts := mqtty.DefaultOptions()
+	mqttyServer := mqtty.NewTerminal(mqttyOpts)
+	err = mqttyServer.Start()
+	if err != nil {
+		log.Printf("[进程][%d]: MQTT终端服务启动失败: %v", os.Getpid(), err)
+	} else {
+		log.Printf("[进程][%d]: MQTT终端服务已启动", os.Getpid())
+	}
+	defer mqttyServer.Stop()
 
 	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
