@@ -37,7 +37,7 @@ func DefaultOptions() Options {
 		ClientID:     "mqtty-server-" + appConfig.UUID,
 		DefaultShell: "/bin/bash",
 		BufferSize:   4096,
-		TopicPrefix:  "agent/" + appConfig.UUID + "/terminal",
+		TopicPrefix:  "uranus/terminal",
 	}
 }
 

@@ -47,8 +47,30 @@ func (m *SessionManager) CreateSession(sessionID, shell string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.sessions[sessionID]; exists {
-		return errors.New("会话ID已存在")
+	// 检查会话是否已存在
+	if session, exists := m.sessions[sessionID]; exists {
+		// 检查会话是否已关闭
+		var isClosed bool
+		select {
+		case <-session.Done:
+			isClosed = true
+		default:
+			isClosed = false
+		}
+
+		if isClosed {
+			// 会话已关闭，重新创建
+			log.Printf("[MQTT] 会话 %s 已关闭，重新创建", sessionID)
+			newSession, err := newSession(sessionID, shell)
+			if err != nil {
+				return fmt.Errorf("创建会话失败: %v", err)
+			}
+			m.sessions[sessionID] = newSession
+		} else {
+			// 会话未关闭，可以复用
+			log.Printf("[MQTT] 会话ID已存在: %s，复用该会话", sessionID)
+		}
+		return nil
 	}
 
 	if shell == "" {
@@ -131,23 +153,39 @@ func (m *SessionManager) ListSessions() []string {
 func newSession(id, shell string) (*Session, error) {
 	cmd := exec.Command(shell)
 
-	// 根据不同操作系统设置进程属性
-	if runtime.GOOS == "darwin" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setsid: true,
-		}
-	} else {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Setsid:  true,
-		}
+	// 初始化环境变量
+	cmd.Env = append(os.Environ(),
+		"TERM=xterm-256color",
+		"PS1=\\[\\e[32m\\]\\u@\\h:\\[\\e[33m\\]\\w\\[\\e[0m\\]\\$ ")
+
+	// 手动创建PTY master/slave对
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		return nil, fmt.Errorf("无法打开PTY: %v", err)
 	}
 
-	// 创建PTY
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		return nil, err
+	// 设置命令的标准输入输出
+	cmd.Stdin = tty
+	cmd.Stdout = tty
+	cmd.Stderr = tty
+
+	// 将SysProcAttr设置为nil，完全不使用Setctty
+	cmd.SysProcAttr = nil
+
+	// 创建PTY前添加日志
+	log.Printf("[MQTTY] 正在创建伪终端，Shell: %s, OS: %s", shell, runtime.GOOS)
+
+	// 启动命令
+	if err := cmd.Start(); err != nil {
+		tty.Close()
+		ptmx.Close()
+		return nil, fmt.Errorf("启动命令失败: %v", err)
 	}
+
+	// 关闭TTY的文件描述符，此时子进程已经继承了它
+	tty.Close()
+
+	log.Printf("[MQTTY] 成功创建伪终端，PID: %d", cmd.Process.Pid)
 
 	// 默认终端大小
 	pty.Setsize(ptmx, &pty.Winsize{
@@ -169,6 +207,11 @@ func newSession(id, shell string) (*Session, error) {
 
 	// 启动I/O处理
 	go session.handleIO()
+
+	// 发送初始欢迎信息
+	welcomeMsg := fmt.Sprintf("\033[1;34m欢迎使用MQTT终端\033[0m\r\n会话 ID: %s\r\n创建时间: %s\r\n\r\n",
+		id, time.Now().Format("2006-01-02 15:04:05"))
+	session.Output <- []byte(welcomeMsg)
 
 	return session, nil
 }
@@ -280,18 +323,38 @@ func (s *Session) Resize(rows, cols uint16) error {
 
 // getDefaultShell 获取默认shell
 func getDefaultShell() string {
+	// 优先使用 bash
 	shells := []string{"/bin/bash", "/bin/sh", "/bin/zsh"}
 
 	if runtime.GOOS == "darwin" {
-		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+		// macOS上首选 bash 而非 zsh，因为可能更稳定
+		shells = []string{"/bin/bash", "/bin/sh", "/bin/zsh"}
+
+		// 检查可执行权限
+		for _, shell := range shells {
+			if info, err := os.Stat(shell); err == nil {
+				// 确保文件存在且可执行
+				if info.Mode()&0111 != 0 {
+					log.Printf("[MQTTY] 使用shell: %s", shell)
+					return shell
+				}
+			}
+		}
+
+		// 所有shell均不可用时，尝试使用/bin/sh
+		log.Printf("[MQTTY] 警告: 所有首选shell不可用，使用/bin/sh")
+		return "/bin/sh"
 	}
 
+	// 其他系统
 	for _, shell := range shells {
 		if _, err := os.Stat(shell); err == nil {
+			log.Printf("[MQTTY] 使用shell: %s", shell)
 			return shell
 		}
 	}
 
 	// 兜底shell
+	log.Printf("[MQTTY] 警告: 所有shell不可用，使用/bin/sh")
 	return "/bin/sh"
 }

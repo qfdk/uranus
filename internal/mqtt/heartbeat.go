@@ -4,7 +4,6 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"os"
@@ -90,10 +89,6 @@ func sendHeartbeat() {
 	err = Publish(HeartbeatTopic, payload)
 	if err != nil {
 		log.Printf("[MQTT] 心跳发送失败: %v", err)
-	} else {
-		if gin.Mode() == gin.DebugMode {
-			log.Println("[MQTT] 心跳发送成功")
-		}
 	}
 }
 
