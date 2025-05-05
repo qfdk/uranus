@@ -208,11 +208,6 @@ func newSession(id, shell string) (*Session, error) {
 	// 启动I/O处理
 	go session.handleIO()
 
-	// 发送初始欢迎信息
-	welcomeMsg := fmt.Sprintf("\033[1;34m欢迎使用MQTT终端\033[0m\r\n会话 ID: %s\r\n创建时间: %s\r\n\r\n",
-		id, time.Now().Format("2006-01-02 15:04:05"))
-	session.Output <- []byte(welcomeMsg)
-
 	return session, nil
 }
 
