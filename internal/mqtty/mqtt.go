@@ -142,13 +142,15 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 		return
 	}
 
-	log.Printf("[MQTT] 收到终端命令: %s", msg.Payload())
+	log.Printf("[MQTT] 收到命令: %s", msg.Payload())
 
-	// 只处理终端相关命令
-	if command.Command != "terminal" {
+	// 终端命令另行处理
+	if command.Command == "terminal" {
+		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
 		return
 	}
 
+	// 其他命令类型的处理继续原来的逻辑
 	// 转换为正确的消息格式
 	message := Message{
 		SessionID: command.SessionId,
@@ -417,93 +419,13 @@ var (
 	forwardingMutex    sync.Mutex
 )
 
-// 转发会话输出
+// 转发会话输出 - 兼容旧版本
+// 使用配置文件中的 UUID
 func forwardSessionOutput(topicPrefix, sessionID string, manager *SessionManager) {
-
-	// 检查是否已经有转发进程在运行
-	forwardingMutex.Lock()
-	if stopCh, exists := forwardingSessions[sessionID]; exists {
-		// 通知现有转发进程停止
-		close(stopCh)
-		delete(forwardingSessions, sessionID)
-	}
-
-	// 创建新的停止通道
-	stopCh := make(chan struct{})
-	forwardingSessions[sessionID] = stopCh
-	forwardingMutex.Unlock()
-
-	// 在函数结束时清除通道
-	defer func() {
-		forwardingMutex.Lock()
-		delete(forwardingSessions, sessionID)
-		forwardingMutex.Unlock()
-	}()
-
-	session, err := manager.GetSession(sessionID)
-	if err != nil {
-		log.Printf("[MQTTY] 无法获取会话来转发输出: %v", err)
-		return
-	}
-
-	topic := fmt.Sprintf("%s/%s/%s", topicPrefix, sessionID, TopicOutput)
-
-	// 打印输出主题
-	log.Printf("[MQTTY] 转发输出到主题: %s", topic)
-
 	// 获取Agent UUID用于前端响应主题
 	agentUuid := config.GetAppConfig().UUID
-	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
-
-	for {
-		select {
-		case output, ok := <-session.Output:
-			if !ok {
-				// 通道已关闭
-				return
-			}
-
-			// 打印输出的前30个字符以便于调试
-			preview := string(output)
-			if len(preview) > 30 {
-				preview = preview[:30] + "..."
-			}
-			log.Printf("[MQTTY] 收到会话输出 (%s): %q", sessionID, preview)
-
-			// 创建标准MQTT消息
-			message := Message{
-				SessionID: sessionID,
-				Type:      "output", // 添加类型信息，与前端对应
-				Data:      string(output),
-				Timestamp: time.Now().UnixNano() / 1e6,
-			}
-
-			payload, err := json.Marshal(message)
-			if err != nil {
-				log.Printf("[MQTTY] 序列化输出消息失败: %v", err)
-				continue
-			}
-
-			// 只发送到前端响应主题，不再发送到传统输出主题
-			// 已经确认前端只监听 response主题
-			// 发布到前端响应主题
-			if mqttClient != nil && mqttClient.IsConnected() {
-				token := mqttClient.Publish(responseTopic, 1, false, payload)
-				if token.Wait() && token.Error() != nil {
-					log.Printf("[MQTTY] 发布输出消息失败: %v", token.Error())
-				}
-			}
-
-		case <-session.Done:
-			// 会话已关闭
-			return
-
-		case <-stopCh:
-			// 收到停止信号，可能是新的转发进程启动
-			log.Printf("[MQTTY] 终止已有的输出转发 (会话: %s)", sessionID)
-			return
-		}
-	}
+	// 调用新版本的函数
+	forwardSessionOutputWithUUID(topicPrefix, sessionID, manager, agentUuid)
 }
 
 // 解析主题部分
