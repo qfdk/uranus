@@ -163,6 +163,12 @@ func newSession(id, shell string) (*Session, error) {
 		"TERM=xterm-256color",
 		"PS1=\\[\\e[32m\\]\\u@\\h:\\[\\e[33m\\]\\w\\[\\e[0m\\]\\$ ")
 
+	// 配置进程组，使得命令在自己的进程组中运行
+	// 这样可以将信号发送到整个进程组，包括子进程
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true, // 设置进程组ID
+	}
+
 	// 手动创建PTY master/slave对
 	ptmx, tty, err := pty.Open()
 	if err != nil {
@@ -173,9 +179,6 @@ func newSession(id, shell string) (*Session, error) {
 	cmd.Stdin = tty
 	cmd.Stdout = tty
 	cmd.Stderr = tty
-
-	// 将SysProcAttr设置为nil，完全不使用Setctty
-	cmd.SysProcAttr = nil
 
 	// 创建PTY前添加日志
 	log.Printf("[MQTTY] 正在创建伪终端，Shell: %s, OS: %s", shell, runtime.GOOS)
@@ -227,6 +230,14 @@ func (s *Session) handleIO() {
 					_, err := s.PTY.Write(input)
 					if err != nil {
 						log.Printf("[MQTTY] 写入PTY错误: %v", err)
+					} else {
+						// 特殊处理如果输入是Ctrl+C，确保连续发送回车，帮助中断正在运行的命令
+						if len(input) == 1 && input[0] == 3 {
+							log.Printf("[MQTTY] 检测到Ctrl+C，尝试发送额外回车")
+							// 短暂延迟后发送回车，帮助刷新提示符
+							time.Sleep(100 * time.Millisecond)
+							s.PTY.Write([]byte{13}) // 发送回车(CR)
+						}
 					}
 				}
 			case <-s.Done:
@@ -333,27 +344,71 @@ func isTimeoutError(err error) bool {
 // Close 关闭会话
 func (s *Session) Close() {
 	s.closeOnce.Do(func() {
+		log.Printf("[MQTTY] 关闭会话: %s", s.ID)
 		close(s.Done)
 
 		if s.PTY != nil {
 			s.PTY.Close()
+			log.Printf("[MQTTY] 已关闭PTY")
 		}
 
 		if s.Cmd != nil && s.Cmd.Process != nil {
-			// 尝试终止进程组
+			log.Printf("[MQTTY] 尝试终止进程: %d", s.Cmd.Process.Pid)
+			// 尝试终止进程组 - 使用较温和的终止流程
 			if pgid, err := syscall.Getpgid(s.Cmd.Process.Pid); err == nil {
-				syscall.Kill(-pgid, syscall.SIGTERM)
+				// 先发送中断信号
+				_ = syscall.Kill(-pgid, syscall.SIGINT)
+				log.Printf("[MQTTY] 发送SIGINT到进程组: %d", -pgid)
 				time.Sleep(100 * time.Millisecond)
-				syscall.Kill(-pgid, syscall.SIGKILL)
-			}
 
-			s.Cmd.Process.Kill()
+				// 如果进程仍在运行，发送终止信号
+				_ = syscall.Kill(-pgid, syscall.SIGTERM)
+				log.Printf("[MQTTY] 发送SIGTERM到进程组: %d", -pgid)
+				time.Sleep(100 * time.Millisecond)
+
+				// 最后发送强制终止信号
+				_ = syscall.Kill(-pgid, syscall.SIGKILL)
+				log.Printf("[MQTTY] 发送SIGKILL到进程组: %d", -pgid)
+			} else {
+				// 如果无法获取进程组ID，尝试直接向进程发送信号
+				log.Printf("[MQTTY] 获取进程组ID失败: %v，尝试直接向进程发送信号", err)
+				_ = s.Cmd.Process.Signal(syscall.SIGINT)
+				time.Sleep(100 * time.Millisecond)
+				_ = s.Cmd.Process.Signal(syscall.SIGTERM)
+				time.Sleep(100 * time.Millisecond)
+				s.Cmd.Process.Kill()
+			}
 		}
 	})
 }
 
 // SendInput 发送输入
 func (s *Session) SendInput(data []byte) error {
+	// 检查是否是 Ctrl+C (ASCII 3, ETX - End of Text)
+	if len(data) == 1 && data[0] == 3 {
+		// 只终止ping进程，保持shell会话
+		if s.Cmd != nil && s.Cmd.Process != nil {
+			log.Printf("[MQTTY] 检测到Ctrl+C，只终止ping进程不影响shell")
+
+			// 方法1: 先尝试发送Ctrl+C到PTY
+			_, _ = s.PTY.Write([]byte{3})
+			log.Printf("[MQTTY] 向PTY发送Ctrl+C")
+
+			// 直接使用killall命令终止ping进程，同步执行
+			killCmd := exec.Command("killall", "-9", "ping")
+			if err := killCmd.Run(); err != nil {
+				log.Printf("[MQTTY] 使用killall终止ping进程: %v", err)
+			} else {
+				log.Printf("[MQTTY] 已使用killall强制终止所有ping进程")
+			}
+			
+			// 不需要额外发送回车，避免多余的空行
+
+			return nil
+		}
+	}
+
+	// 正常处理其他输入
 	select {
 	case s.Input <- data:
 		return nil
