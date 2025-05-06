@@ -18,7 +18,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 	SessionId string      `json:"sessionId"`
 	Data      interface{} `json:"data"`
 }, manager *SessionManager, agentUuid string, topicPrefix string) {
-	log.Printf("[MQTT] 处理终端命令: %s, 会话ID: %s", command.Type, command.SessionId)
+	log.Printf("[MQTTY] 处理终端命令: %s, 会话ID: %s", command.Type, command.SessionId)
 
 	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
@@ -36,7 +36,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 	switch command.Type {
 	case "create":
 		// 创建终端会话
-		log.Printf("[MQTT] 创建终端会话: %s", command.SessionId)
+		log.Printf("[MQTTY] 创建终端会话: %s", command.SessionId)
 
 		// 检查会话是否已经存在并活跃
 		session, err := manager.GetSession(command.SessionId)
@@ -52,7 +52,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 
 			if !isClosed {
 				// 会话存在且活跃，直接复用
-				log.Printf("[MQTT] 复用已存在的活跃会话: %s", command.SessionId)
+				log.Printf("[MQTTY] 复用已存在的活跃会话: %s", command.SessionId)
 
 				// 准备成功响应
 				response := struct {
@@ -110,7 +110,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 			response.Success = false
 			response.Type = "error"
 			response.Message = fmt.Sprintf("创建终端会话失败: %v", err)
-			log.Printf("[MQTT] 创建终端会话失败: %v", err)
+			log.Printf("[MQTTY] 创建终端会话失败: %v", err)
 		} else {
 			// 会话创建成功后启动输出转发
 			go forwardSessionOutputWithUUID(topicPrefix, command.SessionId, manager, agentUuid)
@@ -125,7 +125,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 		_, err := manager.GetSession(command.SessionId)
 		if err != nil {
 			// 会话不存在，返回错误响应
-			log.Printf("[MQTT] 输入命令失败，会话不存在: %s", command.SessionId)
+			log.Printf("[MQTTY] 输入命令失败，会话不存在: %s", command.SessionId)
 			response := struct {
 				Success   bool   `json:"success"`
 				RequestId string `json:"requestId"`
@@ -156,7 +156,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 
 	case "close":
 		// 关闭终端会话
-		log.Printf("[MQTT] 关闭终端会话: %s", command.SessionId)
+		log.Printf("[MQTTY] 关闭终端会话: %s", command.SessionId)
 
 		// 关闭会话
 		err := manager.CloseSession(command.SessionId)
@@ -181,7 +181,7 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 			response.Success = false
 			response.Type = "error"
 			response.Message = fmt.Sprintf("关闭终端会话失败: %v", err)
-			log.Printf("[MQTT] 关闭终端会话失败: %v", err)
+			log.Printf("[MQTTY] 关闭终端会话失败: %v", err)
 		}
 
 		// 发送响应

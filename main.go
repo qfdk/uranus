@@ -21,7 +21,6 @@ import (
 	"uranus/internal/config"
 	"uranus/internal/middlewares"
 	"uranus/internal/models"
-	"uranus/internal/mqtt"
 	"uranus/internal/mqtty"
 	"uranus/internal/routes"
 	"uranus/internal/services"
@@ -304,9 +303,7 @@ func Graceful() {
 
 	go services.RenewSSL()
 
-	// 启动MQTT心跳服务
-	go mqtt.Init(context.Background())
-	log.Printf("[进程][%d]: MQTT心跳服务已启动", os.Getpid())
+	// MQTT心跳服务现在已经集成到mqtty模块中
 
 	// 启动MQTT终端服务
 	mqttyOpts := mqtty.DefaultOptions()

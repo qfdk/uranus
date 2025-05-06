@@ -51,6 +51,10 @@ func InitMQTT(opts Options, manager *SessionManager) error {
 		SetConnectionLostHandler(func(client mqtt.Client, err error) {
 			log.Printf("[MQTTY] MQTT连接丢失: %v", err)
 			mqttConnected = false
+
+			// 发送离线状态消息（遗嘱消息）
+			// 注意：由于连接已断开，我们无法发送，但MQTT服务器会自动发送遗嘱消息
+			log.Printf("[MQTTY] 连接丢失，自动发送离线状态")
 		}).
 		SetReconnectingHandler(func(client mqtt.Client, options *mqtt.ClientOptions) {
 			log.Printf("[MQTTY] MQTT正在重连...")
@@ -62,6 +66,20 @@ func InitMQTT(opts Options, manager *SessionManager) error {
 			// 订阅主题
 			subscribeTopics(client, opts.TopicPrefix, manager)
 		})
+
+	// 创建遗嘱消息，在连接异常断开时自动发送
+	appConfig := config.GetAppConfig()
+	willMsg := map[string]interface{}{
+		"uuid":      appConfig.UUID,
+		"status":    "offline",
+		"timestamp": time.Now(),
+	}
+
+	// 序列化遗嘱消息
+	willMsgBytes, _ := json.Marshal(willMsg)
+
+	// 设置遗嘱消息
+	mqttOpts.SetWill(StatusTopic, string(willMsgBytes), 1, true)
 
 	if opts.Username != "" {
 		mqttOpts.SetUsername(opts.Username)
@@ -83,6 +101,11 @@ func InitMQTT(opts Options, manager *SessionManager) error {
 // DisconnectMQTT 断开MQTT连接
 func DisconnectMQTT() {
 	if mqttClient != nil && mqttClient.IsConnected() {
+		// 在断开连接前先发送离线状态
+		log.Println("[MQTTY] 发送离线状态后断开连接")
+		publishStatus("offline")
+
+		// 然后断开连接
 		mqttClient.Disconnect(250)
 		log.Println("[MQTTY] MQTT已断开连接")
 	}
@@ -119,9 +142,9 @@ func subscribeTopics(client mqtt.Client, topicPrefix string, manager *SessionMan
 	})
 
 	if token.Wait() && token.Error() != nil {
-		log.Printf("[MQTT] 订阅命令主题失败 %s: %v", commandTopic, token.Error())
+		log.Printf("[MQTTY] 订阅命令主题失败 %s: %v", commandTopic, token.Error())
 	} else {
-		log.Printf("[MQTT] 已订阅命令主题: %s", commandTopic)
+		log.Printf("[MQTTY] 已订阅命令主题: %s", commandTopic)
 	}
 }
 
@@ -138,11 +161,11 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 	}
 
 	if err := json.Unmarshal(msg.Payload(), &command); err != nil {
-		log.Printf("[MQTT] 解析命令消息失败: %v", err)
+		log.Printf("[MQTTY] 解析命令消息失败: %v", err)
 		return
 	}
 
-	log.Printf("[MQTT] 收到命令: %s", msg.Payload())
+	log.Printf("[MQTTY] 收到命令: %s", msg.Payload())
 
 	// 终端命令另行处理
 	if command.Command == "terminal" {
@@ -216,7 +239,6 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 	}
 }
 
-// 处理接收到的消息
 // 处理接收到的消息
 func handleMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, manager *SessionManager) {
 	topic := msg.Topic()
@@ -307,7 +329,10 @@ func handleControlMessage(sessionID string, msg *Message, manager *SessionManage
 			if !isClosed {
 				// 会话存在且活跃，直接复用
 				log.Printf("[MQTTY] 复用已存在的活跃会话: %s", sessionID)
-				publishStatus(topicPrefix, sessionID, "created", nil)
+
+				// 发送创建状态
+				publishStatus("created")
+
 				// 确保输出转发正在运行
 				go forwardSessionOutput(topicPrefix, sessionID, manager)
 				return
@@ -318,9 +343,12 @@ func handleControlMessage(sessionID string, msg *Message, manager *SessionManage
 		err = manager.CreateSession(sessionID, shell)
 		if err != nil {
 			log.Printf("[MQTTY] 创建会话失败: %v", err)
-			publishStatus(topicPrefix, sessionID, "error", err.Error())
+			// 发送错误状态
+			log.Printf("[MQTTY] 发送错误状态")
+			publishStatus("error")
 		} else {
-			publishStatus(topicPrefix, sessionID, "created", nil)
+			// 发送创建成功状态
+			publishStatus("created")
 			// 启动输出转发
 			go forwardSessionOutput(topicPrefix, sessionID, manager)
 		}
@@ -330,9 +358,11 @@ func handleControlMessage(sessionID string, msg *Message, manager *SessionManage
 		err := manager.CloseSession(sessionID)
 		if err != nil {
 			log.Printf("[MQTTY] 关闭会话失败: %v", err)
-			publishStatus(topicPrefix, sessionID, "error", err.Error())
+			// 发送错误状态
+			publishStatus("error")
 		} else {
-			publishStatus(topicPrefix, sessionID, "closed", nil)
+			// 发送关闭状态
+			publishStatus("closed")
 		}
 	}
 }
@@ -385,31 +415,6 @@ func handleResizeMessage(sessionID string, msg *Message, manager *SessionManager
 	log.Printf("[MQTTY] 调整终端大小: 会话=%s, 行=%d, 列=%d", sessionID, int(rows), int(cols))
 	if err := session.Resize(uint16(rows), uint16(cols)); err != nil {
 		log.Printf("[MQTTY] 调整终端大小失败: %v", err)
-	}
-}
-
-// 发布状态消息
-func publishStatus(topicPrefix, sessionID, status string, data interface{}) {
-	topic := fmt.Sprintf("%s/%s/%s", topicPrefix, sessionID, TopicStatus)
-
-	message := Message{
-		SessionID: sessionID,
-		Type:      status,
-		Data:      data,
-		Timestamp: time.Now().UnixNano() / 1e6,
-	}
-
-	payload, err := json.Marshal(message)
-	if err != nil {
-		log.Printf("[MQTTY] 序列化状态消息失败: %v", err)
-		return
-	}
-
-	if mqttClient != nil && mqttClient.IsConnected() {
-		token := mqttClient.Publish(topic, 1, false, payload)
-		if token.Wait() && token.Error() != nil {
-			log.Printf("[MQTTY] 发布状态消息失败: %v", token.Error())
-		}
 	}
 }
 

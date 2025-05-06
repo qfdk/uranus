@@ -1,5 +1,4 @@
-// internal/mqtt/heartbeat.go
-package mqtt
+package mqtty
 
 import (
 	"context"
@@ -11,6 +10,14 @@ import (
 	"time"
 	"uranus/internal/config"
 	"uranus/internal/tools"
+)
+
+// MQTT主题定义
+const (
+	// HeartbeatTopic 心跳主题
+	HeartbeatTopic = "uranus/heartbeat"
+	// StatusTopic 状态主题
+	StatusTopic = "uranus/status"
 )
 
 // HeartbeatData 心跳数据结构
@@ -33,22 +40,23 @@ type HeartbeatData struct {
 	ActiveTime string    `json:"activeTime"`
 }
 
-// StartHeartbeat 启动MQTT心跳
+// StartHeartbeat 启动MQTT心跳服务
 func StartHeartbeat(ctx context.Context) {
-	log.Println("[MQTT] 心跳服务启动")
+	log.Println("[MQTTY] 心跳服务启动")
 
-	// 初始化MQTT
-	if err := InitMQTT(); err != nil {
-		log.Printf("[MQTT] 初始化失败: %v", err)
-		return
+	// 检查连接状态
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		log.Printf("[MQTTY] 心跳服务检测到MQTT未连接")
 	}
 
-	// 创建定时器
+	// 创建定时器 - 5秒发送一次心跳信息
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	// 立即发送一次心跳
 	sendHeartbeat()
+	// 发送状态信息
+	publishStatus("online")
 
 	// 心跳循环
 	for {
@@ -56,9 +64,9 @@ func StartHeartbeat(ctx context.Context) {
 		case <-ticker.C:
 			sendHeartbeat()
 		case <-ctx.Done():
-			log.Println("[MQTT] 心跳服务停止")
-			// 发布离线状态并断开连接
-			Disconnect()
+			log.Println("[MQTTY] 心跳服务停止")
+			// 发布离线状态
+			publishStatus("offline")
 			return
 		}
 	}
@@ -66,30 +74,33 @@ func StartHeartbeat(ctx context.Context) {
 
 // sendHeartbeat 发送MQTT心跳
 func sendHeartbeat() {
-	if !IsConnected() {
-		log.Println("[MQTT] 心跳取消: MQTT未连接")
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		log.Println("[MQTTY] 心跳取消: MQTT未连接")
 		return
 	}
 
 	// 构建心跳数据
 	heartbeat, err := buildHeartbeatData()
 	if err != nil {
-		log.Printf("[MQTT] 构建心跳数据失败: %v", err)
+		log.Printf("[MQTTY] 构建心跳数据失败: %v", err)
 		return
 	}
 
 	// 序列化为JSON
 	payload, err := json.Marshal(heartbeat)
 	if err != nil {
-		log.Printf("[MQTT] 心跳数据序列化失败: %v", err)
+		log.Printf("[MQTTY] 心跳数据序列化失败: %v", err)
 		return
 	}
 
 	// 发布心跳消息
-	err = Publish(HeartbeatTopic, payload)
-	if err != nil {
-		log.Printf("[MQTT] 心跳发送失败: %v", err)
+	token := mqttClient.Publish(HeartbeatTopic, 1, false, payload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 心跳发送失败: %v", token.Error())
 	}
+	//else {
+	//	log.Printf("[MQTTY] 心跳发送成功")
+	//}
 }
 
 // buildHeartbeatData 构建心跳数据
@@ -125,18 +136,31 @@ func buildHeartbeatData() (*HeartbeatData, error) {
 
 // publishStatus 发布状态消息
 func publishStatus(status string) {
-	if !IsConnected() {
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		log.Printf("[MQTTY] 状态消息取消: MQTT未连接")
 		return
 	}
 
-	payload, err := createStatusMessage(status)
+	// 准备状态消息
+	appConfig := config.GetAppConfig()
+	statusData := map[string]interface{}{
+		"uuid":      appConfig.UUID,
+		"status":    status,
+		"timestamp": time.Now(),
+	}
+
+	// 序列化消息
+	payload, err := json.Marshal(statusData)
 	if err != nil {
-		log.Printf("[MQTT] 创建状态消息失败: %v", err)
+		log.Printf("[MQTTY] 序列化状态消息失败: %v", err)
 		return
 	}
 
-	err = Publish(StatusTopic, payload)
-	if err != nil {
-		log.Printf("[MQTT] 状态消息发送失败: %v", err)
+	// 发布状态消息
+	token := mqttClient.Publish(StatusTopic, 1, true, payload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 状态消息发送失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 已发送状态: %s", status)
 	}
 }

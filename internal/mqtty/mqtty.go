@@ -3,6 +3,7 @@ package mqtty
 import (
 	"context"
 	"log"
+	"os"
 	"uranus/internal/config"
 )
 
@@ -65,6 +66,10 @@ func (t *Terminal) Start() error {
 
 	// 注册终端消息处理器
 	RegisterTerminalHandlers(t.options, t.manager)
+
+	// 启动心跳服务
+	log.Printf("[进程][%d]: 启动MQTT心跳服务", os.Getpid())
+	go StartHeartbeat(t.ctx)
 
 	log.Println("[MQTTY] MQTT终端服务已启动")
 	return nil
