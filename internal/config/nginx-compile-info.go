@@ -89,11 +89,8 @@ func initNginxCompileInfo() {
 	configRegex := regexp.MustCompile(`configure arguments: (.+)`)
 	var configArgs string
 
-	for _, line := range lines {
-		if matches := configRegex.FindStringSubmatch(line); len(matches) > 1 {
-			configArgs = matches[1]
-			break
-		}
+	if matches := configRegex.FindStringSubmatch(nginxCompileInfo); len(matches) > 1 {
+		configArgs = matches[1]
 	}
 
 	if configArgs != "" {

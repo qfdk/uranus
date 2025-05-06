@@ -25,11 +25,10 @@ func GetCertificates() (certs []Cert) {
 // GetCertByFilename 根据文件名获取证书
 func GetCertByFilename(filename string) (cert Cert) {
 	// 确保删除可能存在的.conf后缀
-	cleanFilename := filename
-	if strings.HasSuffix(cleanFilename, ".conf") {
-		cleanFilename = strings.TrimSuffix(cleanFilename, ".conf")
+	if strings.HasSuffix(filename, ".conf") {
+		filename = strings.TrimSuffix(filename, ".conf")
 	}
-	GetDbClient().Find(&cert, "file_name = ?", cleanFilename)
+	GetDbClient().Find(&cert, "file_name = ?", filename)
 	return
 }
 

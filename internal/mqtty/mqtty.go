@@ -64,9 +64,6 @@ func (t *Terminal) Start() error {
 		return err
 	}
 
-	// 注册终端消息处理器
-	RegisterTerminalHandlers(t.options, t.manager)
-
 	// 启动心跳服务
 	log.Printf("[进程][%d]: 启动MQTT心跳服务", os.Getpid())
 	go StartHeartbeat(t.ctx)

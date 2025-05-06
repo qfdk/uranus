@@ -12,18 +12,13 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var (
-	mqttClient    mqtt.Client
-	mqttConnected bool
-)
+var mqttClient mqtt.Client
 
-// MQTT主题常量
 const (
-	TopicInput   = "input"
-	TopicOutput  = "output"
+	TopicInput = "input"
+
 	TopicControl = "control"
 	TopicResize  = "resize"
-	TopicStatus  = "status"
 )
 
 // 消息结构
@@ -50,7 +45,6 @@ func InitMQTT(opts Options, manager *SessionManager) error {
 		SetKeepAlive(30 * time.Second).
 		SetConnectionLostHandler(func(client mqtt.Client, err error) {
 			log.Printf("[MQTTY] MQTT连接丢失: %v", err)
-			mqttConnected = false
 
 			// 发送离线状态消息（遗嘱消息）
 			// 注意：由于连接已断开，我们无法发送，但MQTT服务器会自动发送遗嘱消息
@@ -61,7 +55,6 @@ func InitMQTT(opts Options, manager *SessionManager) error {
 		}).
 		SetOnConnectHandler(func(client mqtt.Client) {
 			log.Printf("[MQTTY] MQTT连接成功")
-			mqttConnected = true
 
 			// 订阅主题
 			subscribeTopics(client, opts.TopicPrefix, manager)
@@ -109,7 +102,6 @@ func DisconnectMQTT() {
 		mqttClient.Disconnect(250)
 		log.Println("[MQTTY] MQTT已断开连接")
 	}
-	mqttConnected = false
 }
 
 // 订阅所需主题
