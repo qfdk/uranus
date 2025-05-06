@@ -1,23 +1,18 @@
 package mqtty
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"os"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 	"uranus/internal/config"
 	"uranus/internal/tools"
-)
-
-// MQTT主题定义
-const (
-	// HeartbeatTopic 心跳主题
-	HeartbeatTopic = "uranus/heartbeat"
-	// StatusTopic 状态主题
-	StatusTopic = "uranus/status"
 )
 
 // HeartbeatData 心跳数据结构
@@ -39,6 +34,11 @@ type HeartbeatData struct {
 	Timestamp  time.Time `json:"timestamp"`
 	ActiveTime string    `json:"activeTime"`
 }
+
+// 缓存的心跳数据，防止频繁读取内存信息
+var cachedHeartbeat atomic.Value // *HeartbeatData
+var lastHeartbeatTime time.Time
+var heartbeatMutex sync.Mutex
 
 // StartHeartbeat 启动MQTT心跳服务
 func StartHeartbeat(ctx context.Context) {
@@ -79,28 +79,56 @@ func sendHeartbeat() {
 		return
 	}
 
-	// 构建心跳数据
-	heartbeat, err := buildHeartbeatData()
-	if err != nil {
-		log.Printf("[MQTTY] 构建心跳数据失败: %v", err)
-		return
+	// 构建心跳数据，使用缓存减少性能开销
+	heartbeatMutex.Lock()
+
+	// 检查缓存中心跳是否在 10 秒内
+	use_cached := false
+	if !lastHeartbeatTime.IsZero() && time.Since(lastHeartbeatTime) < 10*time.Second {
+		if cached := cachedHeartbeat.Load(); cached != nil {
+			use_cached = true
+		}
 	}
 
-	// 序列化为JSON
-	payload, err := json.Marshal(heartbeat)
-	if err != nil {
+	// 如果需要新的心跳数据
+	var heartbeat *HeartbeatData
+	var err error
+
+	if !use_cached {
+		// 生成新的心跳数据
+		heartbeat, err = buildHeartbeatData()
+		if err != nil {
+			heartbeatMutex.Unlock()
+			log.Printf("[MQTTY] 构建心跳数据失败: %v", err)
+			return
+		}
+
+		// 更新缓存和时间
+		cachedHeartbeat.Store(heartbeat)
+		lastHeartbeatTime = time.Now()
+	} else {
+		// 使用缓存的心跳数据，但更新时间戳
+		cachedHB := cachedHeartbeat.Load().(*HeartbeatData)
+		heartbeat = &HeartbeatData{} // 创建新对象，避免修改缓存的数据
+		*heartbeat = *cachedHB       // 拷贝缓存的数据
+		heartbeat.Timestamp = time.Now()
+		heartbeat.ActiveTime = heartbeat.Timestamp.Format("2006-01-02 15:04:05")
+	}
+	heartbeatMutex.Unlock()
+
+	// 预分配缓冲区
+	buffer := new(bytes.Buffer)
+	encoder := json.NewEncoder(buffer)
+	if err := encoder.Encode(heartbeat); err != nil {
 		log.Printf("[MQTTY] 心跳数据序列化失败: %v", err)
 		return
 	}
 
 	// 发布心跳消息
-	token := mqttClient.Publish(HeartbeatTopic, 1, false, payload)
+	token := mqttClient.Publish(HeartbeatTopic, 1, false, buffer.Bytes())
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 心跳发送失败: %v", token.Error())
 	}
-	//else {
-	//	log.Printf("[MQTTY] 心跳发送成功")
-	//}
 }
 
 // buildHeartbeatData 构建心跳数据
@@ -134,6 +162,10 @@ func buildHeartbeatData() (*HeartbeatData, error) {
 	}, nil
 }
 
+// 预分配的JSON编码器和缓冲区
+var statusBuffer bytes.Buffer
+var statusBufferMutex sync.Mutex
+
 // publishStatus 发布状态消息
 func publishStatus(status string) {
 	if mqttClient == nil || !mqttClient.IsConnected() {
@@ -141,23 +173,27 @@ func publishStatus(status string) {
 		return
 	}
 
-	// 准备状态消息
-	appConfig := config.GetAppConfig()
-	statusData := map[string]interface{}{
-		"uuid":      appConfig.UUID,
-		"status":    status,
-		"timestamp": time.Now(),
-	}
+	// 锁定状态缓冲区以准备消息
+	statusBufferMutex.Lock()
+	defer statusBufferMutex.Unlock()
 
-	// 序列化消息
-	payload, err := json.Marshal(statusData)
-	if err != nil {
-		log.Printf("[MQTTY] 序列化状态消息失败: %v", err)
-		return
-	}
+	// 重置缓冲区
+	statusBuffer.Reset()
+
+	// 准备状态消息参数
+	timestampStr := time.Now().Format(time.RFC3339)
+
+	// 直接写入JSON格式的状态消息，避免使用json.Marshal
+	statusBuffer.WriteString("{\"uuid\":\"")
+	statusBuffer.WriteString(getUUID())
+	statusBuffer.WriteString("\",\"status\":\"")
+	statusBuffer.WriteString(status)
+	statusBuffer.WriteString("\",\"timestamp\":\"")
+	statusBuffer.WriteString(timestampStr)
+	statusBuffer.WriteString("\"}")
 
 	// 发布状态消息
-	token := mqttClient.Publish(StatusTopic, 1, true, payload)
+	token := mqttClient.Publish(StatusTopic, 1, true, statusBuffer.Bytes())
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 状态消息发送失败: %v", token.Error())
 	} else {

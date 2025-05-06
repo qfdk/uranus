@@ -1,0 +1,652 @@
+package mqtty
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
+	"uranus/internal/config"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+// 缓存响应主题以避免重复格式化
+var responseTopicCache = make(map[string]string)
+var responseTopicMutex sync.RWMutex
+
+// 使用已发送消息缓存，防止重复消息
+var recentOutputs = make(map[string]time.Time)
+var maxRecentOutputs = 100 // 最多缓存100条最近消息
+
+// 缓存UUID以减少频繁访问AppConfig
+var cachedUUID atomic.Value
+var uuidInitOnce sync.Once
+
+// getUUID 获取缓存的UUID
+func getUUID() string {
+	uuidInitOnce.Do(func() {
+		cachedUUID.Store(config.GetAppConfig().UUID)
+	})
+	return cachedUUID.Load().(string)
+}
+
+// getResponseTopic 获取响应主题，使用缓存
+func getResponseTopic(agentUuid string) string {
+	responseTopicMutex.RLock()
+	topic, exists := responseTopicCache[agentUuid]
+	responseTopicMutex.RUnlock()
+
+	if !exists {
+		topic = fmt.Sprintf("uranus/response/%s", agentUuid)
+		responseTopicMutex.Lock()
+		responseTopicCache[agentUuid] = topic
+		responseTopicMutex.Unlock()
+	}
+
+	return topic
+}
+
+// 处理从命令主题接收到的消息
+func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, manager *SessionManager, agentUuid string) {
+	// 解析消息内容
+	var command struct {
+		Command   string      `json:"command"`
+		RequestId string      `json:"requestId"`
+		ClientId  string      `json:"clientId"`
+		Type      string      `json:"type"`
+		SessionId string      `json:"sessionId"`
+		Data      interface{} `json:"data"`
+	}
+
+	if err := json.Unmarshal(msg.Payload(), &command); err != nil {
+		log.Printf("[MQTTY] 解析命令消息失败: %v", err)
+		return
+	}
+
+	log.Printf("[MQTTY] 收到命令: %s", msg.Payload())
+
+	// 终端命令另行处理
+	if command.Command == "terminal" {
+		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
+		return
+	}
+
+	// 其他命令类型的处理继续原来的逻辑
+	// 转换为正确的消息格式
+	message := Message{
+		SessionID: command.SessionId,
+		Type:      command.Type,
+		Data:      command.Data,
+		Timestamp: time.Now().UnixNano() / 1e6,
+		RequestId: command.RequestId,
+	}
+
+	// 根据命令类型处理
+	switch command.Type {
+	case "create":
+		handleControlMessage(command.SessionId, &message, manager, topicPrefix)
+
+		// 发送带请求ID的成功响应
+		response := struct {
+			Success   bool   `json:"success"`
+			RequestId string `json:"requestId"`
+			SessionId string `json:"sessionId"`
+			Type      string `json:"type"`
+			Message   string `json:"message,omitempty"`
+		}{
+			Success:   true,
+			RequestId: command.RequestId,
+			SessionId: command.SessionId,
+			Type:      "created",
+			Message:   "终端会话已创建",
+		}
+
+		// 发送响应
+		responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+		respPayload, _ := json.Marshal(response)
+		client.Publish(responseTopic, 1, false, respPayload)
+
+	case "input":
+		handleInputMessage(command.SessionId, &message, manager)
+
+	case "resize":
+		handleResizeMessage(command.SessionId, &message, manager)
+
+	case "close":
+		handleControlMessage(command.SessionId, &message, manager, topicPrefix)
+
+		// 发送带请求ID的成功响应
+		response := struct {
+			Success   bool   `json:"success"`
+			RequestId string `json:"requestId"`
+			SessionId string `json:"sessionId"`
+			Type      string `json:"type"`
+			Message   string `json:"message,omitempty"`
+		}{
+			Success:   true,
+			RequestId: command.RequestId,
+			SessionId: command.SessionId,
+			Type:      "closed",
+			Message:   "终端会话已关闭",
+		}
+
+		// 发送响应
+		responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+		respPayload, _ := json.Marshal(response)
+		client.Publish(responseTopic, 1, false, respPayload)
+	}
+}
+
+// 处理接收到的消息
+func handleMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, manager *SessionManager) {
+	topic := msg.Topic()
+	_, msgType, ok := parseTopicParts(topic, topicPrefix)
+	if !ok {
+		log.Printf("[MQTTY] 无法解析主题: %s", topic)
+		return
+	}
+
+	var message Message
+	if err := json.Unmarshal(msg.Payload(), &message); err != nil {
+		log.Printf("[MQTTY] 解析消息失败: %v", err)
+		return
+	}
+
+	// 从消息中获取sessionID
+	sessionID := message.SessionID
+
+	switch msgType {
+	case TopicInput:
+		handleInputMessage(sessionID, &message, manager)
+	case TopicControl:
+		handleControlMessage(sessionID, &message, manager, topicPrefix)
+	case TopicResize:
+		handleResizeMessage(sessionID, &message, manager)
+	}
+}
+
+// 处理输入消息
+func handleInputMessage(sessionID string, msg *Message, manager *SessionManager) {
+	session, err := manager.GetSession(sessionID)
+	if err != nil {
+		log.Printf("[MQTTY] 会话不存在: %s", sessionID)
+		return
+	}
+
+	// 检查会话是否关闭
+	if isSessionClosed(session) {
+		log.Printf("[MQTTY] 会话已关闭，无法发送输入: %s", sessionID)
+		return
+	}
+
+	// 转换数据
+	input := extractInputData(msg.Data)
+	if input == "" {
+		return // 错误已记录在extractInputData中
+	}
+
+	// 发送到会话
+	if err := session.SendInput([]byte(input)); err != nil {
+		log.Printf("[MQTTY] 发送输入失败: %v", err)
+	}
+}
+
+// 提取输入数据的辅助函数
+func extractInputData(data interface{}) string {
+	switch v := data.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		// 处理可能是map形式的data字段
+		if data, ok := v["data"].(string); ok {
+			return data
+		}
+		log.Printf("[MQTTY] 找不到有效的输入数据: %+v", v)
+	}
+	log.Printf("[MQTTY] 无效的输入格式: %T", data)
+	return ""
+}
+
+// 处理控制消息
+func handleControlMessage(sessionID string, msg *Message, manager *SessionManager, topicPrefix string) {
+	// Type字段是字符串，直接使用
+	msgType := msg.Type
+
+	switch msgType {
+	case "create":
+		// 获取要使用的shell
+		var shell string
+		if shellData, ok := msg.Data.(string); ok && shellData != "" {
+			shell = shellData
+		} else {
+			shell = getDefaultShell()
+		}
+
+		// 检查会话是否已经存在并且活跃
+		session, err := manager.GetSession(sessionID)
+		if err == nil && session != nil && !isSessionClosed(session) {
+			// 会话存在且活跃，直接复用
+			log.Printf("[MQTTY] 复用已存在的活跃会话: %s", sessionID)
+
+			// 发送创建状态
+			publishStatus("created")
+
+			// 确保输出转发正在运行
+			go forwardSessionOutput(topicPrefix, sessionID, manager)
+			return
+		}
+
+		// 创建会话（如果不存在或已关闭）
+		err = manager.CreateSession(sessionID, shell)
+		if err != nil {
+			log.Printf("[MQTTY] 创建会话失败: %v", err)
+			// 发送错误状态
+			publishStatus("error")
+		} else {
+			// 发送创建成功状态
+			publishStatus("created")
+			// 启动输出转发
+			go forwardSessionOutput(topicPrefix, sessionID, manager)
+		}
+
+	case "close":
+		// 关闭会话
+		err := manager.CloseSession(sessionID)
+		if err != nil {
+			log.Printf("[MQTTY] 关闭会话失败: %v", err)
+			// 发送错误状态
+			publishStatus("error")
+		} else {
+			// 发送关闭状态
+			publishStatus("closed")
+		}
+	}
+}
+
+// 处理调整大小消息
+func handleResizeMessage(sessionID string, msg *Message, manager *SessionManager) {
+	session, err := manager.GetSession(sessionID)
+	if err != nil {
+		log.Printf("[MQTTY] 会话不存在: %s", sessionID)
+		return
+	}
+
+	// 解析尺寸数据
+	var resizeData map[string]interface{}
+	var ok bool
+
+	// 处理不同的数据结构
+	switch v := msg.Data.(type) {
+	case map[string]interface{}:
+		// 检查是否包含了嵌套的data字段
+		if nestedData, hasNestedData := v["data"].(map[string]interface{}); hasNestedData {
+			resizeData = nestedData
+		} else {
+			// 使用直接的结构
+			resizeData = v
+		}
+		ok = true
+	default:
+		log.Printf("[MQTTY] 无效的调整大小数据: %T", msg.Data)
+		return
+	}
+
+	if !ok || resizeData == nil {
+		log.Printf("[MQTTY] 无法解析终端大小数据: %v", msg.Data)
+		return
+	}
+
+	// 获取行列数据
+	var rows, cols float64
+	var rowsOK, colsOK bool
+
+	rows, rowsOK = resizeData["rows"].(float64)
+	cols, colsOK = resizeData["cols"].(float64)
+
+	if !rowsOK || !colsOK {
+		log.Printf("[MQTTY] 缺少行列数据: rows=%v, cols=%v", resizeData["rows"], resizeData["cols"])
+		return
+	}
+
+	log.Printf("[MQTTY] 调整终端大小: 会话=%s, 行=%d, 列=%d", sessionID, int(rows), int(cols))
+	if err := session.Resize(uint16(rows), uint16(cols)); err != nil {
+		log.Printf("[MQTTY] 调整终端大小失败: %v", err)
+	}
+}
+
+// 处理终端相关命令
+func handleTerminalCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, manager *SessionManager, agentUuid string, topicPrefix string) {
+	log.Printf("[MQTTY] 处理终端命令: %s, 会话ID: %s", command.Type, command.SessionId)
+
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+
+	// 转换为标准消息格式
+	message := Message{
+		SessionID: command.SessionId,
+		Type:      command.Type,
+		Data:      command.Data,
+		Timestamp: time.Now().UnixNano() / 1e6,
+		RequestId: command.RequestId,
+	}
+
+	// 根据命令类型处理
+	switch command.Type {
+	case "create":
+		// 创建终端会话
+		log.Printf("[MQTTY] 创建终端会话: %s", command.SessionId)
+
+		// 检查会话是否已经存在并活跃
+		session, err := manager.GetSession(command.SessionId)
+		if err == nil && session != nil && !isSessionClosed(session) {
+			// 会话存在且活跃，直接复用
+			log.Printf("[MQTTY] 复用已存在的活跃会话: %s", command.SessionId)
+
+			// 准备成功响应
+			response := struct {
+				Success   bool   `json:"success"`
+				RequestId string `json:"requestId"`
+				SessionId string `json:"sessionId"`
+				Type      string `json:"type"`
+				Message   string `json:"message,omitempty"`
+			}{
+				Success:   true,
+				RequestId: command.RequestId,
+				SessionId: command.SessionId,
+				Type:      "created",
+				Message:   "终端会话已创建(复用现有会话)",
+			}
+
+			// 发送响应
+			respPayload, _ := json.Marshal(response)
+			client.Publish(responseTopic, 1, false, respPayload)
+
+			// 确保输出转发正在运行
+			go forwardSessionOutputWithUUID(topicPrefix, command.SessionId, manager, agentUuid)
+			return
+		}
+
+		// 获取Shell命令（如果有）
+		var shell string
+		if shellData, ok := command.Data.(string); ok && shellData != "" {
+			shell = shellData
+		} else {
+			shell = getDefaultShell()
+		}
+
+		// 创建会话
+		err = manager.CreateSession(command.SessionId, shell)
+
+		// 准备响应
+		response := struct {
+			Success   bool   `json:"success"`
+			RequestId string `json:"requestId"`
+			SessionId string `json:"sessionId"`
+			Type      string `json:"type"`
+			Message   string `json:"message,omitempty"`
+		}{
+			Success:   err == nil,
+			RequestId: command.RequestId,
+			SessionId: command.SessionId,
+			Type:      "created",
+			Message:   "终端会话已创建",
+		}
+
+		// 如果创建失败，更新消息
+		if err != nil {
+			response.Success = false
+			response.Type = "error"
+			response.Message = fmt.Sprintf("创建终端会话失败: %v", err)
+			log.Printf("[MQTTY] 创建终端会话失败: %v", err)
+		} else {
+			// 会话创建成功后启动输出转发
+			go forwardSessionOutputWithUUID(topicPrefix, command.SessionId, manager, agentUuid)
+		}
+
+		// 发送响应
+		respPayload, _ := json.Marshal(response)
+		client.Publish(responseTopic, 1, false, respPayload)
+
+	case "input":
+		// 检查会话是否存在
+		_, err := manager.GetSession(command.SessionId)
+		if err != nil {
+			// 会话不存在，返回错误响应
+			log.Printf("[MQTTY] 输入命令失败，会话不存在: %s", command.SessionId)
+			response := struct {
+				Success   bool   `json:"success"`
+				RequestId string `json:"requestId"`
+				SessionId string `json:"sessionId"`
+				Type      string `json:"type"`
+				Message   string `json:"message,omitempty"`
+			}{
+				Success:   false,
+				RequestId: command.RequestId,
+				SessionId: command.SessionId,
+				Type:      "error",
+				Message:   "会话ID不存在",
+			}
+
+			respPayload, _ := json.Marshal(response)
+			client.Publish(responseTopic, 1, false, respPayload)
+			return
+		}
+
+		// 会话存在，处理输入
+		handleInputMessage(command.SessionId, &message, manager)
+
+		// 不需要发送特定响应，输出将通过通道发送
+
+	case "resize":
+		// 处理终端调整大小
+		handleResizeMessage(command.SessionId, &message, manager)
+
+	case "close":
+		// 关闭终端会话
+		log.Printf("[MQTTY] 关闭终端会话: %s", command.SessionId)
+
+		// 关闭会话
+		err := manager.CloseSession(command.SessionId)
+
+		// 准备响应
+		response := struct {
+			Success   bool   `json:"success"`
+			RequestId string `json:"requestId"`
+			SessionId string `json:"sessionId"`
+			Type      string `json:"type"`
+			Message   string `json:"message,omitempty"`
+		}{
+			Success:   err == nil,
+			RequestId: command.RequestId,
+			SessionId: command.SessionId,
+			Type:      "closed",
+			Message:   "终端会话已关闭",
+		}
+
+		// 如果关闭失败，更新消息
+		if err != nil {
+			response.Success = false
+			response.Type = "error"
+			response.Message = fmt.Sprintf("关闭终端会话失败: %v", err)
+			log.Printf("[MQTTY] 关闭终端会话失败: %v", err)
+		}
+
+		// 发送响应
+		respPayload, _ := json.Marshal(response)
+		client.Publish(responseTopic, 1, false, respPayload)
+	}
+}
+
+// 转发会话输出 - 兼容旧版本
+// 使用配置文件中的 UUID
+func forwardSessionOutput(topicPrefix, sessionID string, manager *SessionManager) {
+	// 直接从缓存中获取UUID而不是每次都重新读取配置
+	agentUuid := getUUID()
+	// 调用新版本的函数
+	forwardSessionOutputWithUUID(topicPrefix, sessionID, manager, agentUuid)
+}
+
+// forwardSessionOutputWithUUID 转发会话输出到指定的代理UUID
+func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *SessionManager, agentUuid string) {
+	// 获取Agent UUID用于前端响应主题（使用缓存）
+	responseTopic := getResponseTopic(agentUuid)
+
+	// 检查是否已经有转发进程在运行
+	forwardingMutex.Lock()
+	if stopCh, exists := forwardingSessions[sessionID]; exists {
+		// 通知现有转发进程停止
+		close(stopCh)
+		delete(forwardingSessions, sessionID)
+	}
+
+	// 创建新的停止通道
+	stopCh := make(chan struct{})
+	forwardingSessions[sessionID] = stopCh
+	forwardingMutex.Unlock()
+
+	// 在函数结束时清除通道
+	defer func() {
+		forwardingMutex.Lock()
+		delete(forwardingSessions, sessionID)
+		forwardingMutex.Unlock()
+	}()
+
+	session, err := manager.GetSession(sessionID)
+	if err != nil {
+		log.Printf("[MQTTY] 无法获取会话来转发输出: %v", err)
+		return
+	}
+
+	// 打印输出主题
+	log.Printf("[MQTTY] 转发输出到主题: %s", responseTopic)
+
+	// 清理过期的输出缓存
+	cleanupRecentOutputs()
+
+	// 预先分配缓冲区以减少内存分配
+	buffer := new(bytes.Buffer)
+
+	// 检查客户端连接状态的快速路径
+	var clientConnected bool
+
+	for {
+		// 先检查客户端连接状态
+		clientConnected = mqttClient != nil && mqttClient.IsConnected()
+
+		select {
+		case output, ok := <-session.Output:
+			if !ok {
+				// 通道已关闭
+				return
+			}
+
+			// 快速路径：如果客户端未连接，跳过处理
+			if !clientConnected {
+				continue
+			}
+
+			// 打印输出的前30个字符以便于调试
+			preview := string(output)
+			if len(preview) > 30 {
+				preview = preview[:30] + "..."
+			}
+
+			// 使用时间戳作为唯一标识，减少字符串拼接操作
+			timestampNow := time.Now().UnixNano() / 1e6
+			outputHash := fmt.Sprintf("%s-%d", sessionID, timestampNow)
+
+			// 创建标准MQTT消息
+			message := Message{
+				SessionID: sessionID,
+				Type:      "output", // 添加类型信息，与前端对应
+				Data:      string(output),
+				Timestamp: timestampNow,
+			}
+
+			// 重用缓冲区以减少内存分配
+			buffer.Reset()
+			encoder := json.NewEncoder(buffer)
+			if err := encoder.Encode(message); err != nil {
+				log.Printf("[MQTTY] 序列化输出消息失败: %v", err)
+				continue
+			}
+
+			// 添加到最近消息缓存
+			recentOutputs[outputHash] = time.Now()
+
+			// 发布到前端响应主题
+			token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
+			if token.Wait() && token.Error() != nil {
+				log.Printf("[MQTTY] 发布输出消息失败: %v", token.Error())
+			} else {
+				log.Printf("[MQTTY] 发送会话输出 (%s): %q", sessionID, preview)
+			}
+
+		case <-session.Done:
+			// 会话已关闭
+			return
+
+		case <-stopCh:
+			// 收到停止信号，可能是新的转发进程启动
+			log.Printf("[MQTTY] 终止已有的输出转发 (会话: %s)", sessionID)
+			return
+		}
+	}
+}
+
+// 清理过期的输出缓存
+func cleanupRecentOutputs() {
+	// 清理超过5秒的输出缓存
+	now := time.Now()
+	toDelete := make([]string, 0, 10) // 预分配一个合理大小的切片
+
+	// 先收集要删除的key
+	for hash, timestamp := range recentOutputs {
+		if now.Sub(timestamp) > 5*time.Second {
+			toDelete = append(toDelete, hash)
+		}
+	}
+
+	// 批量删除，减少map操作次数
+	for _, hash := range toDelete {
+		delete(recentOutputs, hash)
+	}
+
+	// 如果缓存太大，只保留最新的一半条目
+	if len(recentOutputs) > maxRecentOutputs {
+		// 创建一个时间排序的条目数组
+		entries := make([]struct {
+			hash string
+			time time.Time
+		}, 0, len(recentOutputs))
+
+		for hash, t := range recentOutputs {
+			entries = append(entries, struct {
+				hash string
+				time time.Time
+			}{hash, t})
+		}
+
+		// 按时间排序
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].time.Before(entries[j].time)
+		})
+
+		// 删除最旧的一半
+		halfSize := len(entries) / 2
+		for i := 0; i < halfSize; i++ {
+			delete(recentOutputs, entries[i].hash)
+		}
+	}
+}

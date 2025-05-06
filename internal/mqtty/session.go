@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -42,6 +43,16 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
+// isSessionClosed 检查会话是否已关闭
+func isSessionClosed(session *Session) bool {
+	select {
+	case <-session.Done:
+		return true
+	default:
+		return false
+	}
+}
+
 // CreateSession 创建新会话
 func (m *SessionManager) CreateSession(sessionID, shell string) error {
 	m.mu.Lock()
@@ -50,13 +61,7 @@ func (m *SessionManager) CreateSession(sessionID, shell string) error {
 	// 检查会话是否已存在
 	if session, exists := m.sessions[sessionID]; exists {
 		// 检查会话是否已关闭
-		var isClosed bool
-		select {
-		case <-session.Done:
-			isClosed = true
-		default:
-			isClosed = false
-		}
+		isClosed := isSessionClosed(session)
 
 		if isClosed {
 			// 会话已关闭，重新创建
@@ -232,39 +237,97 @@ func (s *Session) handleIO() {
 
 	// 处理输出
 	go func() {
-		buf := make([]byte, 4096)
+		// 增大缓冲区大小以提高性能
+		buf := make([]byte, 8192) // 增加到 8KB
+
+		// 使用永久缓冲区来减少内存分配
+		outputBuf := make([]byte, 0, 8192)
+
 		for {
+			// 简化选择逻辑，避免频繁的select
+			if s.PTY == nil {
+				// 检查是否需要退出
+				select {
+				case <-s.Done:
+					return
+				default:
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+			}
+
+			// 使用最小延迟读取数据
+			setReadDeadline(s.PTY, 100*time.Millisecond)
+			n, err := s.PTY.Read(buf)
+
+			// 检查是否需要退出
 			select {
 			case <-s.Done:
 				return
 			default:
-				if s.PTY == nil {
-					time.Sleep(100 * time.Millisecond)
+				// 继续处理
+			}
+
+			// 处理读取错误
+			if err != nil {
+				// 读取超时不是错误，继续读取
+				if isTimeoutError(err) {
 					continue
 				}
 
-				n, err := s.PTY.Read(buf)
-				if err != nil {
-					if err != io.EOF {
-						log.Printf("[MQTTY] 读取PTY错误: %v", err)
-					}
-					s.Close()
-					return
+				// 其他错误处理
+				if err != io.EOF {
+					log.Printf("[MQTTY] 读取PTY错误: %v", err)
 				}
+				s.Close()
+				return
+			}
 
-				if n > 0 {
-					data := make([]byte, n)
-					copy(data, buf[:n])
+			if n > 0 {
+				// 重用缓冲区，避免频繁分配
+				outputBuf = outputBuf[:n]
+				copy(outputBuf, buf[:n])
 
-					select {
-					case s.Output <- data:
-					default:
-						log.Printf("[MQTTY] 输出缓冲区已满，丢弃数据")
-					}
+				// 非阻塞写入输出缓冲区
+				select {
+				case s.Output <- outputBuf:
+					// 写入成功后需要分配新的内存
+					outputBuf = make([]byte, 0, 8192)
+				default:
+					log.Printf("[MQTTY] 输出缓冲区已满，丢弃数据")
 				}
 			}
 		}
 	}()
+}
+
+// setReadDeadline 设置读取超时
+// 注意：此函数在某些系统上可能不生效，因为 PTY 可能不支持设置超时
+// 这种情况下程序会正常工作，但无法利用超时机制
+// 程序需要考虑其他方式来处理 read 调用的阻塞问题
+func setReadDeadline(file *os.File, timeout time.Duration) {
+	// 如果文件支持 SetReadDeadline，尝试设置超时
+	// 定义接口类型
+	type timeoutSetter interface {
+		SetReadDeadline(time.Time) error
+	}
+
+	// 先将file转换为interface{}，再转换为目标接口
+	if fd, ok := interface{}(file).(timeoutSetter); ok {
+		_ = fd.SetReadDeadline(time.Now().Add(timeout))
+	}
+}
+
+// isTimeoutError 检查错误是否为超时错误
+func isTimeoutError(err error) bool {
+	// 此函数判断错误是否为超时错误
+	if netErr, ok := err.(interface{ Timeout() bool }); ok {
+		return netErr.Timeout()
+	}
+	// 没有Timeout方法，检查错误消息中是否包含"timeout"
+	return err != nil && (strings.Contains(err.Error(), "timeout") ||
+		strings.Contains(err.Error(), "deadline") ||
+		strings.Contains(err.Error(), "temporarily unavailable"))
 }
 
 // Close 关闭会话
