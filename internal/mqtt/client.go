@@ -75,16 +75,6 @@ func InitMQTT() error {
 
 		// 发布上线状态消息
 		publishStatus("online")
-
-		// 订阅命令主题
-		appConfig := config.GetAppConfig()
-		commandTopic := CommandTopic + appConfig.UUID
-		token := client.Subscribe(commandTopic, byte(MQTTQoS), handleCommand)
-		if token.Wait() && token.Error() != nil {
-			log.Printf("[MQTT] 订阅命令主题失败: %v", token.Error())
-		} else {
-			log.Printf("[MQTT] 已订阅命令主题: %s", commandTopic)
-		}
 	})
 
 	// 连接丢失回调
