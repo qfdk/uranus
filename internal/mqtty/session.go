@@ -434,6 +434,11 @@ func (s *Session) Resize(rows, cols uint16) error {
 	})
 }
 
+// GetDefaultShell 获取默认shell (exported version)
+func GetDefaultShell() string {
+	return getDefaultShell()
+}
+
 // getDefaultShell 获取默认shell
 func getDefaultShell() string {
 	// 优先使用 bash
