@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 	"uranus/internal/config"
+	"uranus/internal/services"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -87,6 +88,26 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 	// 终端命令另行处理
 	if command.Command == "terminal" {
 		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
+		return
+	}
+	
+	// 处理Nginx相关命令
+	switch command.Command {
+	case "reload":
+		log.Printf("[MQTTY] 收到Nginx重载命令")
+		handleReloadCommand(client, command, agentUuid)
+		return
+	case "start":
+		log.Printf("[MQTTY] 收到Nginx启动命令")
+		handleStartCommand(client, command, agentUuid)
+		return
+	case "stop":
+		log.Printf("[MQTTY] 收到Nginx停止命令")
+		handleStopCommand(client, command, agentUuid)
+		return
+	case "restart":
+		log.Printf("[MQTTY] 收到Nginx重启命令")
+		handleRestartCommand(client, command, agentUuid)
 		return
 	}
 
@@ -710,6 +731,263 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 			sendAccumulatedOutput()
 			return
 		}
+	}
+}
+
+// 处理Nginx重载命令
+func handleReloadCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	// 导入services包以调用ReloadNginx
+	log.Printf("[MQTTY] 执行Nginx重载，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
+	
+	// 调用Nginx重载服务
+	result := services.ReloadNginx()
+	log.Printf("[MQTTY] Nginx重载结果: %s", result)
+	
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
+	
+	// 准备响应
+	response := struct {
+		Success   bool   `json:"success"`
+		RequestId string `json:"requestId"`
+		Command   string `json:"command"`
+		Result    string `json:"result"`
+		Message   string `json:"message,omitempty"`
+	}{
+		Success:   result == "OK",
+		RequestId: command.RequestId,
+		Command:   "reload",
+		Result:    result,
+		Message:   "Nginx配置已重载",
+	}
+	
+	// 如果重载失败，更新消息
+	if result != "OK" {
+		response.Message = fmt.Sprintf("Nginx重载失败: %s", result)
+	}
+	
+	// 发送响应
+	respPayload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTTY] 序列化响应失败: %v", err)
+		return
+	}
+	
+	token := client.Publish(responseTopic, 1, false, respPayload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 响应已发送: %s", string(respPayload))
+	}
+}
+
+// 处理Nginx启动命令
+func handleStartCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	log.Printf("[MQTTY] 执行Nginx启动，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
+	
+	// 调用Nginx启动服务
+	result := services.StartNginx()
+	log.Printf("[MQTTY] Nginx启动结果: %s", result)
+	
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
+	
+	// 准备响应
+	response := struct {
+		Success   bool   `json:"success"`
+		RequestId string `json:"requestId"`
+		Command   string `json:"command"`
+		Result    string `json:"result"`
+		Message   string `json:"message,omitempty"`
+	}{
+		Success:   result == "OK",
+		RequestId: command.RequestId,
+		Command:   "start",
+		Result:    result,
+		Message:   "Nginx服务已启动",
+	}
+	
+	// 如果启动失败，更新消息
+	if result != "OK" {
+		response.Message = fmt.Sprintf("Nginx启动失败: %s", result)
+	}
+	
+	// 发送响应
+	respPayload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTTY] 序列化响应失败: %v", err)
+		return
+	}
+	
+	token := client.Publish(responseTopic, 1, false, respPayload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 响应已发送: %s", string(respPayload))
+	}
+}
+
+// 处理Nginx停止命令
+func handleStopCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	log.Printf("[MQTTY] 执行Nginx停止，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
+	
+	// 调用Nginx停止服务
+	result := services.StopNginx()
+	log.Printf("[MQTTY] Nginx停止结果: %s", result)
+	
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
+	
+	// 准备响应
+	response := struct {
+		Success   bool   `json:"success"`
+		RequestId string `json:"requestId"`
+		Command   string `json:"command"`
+		Result    string `json:"result"`
+		Message   string `json:"message,omitempty"`
+	}{
+		Success:   result == "OK",
+		RequestId: command.RequestId,
+		Command:   "stop",
+		Result:    result,
+		Message:   "Nginx服务已停止",
+	}
+	
+	// 如果停止失败，更新消息
+	if result != "OK" {
+		response.Message = fmt.Sprintf("Nginx停止失败: %s", result)
+	}
+	
+	// 发送响应
+	respPayload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTTY] 序列化响应失败: %v", err)
+		return
+	}
+	
+	token := client.Publish(responseTopic, 1, false, respPayload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 响应已发送: %s", string(respPayload))
+	}
+}
+
+// 处理Nginx重启命令
+func handleRestartCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	log.Printf("[MQTTY] 执行Nginx重启，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
+	
+	// 先停止Nginx
+	stopResult := services.StopNginx()
+	log.Printf("[MQTTY] Nginx停止结果: %s", stopResult)
+	
+	// 如果停止失败，不再尝试启动
+	if stopResult != "OK" {
+		// 创建响应主题
+		responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+		// 准备响应
+		response := struct {
+			Success   bool   `json:"success"`
+			RequestId string `json:"requestId"`
+			Command   string `json:"command"`
+			Result    string `json:"result"`
+			Message   string `json:"message,omitempty"`
+		}{
+			Success:   false,
+			RequestId: command.RequestId,
+			Command:   "restart",
+			Result:    stopResult,
+			Message:   fmt.Sprintf("Nginx重启失败，无法停止服务: %s", stopResult),
+		}
+		
+		// 发送响应
+		respPayload, err := json.Marshal(response)
+		if err != nil {
+			log.Printf("[MQTTY] 序列化响应失败: %v", err)
+			return
+		}
+		
+		token := client.Publish(responseTopic, 1, false, respPayload)
+		if token.Wait() && token.Error() != nil {
+			log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
+		}
+		return
+	}
+	
+	// 等待一小段时间确保Nginx完全停止
+	time.Sleep(500 * time.Millisecond)
+	
+	// 然后启动Nginx
+	startResult := services.StartNginx()
+	log.Printf("[MQTTY] Nginx启动结果: %s", startResult)
+	
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
+	
+	// 准备响应
+	response := struct {
+		Success   bool   `json:"success"`
+		RequestId string `json:"requestId"`
+		Command   string `json:"command"`
+		Result    string `json:"result"`
+		Message   string `json:"message,omitempty"`
+	}{
+		Success:   startResult == "OK",
+		RequestId: command.RequestId,
+		Command:   "restart",
+		Result:    startResult,
+		Message:   "Nginx服务已重启",
+	}
+	
+	// 如果启动失败，更新消息
+	if startResult != "OK" {
+		response.Message = fmt.Sprintf("Nginx重启失败，无法启动服务: %s", startResult)
+	}
+	
+	// 发送响应
+	respPayload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTTY] 序列化响应失败: %v", err)
+		return
+	}
+	
+	token := client.Publish(responseTopic, 1, false, respPayload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 响应已发送: %s", string(respPayload))
 	}
 }
 

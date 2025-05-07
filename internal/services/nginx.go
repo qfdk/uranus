@@ -31,19 +31,24 @@ func NginxStatus() string {
 	if time.Now().Before(nginxStatusExpiry) && nginxStatusCache != "" {
 		status := nginxStatusCache
 		nginxStatusMutex.RUnlock()
+		log.Printf("[NGINX] Using cached status: %s", status)
 		return status
 	}
 	nginxStatusMutex.RUnlock()
 
 	// Cache is invalid, get new status (write lock)
 	pidPath := config.ReadNginxCompileInfo().NginxPidPath
+	log.Printf("[NGINX] Checking PID file at: %s", pidPath)
+
 	out, err := exec.Command("cat", pidPath).CombinedOutput()
 	var result string
 
 	if err != nil {
+		log.Printf("[NGINX] Failed to read PID file: %v", err)
 		result = "KO"
 	} else {
 		result = string(out)
+		log.Printf("[NGINX] PID file content: %s", result)
 	}
 
 	// Update cache
@@ -86,19 +91,27 @@ func ReloadNginx() string {
 	log.Println("[NGINX] Reloading configuration")
 	var result = "OK"
 
-	if NginxStatus() != "KO" {
+	// 检查Nginx状态
+	status := NginxStatus()
+	log.Printf("[NGINX] Current status: %s", status)
+
+	if status != "KO" {
 		var out []byte
 		var err error
 
 		if sysType == "darwin" {
+			log.Printf("[NGINX] 在macOS上执行: nginx -s reload")
 			out, err = exec.Command("nginx", "-s", "reload").CombinedOutput()
 		} else {
+			log.Printf("[NGINX] 在Linux上执行: systemctl reload nginx")
 			out, err = exec.Command("systemctl", "reload", "nginx").CombinedOutput()
 		}
 
 		if err != nil {
-			log.Println("[NGINX] Error reloading configuration")
+			log.Printf("[NGINX] Error reloading configuration: %v, output: %s", err, string(out))
 			result = string(out)
+		} else {
+			log.Printf("[NGINX] 重载成功，输出: %s", string(out))
 		}
 	} else {
 		log.Println("[NGINX] Not running, no need to reload configuration!")
