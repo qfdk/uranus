@@ -75,6 +75,23 @@ func handleControlMessage(t *Terminal, message []byte) {
 			}
 		}
 		
+	case "terminate":
+		log.Printf("[WS Terminal] Received terminate command, closing terminal")
+		// 收到客户端的终止命令，优雅关闭终端
+		response := map[string]string{
+			"type": "terminated",
+			"data": "Terminal session closed by client",
+		}
+		responseBytes, _ := json.Marshal(response)
+		// 先发送关闭确认，然后关闭终端
+		t.WsConn.WriteMessage(websocket.TextMessage, responseBytes)
+		// 关闭终端会话
+		go func() {
+			// 给客户端时间处理响应
+			time.Sleep(100 * time.Millisecond)
+			t.Close()
+		}()
+		
 	default:
 		log.Printf("[WS Terminal] Unknown control message type: %s", controlMsg.Type)
 	}

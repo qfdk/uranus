@@ -243,46 +243,118 @@ func (t *Terminal) Close() {
 		log.Printf("[WS Terminal] Closing terminal: %s", t.ID)
 		close(t.Done)
 
-		// Close WebSocket
+		// Close WebSocket with timeout handling
 		if t.WsConn != nil {
-			t.WsConn.Close()
+			closeWSTimeout := 5 * time.Second
+			wsCloseChan := make(chan bool, 1)
+			
+			// Setup a timeout for websocket closure
+			go func() {
+				t.WsConn.WriteControl(
+					websocket.CloseMessage, 
+					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Terminal closed"),
+					time.Now().Add(time.Second),
+				)
+				t.WsConn.Close()
+				wsCloseChan <- true
+			}()
+			
+			// Wait with timeout
+			select {
+			case <-wsCloseChan:
+				log.Printf("[WS Terminal] WebSocket closed gracefully")
+			case <-time.After(closeWSTimeout):
+				log.Printf("[WS Terminal] WebSocket close timed out")
+			}
 		}
 
-		// Close PTY
-		if t.Pty != nil {
-			t.Pty.Close()
-			log.Printf("[WS Terminal] PTY closed")
-		}
-
-		// Terminate process
+		// Terminate process first - this is important to do before closing PTY
+		// to avoid orphaned processes
 		if t.Cmd != nil && t.Cmd.Process != nil {
-			log.Printf("[WS Terminal] Terminating process: %d", t.Cmd.Process.Pid)
+			pid := t.Cmd.Process.Pid
+			log.Printf("[WS Terminal] Terminating process: %d", pid)
+			
 			// Try to terminate process group
-			if pgid, err := syscall.Getpgid(t.Cmd.Process.Pid); err == nil {
-				// Send SIGINT first
-				_ = syscall.Kill(-pgid, syscall.SIGINT)
-				log.Printf("[WS Terminal] Sent SIGINT to process group: %d", -pgid)
-				time.Sleep(100 * time.Millisecond)
-
-				// If process is still running, send SIGTERM
-				_ = syscall.Kill(-pgid, syscall.SIGTERM)
-				log.Printf("[WS Terminal] Sent SIGTERM to process group: %d", -pgid)
-				time.Sleep(100 * time.Millisecond)
-
-				// Finally, send SIGKILL
-				_ = syscall.Kill(-pgid, syscall.SIGKILL)
-				log.Printf("[WS Terminal] Sent SIGKILL to process group: %d", -pgid)
+			terminateSuccess := false
+			if pgid, err := syscall.Getpgid(pid); err == nil {
+				// First, try to terminate gracefully
+				if err := syscall.Kill(-pgid, syscall.SIGINT); err == nil {
+					log.Printf("[WS Terminal] Sent SIGINT to process group: %d", -pgid)
+					
+					// Give process a chance to terminate gracefully
+					terminateSuccess = waitForProcessExit(pid, 500*time.Millisecond)
+					if terminateSuccess {
+						log.Printf("[WS Terminal] Process terminated with SIGINT")
+					}
+				}
+				
+				// If still running, try SIGTERM
+				if !terminateSuccess {
+					if err := syscall.Kill(-pgid, syscall.SIGTERM); err == nil {
+						log.Printf("[WS Terminal] Sent SIGTERM to process group: %d", -pgid)
+						terminateSuccess = waitForProcessExit(pid, 500*time.Millisecond)
+						if terminateSuccess {
+							log.Printf("[WS Terminal] Process terminated with SIGTERM")
+						}
+					}
+				}
+				
+				// Finally, if all else fails, use SIGKILL
+				if !terminateSuccess {
+					if err := syscall.Kill(-pgid, syscall.SIGKILL); err == nil {
+						log.Printf("[WS Terminal] Sent SIGKILL to process group: %d", -pgid)
+						waitForProcessExit(pid, 500*time.Millisecond)
+					}
+				}
 			} else {
 				// If we can't get process group ID, send signals directly to process
 				log.Printf("[WS Terminal] Failed to get process group ID: %v, sending signals directly to process", err)
-				_ = t.Cmd.Process.Signal(syscall.SIGINT)
-				time.Sleep(100 * time.Millisecond)
-				_ = t.Cmd.Process.Signal(syscall.SIGTERM)
-				time.Sleep(100 * time.Millisecond)
-				t.Cmd.Process.Kill()
+				t.Cmd.Process.Signal(syscall.SIGINT)
+				if !waitForProcessExit(pid, 300*time.Millisecond) {
+					t.Cmd.Process.Signal(syscall.SIGTERM)
+					if !waitForProcessExit(pid, 300*time.Millisecond) {
+						t.Cmd.Process.Kill()
+					}
+				}
+			}
+		}
+		
+		// Close PTY after process termination
+		if t.Pty != nil {
+			err := t.Pty.Close()
+			if err != nil {
+				log.Printf("[WS Terminal] Error closing PTY: %v", err)
+			} else {
+				log.Printf("[WS Terminal] PTY closed successfully")
 			}
 		}
 	})
+}
+
+// waitForProcessExit checks if a process has exited within the given timeout
+func waitForProcessExit(pid int, timeout time.Duration) bool {
+	exitChan := make(chan bool, 1)
+	
+	// Check process in goroutine
+	go func() {
+		for {
+			// Use Signal(0) to check if process exists without sending a signal
+			process, err := os.FindProcess(pid)
+			if err != nil || process.Signal(syscall.Signal(0)) != nil {
+				exitChan <- true
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+	
+	// Wait with timeout
+	select {
+	case <-exitChan:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 // Resize resizes the terminal
