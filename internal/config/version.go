@@ -3,13 +3,12 @@ package config
 import (
 	"log"
 	"strings"
-	"time"
 )
 
 var (
 	BuildName    = "buildName"
 	BuildVersion = "开发版本"
-	BuildTime    = time.Now().Format("2006-01-02 15:04:05")
+	BuildTime    = "未知构建时间" // This will be set during build via ldflags
 	CommitID     = "DEV888888"
 	GoVersion    = "go version 开发环境"
 )

@@ -341,6 +341,14 @@ func Graceful() {
 }
 
 func main() {
+	// 检查命令行参数是否包含 --version 或 -v
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" {
+			config.DisplayVersion()
+			return
+		}
+	}
+
 	// 在生产模式下显示版本信息
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
