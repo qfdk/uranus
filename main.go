@@ -303,6 +303,9 @@ func Graceful() {
 
 	go services.RenewSSL()
 
+	// 启动控制中心心跳服务
+	go services.StartAgentHeartbeat(ctx)
+
 	// MQTT心跳服务现在已经集成到mqtty模块中
 
 	// 启动MQTT终端服务
