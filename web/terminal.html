@@ -1,7 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html style="background-color: #2A2C34;">
 <head>
     <title>Οὐρανός - {{ .title }}</title>
+    <!-- Immediate background color script -->
+    <script>
+        // Set background color immediately
+        document.documentElement.style.backgroundColor = "#2A2C34";
+        document.body ? document.body.style.backgroundColor = "#2A2C34" : null;
+    </script>
+    <!-- Preload to prevent white flash -->
+    <style id="terminal-preload">
+        html, body, #terminal {
+            background-color: #2A2C34 !important;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            color: white;
+        }
+        /* Force immediate application of background color */
+        * {
+            transition: none !important;
+        }
+    </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.18.0/css/xterm.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xterm@4.18.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
@@ -25,6 +46,7 @@
             margin: 0;
             overflow: hidden;
             padding: 0;
+            background-color: #2A2C34; /* Match the terminal background color */
         }
 
         div#terminal {
@@ -33,6 +55,7 @@
             position: absolute;
             top: 0;
             width: 100%;
+            background-color: #2A2C34; /* Match the terminal background color */
         }
 
         div#terminal div {
@@ -44,21 +67,49 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            background-color: #2A2C34; /* Match the terminal background color */
         }
 
         .terminal.xterm {
             padding: 8px;
+            background-color: #2A2C34; /* Match the terminal background color */
         }
     </style>
 </head>
 
-<body>
+<body style="background-color: #2A2C34;">
 <!-- 隐藏的表单用于传递终端模式和代理UUID -->
 <input type="hidden" id="terminal-mode" value="{{ .mode }}">
 <input type="hidden" id="agent-uuid" value="{{ .agentUUID }}">
 
-<div id="terminal"></div>
+<div id="terminal-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #2A2C34; display: flex; justify-content: center; align-items: center;">
+    <div id="loading-indicator" style="color: white; font-family: monospace; text-align: center;">
+        <div style="margin-bottom: 20px; font-size: 18px;">正在加载终端...</div>
+        <div style="width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+    </div>
+    <div id="terminal" style="display: none; width: 100%; height: 100%;"></div>
+</div>
+
+<style>
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
 <script src="/public/js/terminal.js"></script>
+<script>
+    // 在终端准备就绪后隐藏加载指示器并显示终端
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            var terminalElement = document.getElementById('terminal');
+            var loadingIndicator = document.getElementById('loading-indicator');
+            if (terminalElement && loadingIndicator) {
+                terminalElement.style.display = 'block';
+                loadingIndicator.style.display = 'none';
+            }
+        }, 500); // 给终端500毫秒的时间完成初始化
+    });
+</script>
 </body>
 
 </html>

@@ -61,7 +61,7 @@ func NewTerminal(id string, conn *websocket.Conn, shell string) (*Terminal, erro
 	// Initialize environment variables
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"PS1=\\[\\e[32m\\]\\u@\\h:\\[\\e[33m\\]\\w\\[\\e[0m\\]\\$ ")
+		"PS1=\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] ")
 
 	// Configure process group so we can send signals to the entire process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -212,6 +212,15 @@ func (t *Terminal) Start() {
 	// Send initial message to client
 	welcomeMsg := []byte("\r\nWelcome to WebSocket Terminal\r\n\r\n")
 	t.WsConn.WriteMessage(websocket.BinaryMessage, welcomeMsg)
+	
+	// 在服务器端配置 Shell 环境，这样用户就不会看到这些命令执行过程
+	time.Sleep(100 * time.Millisecond) // 确保 shell 已经准备好接收命令
+	shellInitCmd := []byte("export TERM=xterm-256color && " +
+		"PS1=\"\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] \" && " +
+		"alias ls='ls --color' && " +
+		"alias ll='ls -alF' && " +
+		"clear\n")
+	t.Pty.Write(shellInitCmd)
 }
 
 // Close terminates the terminal session
