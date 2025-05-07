@@ -206,8 +206,8 @@ func newSession(id, shell string) (*Session, error) {
 		Cmd:     cmd,
 		PTY:     ptmx,
 		Created: time.Now(),
-		Input:   make(chan []byte, 100),
-		Output:  make(chan []byte, 100),
+		Input:   make(chan []byte, 200),
+		Output:  make(chan []byte, 200),
 		Done:    make(chan struct{}),
 		rows:    24,
 		cols:    80,
@@ -249,10 +249,10 @@ func (s *Session) handleIO() {
 	// 处理输出
 	go func() {
 		// 增大缓冲区大小以提高性能
-		buf := make([]byte, 8192) // 增加到 8KB
+		buf := make([]byte, 16384) // 增加到 16KB
 
 		// 使用永久缓冲区来减少内存分配
-		outputBuf := make([]byte, 0, 8192)
+		outputBuf := make([]byte, 0, 16384)
 
 		for {
 			// 简化选择逻辑，避免频繁的select
@@ -401,7 +401,7 @@ func (s *Session) SendInput(data []byte) error {
 			} else {
 				log.Printf("[MQTTY] 已使用killall强制终止所有ping进程")
 			}
-			
+
 			// 不需要额外发送回车，避免多余的空行
 
 			return nil

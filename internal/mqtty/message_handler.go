@@ -22,6 +22,14 @@ var responseTopicMutex sync.RWMutex
 var recentOutputs = make(map[string]time.Time)
 var maxRecentOutputs = 100 // 最多缓存100条最近消息
 
+// 输出缓冲设置
+const (
+	// 输出缓冲区大小
+	OutputBufferSize = 16384 // 16 KB
+	// 输出积累最大延迟时间
+	OutputAccumulationDelay = 50 * time.Millisecond
+)
+
 // 缓存UUID以减少频繁访问AppConfig
 var cachedUUID atomic.Value
 var uuidInitOnce sync.Once
@@ -537,8 +545,77 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 	// 预先分配缓冲区以减少内存分配
 	buffer := new(bytes.Buffer)
 
+	// 存储累积的输出
+	accumulated := new(bytes.Buffer)
+	// 累积输出的定时器
+	var flushTimer *time.Timer = nil
+	// 上次发送时间
+	lastSendTime := time.Now()
+
+	// 发送函数，封装重复逻辑
+	sendAccumulatedOutput := func() {
+		if accumulated.Len() == 0 {
+			return
+		}
+
+		// 使用时间戳作为唯一标识
+		timestampNow := time.Now().UnixNano() / 1e6
+		outputHash := fmt.Sprintf("%s-%d", sessionID, timestampNow)
+
+		// 获取积累的输出
+		accumulatedOutput := accumulated.String()
+		// 清空积累缓冲区以备下次使用
+		accumulated.Reset()
+
+		// 打印输出的前50个字符以便于调试
+		preview := accumulatedOutput
+		if len(preview) > 50 {
+			preview = preview[:50] + "..."
+		}
+
+		// 创建标准MQTT消息
+		message := Message{
+			SessionID: sessionID,
+			Type:      "output", // 添加类型信息，与前端对应
+			Data:      accumulatedOutput,
+			Timestamp: timestampNow,
+		}
+
+		// 重用缓冲区以减少内存分配
+		buffer.Reset()
+		encoder := json.NewEncoder(buffer)
+		if err := encoder.Encode(message); err != nil {
+			log.Printf("[MQTTY] 序列化输出消息失败: %v", err)
+			return
+		}
+
+		// 添加到最近消息缓存
+		recentOutputs[outputHash] = time.Now()
+
+		// 发布到前端响应主题
+		token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
+		if token.Wait() && token.Error() != nil {
+			log.Printf("[MQTTY] 发布输出消息失败: %v", token.Error())
+		} else {
+			log.Printf("[MQTTY] 发送会话输出 (%s): %q", sessionID, preview)
+		}
+
+		lastSendTime = time.Now()
+	}
+
 	// 检查客户端连接状态的快速路径
 	var clientConnected bool
+	// 最大输出积累大小，超过此大小立即发送
+	const maxAccumulationSize = OutputBufferSize
+	// 最大等待时间，即使积累很少也会发送
+	const maxAccumulationDelay = OutputAccumulationDelay
+
+	// 创建定时器但不启动
+	flushTimer = time.NewTimer(maxAccumulationDelay)
+	// 立即停止以便后续使用
+	if !flushTimer.Stop() {
+		<-flushTimer.C
+	}
 
 	for {
 		// 先检查客户端连接状态
@@ -548,6 +625,7 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 		case output, ok := <-session.Output:
 			if !ok {
 				// 通道已关闭
+				sendAccumulatedOutput() // 发送剩余数据
 				return
 			}
 
@@ -556,50 +634,48 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 				continue
 			}
 
-			// 打印输出的前30个字符以便于调试
-			preview := string(output)
-			if len(preview) > 30 {
-				preview = preview[:30] + "..."
+			// 积累输出
+			accumulated.Write(output)
+
+			// 判断是否需要立即发送：达到最大大小或包含完整命令行
+			if accumulated.Len() >= maxAccumulationSize ||
+				time.Since(lastSendTime) > 200*time.Millisecond || // 确保每200ms至少发送一次
+				bytes.Contains(output, []byte{'\n'}) { // 换行符通常表示命令完成
+				// 停止之前可能已启动的定时器
+				if !flushTimer.Stop() {
+					select {
+					case <-flushTimer.C: // 清空通道
+					default:
+					}
+				}
+				sendAccumulatedOutput()
+			} else if accumulated.Len() > 0 {
+				// 如果有数据但没有立即发送，启动定时器以确保不会延迟太久
+				// 先尝试停止定时器
+				if !flushTimer.Stop() {
+					select {
+					case <-flushTimer.C: // 清空通道
+					default:
+					}
+				}
+				// 重置定时器
+				flushTimer.Reset(maxAccumulationDelay)
 			}
 
-			// 使用时间戳作为唯一标识，减少字符串拼接操作
-			timestampNow := time.Now().UnixNano() / 1e6
-			outputHash := fmt.Sprintf("%s-%d", sessionID, timestampNow)
-
-			// 创建标准MQTT消息
-			message := Message{
-				SessionID: sessionID,
-				Type:      "output", // 添加类型信息，与前端对应
-				Data:      string(output),
-				Timestamp: timestampNow,
-			}
-
-			// 重用缓冲区以减少内存分配
-			buffer.Reset()
-			encoder := json.NewEncoder(buffer)
-			if err := encoder.Encode(message); err != nil {
-				log.Printf("[MQTTY] 序列化输出消息失败: %v", err)
-				continue
-			}
-
-			// 添加到最近消息缓存
-			recentOutputs[outputHash] = time.Now()
-
-			// 发布到前端响应主题
-			token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
-			if token.Wait() && token.Error() != nil {
-				log.Printf("[MQTTY] 发布输出消息失败: %v", token.Error())
-			} else {
-				log.Printf("[MQTTY] 发送会话输出 (%s): %q", sessionID, preview)
-			}
+		case <-flushTimer.C:
+			// 定时器触发，发送积累的数据
+			sendAccumulatedOutput()
 
 		case <-session.Done:
-			// 会话已关闭
+			// 会话已关闭，发送剩余数据
+			sendAccumulatedOutput()
 			return
 
 		case <-stopCh:
 			// 收到停止信号，可能是新的转发进程启动
 			log.Printf("[MQTTY] 终止已有的输出转发 (会话: %s)", sessionID)
+			// 发送剩余数据
+			sendAccumulatedOutput()
 			return
 		}
 	}
