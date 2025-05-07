@@ -63,11 +63,16 @@ func handleControlMessage(t *Terminal, message []byte) {
 		}
 		
 	case "interrupt":
-		log.Printf("[WS Terminal] Received interrupt command, sending SIGINT")
-		// 处理中断信号
+		log.Printf("[WS Terminal] Received interrupt command, sending interrupts")
+		// 处理中断信号，注意这里的SendInterrupt会尝试多种信号
 		err := t.SendInterrupt()
 		if err != nil {
 			log.Printf("[WS Terminal] Failed to send interrupt: %v", err)
+		} else {
+			// 发送一个CTRL-C字符到PTY确保它显示在终端中
+			if t.Pty != nil {
+				t.Pty.Write([]byte{3})
+			}
 		}
 		
 	default:

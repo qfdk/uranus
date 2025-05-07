@@ -1,7 +1,6 @@
 package wsterminal
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -31,7 +30,7 @@ type Terminal struct {
 // NewTerminal creates a new terminal session
 func NewTerminal(id string, conn *websocket.Conn, shell string) (*Terminal, error) {
 	log.Printf("[WS Terminal] Creating new terminal with ID: %s", id)
-	
+
 	if shell == "" {
 		shell = getDefaultShell()
 		log.Printf("[WS Terminal] Using default shell: %s", shell)
@@ -118,7 +117,7 @@ func NewTerminal(id string, conn *websocket.Conn, shell string) (*Terminal, erro
 // Start begins the I/O handling for the terminal
 func (t *Terminal) Start() {
 	log.Printf("[WS Terminal] Starting terminal I/O for session: %s", t.ID)
-	
+
 	// Handle WebSocket to PTY (user input)
 	go func() {
 		defer func() {
@@ -152,15 +151,16 @@ func (t *Terminal) Start() {
 
 			// 检查是否是Ctrl+C (ASCII 3)
 			if len(p) == 1 && p[0] == 3 {
-				log.Printf("[WS Terminal] Detected Ctrl+C, sending SIGINT to process group")
-				// 向进程组发送SIGINT信号
-				if pgid, err := syscall.Getpgid(t.Cmd.Process.Pid); err == nil {
-					err = syscall.Kill(-pgid, syscall.SIGINT)
-					if err != nil {
-						log.Printf("[WS Terminal] Error sending SIGINT to process group: %v", err)
-					}
-					// 仍然写入标准的终端中断字符，以防进程自己处理信号
+				log.Printf("[WS Terminal] Detected Ctrl+C, handling interrupt")
+				
+				// 1. 调用SendInterrupt方法发送中断信号
+				err := t.SendInterrupt()
+				if err != nil {
+					log.Printf("[WS Terminal] Error sending interrupt: %v", err)
 				}
+				
+				// 2. 写入标准的终端中断字符，同时确保shell能看到这个信号
+				// 这对于进程自己处理中断信号很重要
 			}
 
 			// Write to PTY
@@ -181,7 +181,7 @@ func (t *Terminal) Start() {
 
 		buf := make([]byte, 16384) // 16KB buffer
 		log.Printf("[WS Terminal] Starting PTY output reader")
-		
+
 		for {
 			select {
 			case <-t.Done:
@@ -217,16 +217,16 @@ func (t *Terminal) Start() {
 			log.Printf("[WS Terminal] Command watcher exiting for session: %s", t.ID)
 			t.Close()
 		}()
-		
+
 		log.Printf("[WS Terminal] Waiting for command to complete")
 		err := t.Cmd.Wait()
 		log.Printf("[WS Terminal] Command exited: %v", err)
 	}()
-	
+
 	// Send initial message to client
 	welcomeMsg := []byte("\r\nWelcome to WebSocket Terminal\r\n\r\n")
 	t.WsConn.WriteMessage(websocket.BinaryMessage, welcomeMsg)
-	
+
 	// 在服务器端配置 Shell 环境，这样用户就不会看到这些命令执行过程
 	time.Sleep(100 * time.Millisecond) // 确保 shell 已经准备好接收命令
 	shellInitCmd := []byte("export TERM=xterm-256color && " +
@@ -338,7 +338,7 @@ func getDefaultShell() string {
 	return "/bin/sh"
 }
 
-// SendInterrupt sends SIGINT to the process group
+// SendInterrupt sends interrupt signals to the process group
 func (t *Terminal) SendInterrupt() error {
 	if t.Cmd == nil || t.Cmd.Process == nil {
 		return fmt.Errorf("process not running")
@@ -349,7 +349,51 @@ func (t *Terminal) SendInterrupt() error {
 		return fmt.Errorf("failed to get process group ID: %v", err)
 	}
 
+	// 1. 首先尝试向进程组发送SIGINT
 	log.Printf("[WS Terminal] Sending SIGINT to process group: %d", -pgid)
-	return syscall.Kill(-pgid, syscall.SIGINT)
+	err = syscall.Kill(-pgid, syscall.SIGINT)
+	if err != nil {
+		log.Printf("[WS Terminal] Failed to send SIGINT: %v", err)
+	}
+
+	// 2. 使用goroutine在短暂延迟后发送SIGTERM，如果进程仍在运行
+	go func() {
+		// 等待一小段时间看SIGINT是否生效
+		time.Sleep(100 * time.Millisecond)
+
+		// 再次检查进程是否仍在运行
+		if processIsRunning(t.Cmd.Process.Pid) {
+			log.Printf("[WS Terminal] Process still running after SIGINT, sending SIGTERM to group: %d", -pgid)
+			if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
+				log.Printf("[WS Terminal] Failed to send SIGTERM: %v", err)
+			}
+
+			// 为ping和一些常见的顽固进程执行killall
+			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+				for _, procName := range []string{"ping", "dd", "nc", "cat"} {
+					killCmd := exec.Command("killall", "-TERM", procName)
+					_ = killCmd.Run()
+				}
+			}
+		}
+	}()
+
+	return nil
 }
 
+// 检查进程是否仍在运行
+func processIsRunning(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+
+	// 在Unix-like系统上，os.FindProcess总是成功的，需要发送信号0来检查进程是否存在
+	if runtime.GOOS != "windows" {
+		err = process.Signal(syscall.Signal(0))
+		return err == nil
+	}
+
+	// Windows平台，进程存在则返回nil
+	return true
+}

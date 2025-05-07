@@ -105,8 +105,9 @@
                     ws.send(buffer);
                 }
                 
-                // 在终端中显示^C以提供视觉反馈
-                terminal.write('^C\r\n');
+                // 在终端中显示^C以提供视觉反馈，但不包含换行符
+                // 这样可以让服务器端的响应正常显示
+                terminal.write('^C');
             } else {
                 sendInputCommand(data);
             }
