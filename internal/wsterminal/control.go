@@ -3,6 +3,9 @@ package wsterminal
 import (
 	"encoding/json"
 	"log"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // ControlMessage defines the structure for control messages from client
