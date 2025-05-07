@@ -100,8 +100,8 @@ func RegisterAgent() {
 func StartAgentHeartbeat(ctx context.Context) {
 	log.Println("[Agent] 控制中心心跳服务启动")
 
-	// 创建定时器 - 1分钟发送一次心跳
-	ticker := time.NewTicker(1 * time.Minute)
+	// 创建定时器 - 15分钟发送一次心跳
+	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 
 	// 立即发送一次心跳
