@@ -233,7 +233,16 @@ func (s *Session) handleIO() {
 					} else {
 						// 特殊处理如果输入是Ctrl+C，确保连续发送回车，帮助中断正在运行的命令
 						if len(input) == 1 && input[0] == 3 {
-							log.Printf("[MQTTY] 检测到Ctrl+C，尝试发送额外回车")
+							log.Printf("[MQTTY] 检测到Ctrl+C，向进程组发送SIGINT")
+							// 向进程组发送SIGINT信号
+							if s.Cmd != nil && s.Cmd.Process != nil {
+								if pgid, err := syscall.Getpgid(s.Cmd.Process.Pid); err == nil {
+									log.Printf("[MQTTY] 向进程组 %d 发送SIGINT", -pgid)
+									if err := syscall.Kill(-pgid, syscall.SIGINT); err != nil {
+										log.Printf("[MQTTY] 向进程组发送SIGINT失败: %v", err)
+									}
+								}
+							}
 							// 短暂延迟后发送回车，帮助刷新提示符
 							time.Sleep(100 * time.Millisecond)
 							s.PTY.Write([]byte{13}) // 发送回车(CR)
@@ -386,23 +395,32 @@ func (s *Session) Close() {
 func (s *Session) SendInput(data []byte) error {
 	// 检查是否是 Ctrl+C (ASCII 3, ETX - End of Text)
 	if len(data) == 1 && data[0] == 3 {
-		// 只终止ping进程，保持shell会话
+		// 在这里特殊处理Ctrl+C
 		if s.Cmd != nil && s.Cmd.Process != nil {
-			log.Printf("[MQTTY] 检测到Ctrl+C，只终止ping进程不影响shell")
+			log.Printf("[MQTTY] 检测到Ctrl+C，向进程组发送SIGINT")
 
-			// 方法1: 先尝试发送Ctrl+C到PTY
+			// 1. 发送字符给PTY
 			_, _ = s.PTY.Write([]byte{3})
-			log.Printf("[MQTTY] 向PTY发送Ctrl+C")
+			log.Printf("[MQTTY] 向PTY发送Ctrl+C字符")
 
-			// 直接使用killall命令终止ping进程，同步执行
-			killCmd := exec.Command("killall", "-9", "ping")
-			if err := killCmd.Run(); err != nil {
-				log.Printf("[MQTTY] 使用killall终止ping进程: %v", err)
+			// 2. 向进程组发送中断信号
+			if pgid, err := syscall.Getpgid(s.Cmd.Process.Pid); err == nil {
+				log.Printf("[MQTTY] 向进程组 %d 发送SIGINT", -pgid)
+				if err := syscall.Kill(-pgid, syscall.SIGINT); err != nil {
+					log.Printf("[MQTTY] 向进程组发送SIGINT失败: %v", err)
+				}
 			} else {
-				log.Printf("[MQTTY] 已使用killall强制终止所有ping进程")
+				log.Printf("[MQTTY] 获取进程组ID失败: %v", err)
 			}
 
-			// 不需要额外发送回车，避免多余的空行
+			// 3. 还可以尝试使用killall终止可能的stuck进程
+			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+				// 只尝试终止ping进程，很可能是导致问题的进程
+				pingKillCmd := exec.Command("killall", "-SIGINT", "ping")
+				if err := pingKillCmd.Run(); err != nil {
+					log.Printf("[MQTTY] 尝试使用killall终止ping进程: %v", err)
+				}
+			}
 
 			return nil
 		}

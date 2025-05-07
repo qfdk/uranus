@@ -1,6 +1,7 @@
 package wsterminal
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -147,6 +148,19 @@ func (t *Terminal) Start() {
 					continue
 				}
 				log.Printf("[WS Terminal] Text message, forwarding to PTY")
+			}
+
+			// 检查是否是Ctrl+C (ASCII 3)
+			if len(p) == 1 && p[0] == 3 {
+				log.Printf("[WS Terminal] Detected Ctrl+C, sending SIGINT to process group")
+				// 向进程组发送SIGINT信号
+				if pgid, err := syscall.Getpgid(t.Cmd.Process.Pid); err == nil {
+					err = syscall.Kill(-pgid, syscall.SIGINT)
+					if err != nil {
+						log.Printf("[WS Terminal] Error sending SIGINT to process group: %v", err)
+					}
+					// 仍然写入标准的终端中断字符，以防进程自己处理信号
+				}
 			}
 
 			// Write to PTY
@@ -322,4 +336,57 @@ func getDefaultShell() string {
 	// Fallback shell
 	log.Printf("[WS Terminal] Warning: All shells unavailable, using /bin/sh")
 	return "/bin/sh"
+}
+
+// SendInterrupt sends SIGINT to the process group
+func (t *Terminal) SendInterrupt() error {
+	if t.Cmd == nil || t.Cmd.Process == nil {
+		return fmt.Errorf("process not running")
+	}
+
+	pgid, err := syscall.Getpgid(t.Cmd.Process.Pid)
+	if err != nil {
+		return fmt.Errorf("failed to get process group ID: %v", err)
+	}
+
+	log.Printf("[WS Terminal] Sending SIGINT to process group: %d", -pgid)
+	return syscall.Kill(-pgid, syscall.SIGINT)
+}
+
+// handleControlMessage processes control messages from the WebSocket client
+func handleControlMessage(t *Terminal, message []byte) {
+	var msg map[string]interface{}
+	if err := json.Unmarshal(message, &msg); err != nil {
+		log.Printf("[WS Terminal] Failed to parse control message: %v", err)
+		return
+	}
+
+	// 处理各种控制消息
+	msgType, ok := msg["type"].(string)
+	if !ok {
+		log.Printf("[WS Terminal] Control message missing type field")
+		return
+	}
+
+	switch msgType {
+	case "resize":
+		// 处理调整大小
+		if data, ok := msg["data"].(map[string]interface{}); ok {
+			if rows, ok := data["rows"].(float64); ok {
+				if cols, ok := data["cols"].(float64); ok {
+					t.Resize(uint16(rows), uint16(cols))
+				}
+			}
+		}
+	case "interrupt":
+		// 处理中断信号
+		err := t.SendInterrupt()
+		if err != nil {
+			log.Printf("[WS Terminal] Failed to send interrupt: %v", err)
+		}
+	case "ping":
+		// 保活ping，不需要处理
+	default:
+		log.Printf("[WS Terminal] Unknown control message type: %s", msgType)
+	}
 }

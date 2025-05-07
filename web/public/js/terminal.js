@@ -9,6 +9,9 @@
         maximizeWin: true,
         screenReaderMode: true,
         cols: 128,
+        allowTransparency: true,
+        convertEol: true,
+        disableStdin: false, // 确保允许输入
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
         fontSize: 14,
         theme: {
@@ -78,9 +81,35 @@
             sendResizeCommand(size.rows, size.cols);
         });
 
-        // 处理用户输入
+        // 处理用户输入，特别处理Ctrl+C
         terminal.onData(function (data) {
-            sendInputCommand(data);
+            // 检查是否是Ctrl+C (ASCII值 3, '\x03')
+            if (data.charCodeAt(0) === 3) {
+                console.log('Detected Ctrl+C, sending interrupt signal');
+                
+                // 同时使用两种方式发送中断信号，提高成功率
+                
+                // 1. 作为控制消息发送中断命令
+                if (communicationMode === 'mqtt' && mqttClient && mqttClient.isConnected()) {
+                    // MQTT模式，只能通过数据通道发送
+                    sendMQTTCommand('input', mqttSessionID, '\x03');
+                } else if (communicationMode === 'ws' && ws && ws.readyState === WebSocket.OPEN) {
+                    // 通过控制消息发送中断信号
+                    ws.send(JSON.stringify({
+                        type: 'interrupt'
+                    }));
+                    
+                    // 2. 同时通过标准方式发送Ctrl+C字符
+                    var buffer = new Uint8Array(1);
+                    buffer[0] = 3; // Ctrl+C的ASCII码
+                    ws.send(buffer);
+                }
+                
+                // 在终端中显示^C以提供视觉反馈
+                terminal.write('^C\r\n');
+            } else {
+                sendInputCommand(data);
+            }
         });
 
         // 获取通信模式和代理UUID
