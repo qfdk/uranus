@@ -62,6 +62,14 @@ func handleControlMessage(t *Terminal, message []byte) {
 			log.Printf("[WS Terminal] Failed to send pong: %v", err)
 		}
 		
+	case "interrupt":
+		log.Printf("[WS Terminal] Received interrupt command, sending SIGINT")
+		// 处理中断信号
+		err := t.SendInterrupt()
+		if err != nil {
+			log.Printf("[WS Terminal] Failed to send interrupt: %v", err)
+		}
+		
 	default:
 		log.Printf("[WS Terminal] Unknown control message type: %s", controlMsg.Type)
 	}
