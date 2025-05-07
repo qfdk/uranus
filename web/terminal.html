@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Οὐρανός - Terminal</title>
+    <title>Οὐρανός - {{ .title }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.18.0/css/xterm.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xterm@4.18.0/lib/xterm.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-attach@0.6.0/lib/xterm-addon-attach.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-unicode11@0.3.0/lib/xterm-addon-unicode11.min.js"></script>
+    
+    <!-- MQTT库，仅在MQTT模式下需要 -->
+    {{ if eq .mode "mqtt" }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    {{ end }}
+    
     <style>
         html::-webkit-scrollbar,
         body::-webkit-scrollbar,
@@ -48,6 +53,10 @@
 </head>
 
 <body>
+<!-- 隐藏的表单用于传递终端模式和代理UUID -->
+<input type="hidden" id="terminal-mode" value="{{ .mode }}">
+<input type="hidden" id="agent-uuid" value="{{ .agentUUID }}">
+
 <div id="terminal"></div>
 <script src="/public/js/terminal.js"></script>
 </body>

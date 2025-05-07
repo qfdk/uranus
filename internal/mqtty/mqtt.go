@@ -52,6 +52,17 @@ type Terminal struct {
 	cancel  context.CancelFunc
 }
 
+// 全局会话管理器，用于WebSocket集成
+var globalSessionManager *SessionManager
+var globalSessionManagerMutex sync.Mutex
+
+// GetGlobalSessionManager 返回全局会话管理器
+func GetGlobalSessionManager() *SessionManager {
+	globalSessionManagerMutex.Lock()
+	defer globalSessionManagerMutex.Unlock()
+	return globalSessionManager
+}
+
 // 消息结构
 type Message struct {
 	SessionID string      `json:"sessionId"`
@@ -93,6 +104,11 @@ func (t *Terminal) Start() error {
 
 	// 初始化会话管理器
 	t.manager = NewSessionManager()
+	
+	// 设置全局会话管理器
+	globalSessionManagerMutex.Lock()
+	globalSessionManager = t.manager
+	globalSessionManagerMutex.Unlock()
 
 	// 初始化MQTT处理
 	if err := InitMQTT(t.options, t.manager); err != nil {
@@ -185,6 +201,11 @@ func DisconnectMQTT() {
 		mqttClient.Disconnect(250)
 		log.Println("[MQTTY] MQTT已断开连接")
 	}
+}
+
+// GetMQTTClient 返回MQTT客户端实例，供外部使用
+func GetMQTTClient() mqtt.Client {
+	return mqttClient
 }
 
 // 订阅所需主题
