@@ -14,6 +14,14 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+// max 返回两个整数中的最大值
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // 缓存响应主题以避免重复格式化
 var responseTopicCache = make(map[string]string)
 var responseTopicMutex sync.RWMutex
@@ -25,9 +33,8 @@ var maxRecentOutputs = 100 // 最多缓存100条最近消息
 // 输出缓冲设置
 const (
 	// 输出缓冲区大小
-	OutputBufferSize = 16384 // 16 KB
-	// 输出积累最大延迟时间
-	OutputAccumulationDelay = 50 * time.Millisecond
+	OutputBufferSize        = 32768 // 32 KB
+	OutputAccumulationDelay = 1 * time.Millisecond
 )
 
 // 缓存UUID以减少频繁访问AppConfig
@@ -609,6 +616,8 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 	const maxAccumulationSize = OutputBufferSize
 	// 最大等待时间，即使积累很少也会发送
 	const maxAccumulationDelay = OutputAccumulationDelay
+	// 命令结束标记，用于判断是否一个命令执行完成
+	commandEndMarkers := [][]byte{[]byte("$ "), []byte("# "), []byte("> ")}
 
 	// 创建定时器但不启动
 	flushTimer = time.NewTimer(maxAccumulationDelay)
@@ -637,10 +646,33 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 			// 积累输出
 			accumulated.Write(output)
 
-			// 判断是否需要立即发送：达到最大大小或包含完整命令行
+			// 检查是否为命令结束的标记
+			isCommandEnd := false
+			// 检查是否为快速命令的结果（如ls命令）- 特征是有多行输出且以命令提示符结束
+			isQuickCommandResult := false
+
+			// 检查命令结束标记
+			for _, marker := range commandEndMarkers {
+				if bytes.Contains(output, marker) {
+					isCommandEnd = true
+					// 如果输出中包含换行符并且以命令提示符结束，则认为是快速命令结果
+					if bytes.Contains(output, []byte{'\n'}) &&
+						bytes.Contains(output[max(0, len(output)-20):], marker) {
+						isQuickCommandResult = true
+					}
+					break
+				}
+			}
+
+			// 判断是否需要立即发送：
+			// 1. 达到最大大小
+			// 2. 已经过了较长时间
+			// 3. 检测到命令完成且积累了一定数据
+			// 4. 检测到快速命令结果
 			if accumulated.Len() >= maxAccumulationSize ||
-				time.Since(lastSendTime) > 200*time.Millisecond || // 确保每200ms至少发送一次
-				bytes.Contains(output, []byte{'\n'}) { // 换行符通常表示命令完成
+				time.Since(lastSendTime) > 500*time.Millisecond || // 确保每500ms至少发送一次
+				(isCommandEnd && accumulated.Len() > 128) || // 检测到命令结束且积累了一定数据
+				isQuickCommandResult { // 快速命令的结果（如ls）立即全部发送
 				// 停止之前可能已启动的定时器
 				if !flushTimer.Stop() {
 					select {

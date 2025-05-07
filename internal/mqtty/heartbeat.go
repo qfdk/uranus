@@ -49,8 +49,8 @@ func StartHeartbeat(ctx context.Context) {
 		log.Printf("[MQTTY] 心跳服务检测到MQTT未连接")
 	}
 
-	// 创建定时器 - 5分钟发送一次心跳信息
-	ticker := time.NewTicker(5 * time.Minute)
+	// 创建定时器 - 5秒发送一次心跳信息
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	// 立即发送一次心跳
