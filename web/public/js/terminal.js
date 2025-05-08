@@ -46,18 +46,18 @@
         // 确保DOM元素已经有正确的背景色
         var terminalElement = document.getElementById("terminal");
         terminalElement.style.backgroundColor = "#2A2C34";
-        
+
         try {
             // 预加载终端字体以减少FOUT (Flash of Unstyled Text)
             if ('fonts' in document) {
                 // 预加载monospace字体
-                document.fonts.load('1em monospace').then(function() {
+                document.fonts.load('1em monospace').then(function () {
                     console.log('Terminal fonts preloaded');
-                }).catch(function(err) {
+                }).catch(function (err) {
                     console.warn('Font preloading failed:', err);
                 });
             }
-            
+
             // 创建终端实例，使用try-catch确保错误不会中断初始化
             terminal = new Terminal(terminalSettings);
 
@@ -71,29 +71,29 @@
 
             // 打开终端 - 使用优化的打开流程
             terminal.open(terminalElement);
-            
+
             // 设置初始焦点，提升用户体验
-            setTimeout(function() {
+            setTimeout(function () {
                 terminal.focus();
             }, 100);
-            
+
             // 立即适应大小并触发重绘
             fitAddon.fit();
             terminal.refresh(0, terminal.rows - 1);
-            
+
             // 显示终端元素并隐藏加载指示器
             terminalElement.style.display = 'block';
             var loadingIndicator = document.getElementById('loading-indicator');
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
             }
-            
+
             // 报告初始化成功
             console.log('Terminal initialized successfully');
         } catch (err) {
             // 错误处理 - 尝试降级到基本终端
             console.error('Terminal initialization failed:', err);
-            
+
             // 显示错误信息给用户
             var loadingIndicator = document.getElementById('loading-indicator');
             if (loadingIndicator) {
@@ -116,9 +116,9 @@
             // 检查是否是Ctrl+C (ASCII值 3, '\x03')
             if (data.charCodeAt(0) === 3) {
                 console.log('Detected Ctrl+C, sending interrupt signal');
-                
+
                 // 同时使用两种方式发送中断信号，提高成功率
-                
+
                 // 1. 作为控制消息发送中断命令
                 if (communicationMode === 'mqtt' && mqttClient && mqttClient.isConnected()) {
                     // MQTT模式，只能通过数据通道发送
@@ -128,13 +128,13 @@
                     ws.send(JSON.stringify({
                         type: 'interrupt'
                     }));
-                    
+
                     // 2. 同时通过标准方式发送Ctrl+C字符
                     var buffer = new Uint8Array(1);
                     buffer[0] = 3; // Ctrl+C的ASCII码
                     ws.send(buffer);
                 }
-                
+
                 // 在终端中显示^C以提供视觉反馈，但不包含换行符
                 // 这样可以让服务器端的响应正常显示
                 terminal.write('^C');
@@ -216,17 +216,17 @@
     function connectWebSocketTerminal() {
         // 清理之前的连接
         cleanupConnections();
-        
+
         console.log('Connecting to WebSocket terminal...');
         terminal.write('正在连接终端服务器...\r\n');
-        
+
         // 建立WebSocket连接
         var protocol = (location.protocol === "https:") ? "wss://" : "ws://";
         var urlParams = mqttAgentUUID ? '?agent=' + mqttAgentUUID : '';
         var url = protocol + location.host + "/admin/ws/terminal" + urlParams;
-        
+
         // 连接超时处理
-        var connectTimeout = setTimeout(function() {
+        var connectTimeout = setTimeout(function () {
             if (ws && ws.readyState !== WebSocket.OPEN) {
                 terminal.write('\r\n\n连接超时，请检查网络后刷新页面重试。\r\n');
                 console.error('WebSocket connection timeout');
@@ -236,25 +236,25 @@
                 }
             }
         }, 10000); // 10秒连接超时
-        
+
         try {
             ws = new WebSocket(url);
-            
+
             // 创建重连机制
             var reconnectAttempts = 0;
             var maxReconnectAttempts = 3;
             var reconnectTimeout = null;
-            
+
             // 处理WebSocket事件
             ws.onopen = function () {
                 console.log('WebSocket connection established');
                 clearTimeout(connectTimeout); // 清除连接超时
                 reconnectAttempts = 0; // 重置重连计数
-                
+
                 // 适应终端大小
                 fitAddon.fit();
                 // Shell 环境已在服务器端配置，无需在前端发送初始化命令
-                
+
                 // 发送初始终端大小
                 sendResizeCommand(terminal.rows, terminal.cols);
 
@@ -262,7 +262,7 @@
                 if (pingInterval) {
                     clearInterval(pingInterval);
                 }
-                
+
                 pingInterval = setInterval(function () {
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         try {
@@ -279,47 +279,47 @@
                 }, 30000);
             };
 
-        ws.onclose = function (event) {
-            console.log('WebSocket connection closed:', event);
-            clearTimeout(connectTimeout); // 清除连接超时
-            
-            // 自动重连函数
-            function attemptReconnect() {
-                if (reconnectAttempts < maxReconnectAttempts) {
-                    reconnectAttempts++;
-                    terminal.write('\r\n\n连接断开，正在尝试重新连接 (' + reconnectAttempts + '/' + maxReconnectAttempts + ')...\r\n');
-                    
-                    // 指数退避重连
-                    var timeout = Math.min(30000, 1000 * Math.pow(2, reconnectAttempts));
-                    console.log('Reconnecting in ' + (timeout/1000) + ' seconds...');
-                    
-                    reconnectTimeout = setTimeout(function() {
-                        if (terminal) { // 确保终端仍然存在
-                            connectWebSocketTerminal();
-                        }
-                    }, timeout);
-                } else {
-                    terminal.write('\r\n\n重连失败，请刷新页面手动重连。\r\n');
+            ws.onclose = function (event) {
+                console.log('WebSocket connection closed:', event);
+                clearTimeout(connectTimeout); // 清除连接超时
+
+                // 自动重连函数
+                function attemptReconnect() {
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        terminal.write('\r\n\n连接断开，正在尝试重新连接 (' + reconnectAttempts + '/' + maxReconnectAttempts + ')...\r\n');
+
+                        // 指数退避重连
+                        var timeout = Math.min(30000, 1000 * Math.pow(2, reconnectAttempts));
+                        console.log('Reconnecting in ' + (timeout / 1000) + ' seconds...');
+
+                        reconnectTimeout = setTimeout(function () {
+                            if (terminal) { // 确保终端仍然存在
+                                connectWebSocketTerminal();
+                            }
+                        }, timeout);
+                    } else {
+                        terminal.write('\r\n\n重连失败，请刷新页面手动重连。\r\n');
+                    }
                 }
-            }
-            
-            // 如果不是正常关闭，尝试重连
-            if (event.code !== 1000 && event.code !== 1005) {
-                attemptReconnect();
-            } else {
-                terminal.write('\r\n\n连接已关闭。请刷新页面重连。\r\n');
-            }
 
-            cleanupConnections();
-        };
+                // 如果不是正常关闭，尝试重连
+                if (event.code !== 1000 && event.code !== 1005) {
+                    attemptReconnect();
+                } else {
+                    terminal.write('\r\n\n连接已关闭。请刷新页面重连。\r\n');
+                }
 
-        ws.onerror = function (error) {
-            console.error('WebSocket error:', error);
-            clearTimeout(connectTimeout); // 清除连接超时
-            terminal.write('\r\n\n连接错误: ' + (error.message || '网络连接问题') + '\r\n');
-            
-            // 错误后不立即尝试重连，让onclose处理重连逻辑
-        };
+                cleanupConnections();
+            };
+
+            ws.onerror = function (error) {
+                console.error('WebSocket error:', error);
+                clearTimeout(connectTimeout); // 清除连接超时
+                terminal.write('\r\n\n连接错误: ' + (error.message || '网络连接问题') + '\r\n');
+
+                // 错误后不立即尝试重连，让onclose处理重连逻辑
+            };
         } catch (e) {
             console.error('Failed to create WebSocket:', e);
             terminal.write('\r\n\n创建WebSocket连接失败: ' + e.message + '\r\n');
@@ -347,19 +347,19 @@
         terminal.write('正在连接MQTT终端...\r\n');
 
         // 连接超时处理
-        var connectTimeout = setTimeout(function() {
+        var connectTimeout = setTimeout(function () {
             terminal.write('\r\n\nMQTT连接超时，请检查网络或刷新页面。\r\n');
             console.error('MQTT connection timeout');
         }, 15000); // 15秒连接超时
-        
+
         // 获取MQTT连接信息，使用Promise包装以便更好地处理错误和超时
         function getMQTTInfo() {
-            return new Promise(function(resolve, reject) {
+            return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', '/admin/api/terminal/mqtt/connect' + (mqttAgentUUID ? '?agent=' + mqttAgentUUID : ''), true);
                 xhr.timeout = 10000; // 10秒超时
-                
-                xhr.onreadystatechange = function() {
+
+                xhr.onreadystatechange = function () {
                     if (xhr.readyState === 4) {
                         if (xhr.status === 200) {
                             try {
@@ -373,37 +373,37 @@
                         }
                     }
                 };
-                
-                xhr.ontimeout = function() {
+
+                xhr.ontimeout = function () {
                     reject(new Error('获取MQTT连接信息超时'));
                 };
-                
-                xhr.onerror = function() {
+
+                xhr.onerror = function () {
                     reject(new Error('网络错误，无法获取MQTT连接信息'));
                 };
-                
+
                 xhr.send();
             });
         }
-        
+
         // 使用Promise处理连接流程
         getMQTTInfo()
-            .then(function(info) {
+            .then(function (info) {
                 if (!info.available) {
                     throw new Error('Agent无法连接或不可用');
                 }
-                
+
                 // 设置MQTT会话信息
                 mqttSessionID = info.sessionID;
                 mqttAgentUUID = info.agentUUID;
-                
+
                 // 先检查MQTT库是否已加载
                 if (typeof Paho !== 'undefined' && Paho.MQTT) {
                     return Promise.resolve(info);
                 } else {
                     // 加载MQTT库
-                    return new Promise(function(resolve, reject) {
-                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js', function() {
+                    return new Promise(function (resolve, reject) {
+                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js', function () {
                             // 检查加载是否成功
                             if (typeof Paho !== 'undefined' && Paho.MQTT) {
                                 resolve(info);
@@ -414,12 +414,12 @@
                     });
                 }
             })
-            .then(function(info) {
+            .then(function (info) {
                 // 连接MQTT
                 connectMQTT(info);
                 clearTimeout(connectTimeout);
             })
-            .catch(function(error) {
+            .catch(function (error) {
                 console.error('MQTT连接过程失败:', error);
                 terminal.write('\r\n\n连接失败: ' + error.message + '\r\n');
                 terminal.write('请刷新页面重试或联系管理员。\r\n');
@@ -466,7 +466,7 @@
     // MQTT连接成功回调
     function onMQTTConnect() {
         console.log('MQTT connected');
-        
+
         // 订阅响应主题
         mqttClient.subscribe(mqttOutputTopic);
 
@@ -475,7 +475,7 @@
 
         // 适应终端大小
         fitAddon.fit();
-        
+
         // Shell 环境已在服务器端配置，无需在前端发送初始化命令
 
         // 启动保活ping
@@ -594,16 +594,16 @@
         if (communicationMode === 'mqtt' && mqttClient && mqttClient.isConnected()) {
             // MQTT模式
             sendMQTTCommand('resize', mqttSessionID, {
-                rows: rows,
-                cols: cols
+                rows,
+                cols
             });
         } else if (communicationMode === 'ws' && ws && ws.readyState === WebSocket.OPEN) {
             // WebSocket模式
             ws.send(JSON.stringify({
                 type: 'resize',
                 data: {
-                    rows: rows,
-                    cols: cols
+                    rows,
+                    cols
                 }
             }));
         }
@@ -627,12 +627,12 @@
     // 清理连接 - 增强版本，确保所有资源正确释放
     function cleanupConnections() {
         console.log('正在清理所有连接和资源...');
-        
+
         var cleanupPromises = [];
-        
+
         // 清理WebSocket连接
         if (ws) {
-            cleanupPromises.push(new Promise(function(resolve) {
+            cleanupPromises.push(new Promise(function (resolve) {
                 try {
                     // 如果连接仍然打开或正在连接，发送关闭消息
                     if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
@@ -645,21 +645,21 @@
                             } catch (e) {
                                 console.warn('发送终止命令失败:', e);
                             }
-                            
+
                             // 设置关闭超时，确保不会卡住
-                            var closeTimeout = setTimeout(function() {
+                            var closeTimeout = setTimeout(function () {
                                 console.log('WebSocket关闭超时，强制关闭');
                                 resolve();
                             }, 2000);
-                            
+
                             // 监听关闭事件
                             var originalOnClose = ws.onclose;
-                            ws.onclose = function(event) {
+                            ws.onclose = function (event) {
                                 clearTimeout(closeTimeout);
                                 if (originalOnClose) originalOnClose(event);
                                 resolve();
                             };
-                            
+
                             // 正常关闭WebSocket
                             ws.close(1000, "Terminal cleanup");
                         } else {
@@ -682,7 +682,7 @@
 
         // 清理MQTT连接
         if (mqttClient) {
-            cleanupPromises.push(new Promise(function(resolve) {
+            cleanupPromises.push(new Promise(function (resolve) {
                 try {
                     if (mqttClient.isConnected && mqttClient.isConnected()) {
                         // 发送关闭会话消息
@@ -690,7 +690,7 @@
                             try {
                                 sendMQTTCommand('close', mqttSessionID, '');
                                 // 给服务器时间处理关闭命令
-                                setTimeout(function() {
+                                setTimeout(function () {
                                     disconnectMQTT();
                                 }, 500);
                             } catch (e) {
@@ -703,7 +703,7 @@
                     } else {
                         resolve();
                     }
-                    
+
                     function disconnectMQTT() {
                         try {
                             mqttClient.disconnect();
@@ -728,17 +728,17 @@
             clearInterval(pingInterval);
             pingInterval = null;
         }
-        
+
         // 取消所有可能的重连尝试
         if (typeof reconnectTimeout !== 'undefined' && reconnectTimeout) {
             clearTimeout(reconnectTimeout);
             reconnectTimeout = null;
         }
-        
+
         // 等待所有清理操作完成
-        Promise.all(cleanupPromises).then(function() {
+        Promise.all(cleanupPromises).then(function () {
             console.log('所有连接已清理完成');
-        }).catch(function(error) {
+        }).catch(function (error) {
             console.error('清理连接时发生错误:', error);
         });
     }
