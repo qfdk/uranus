@@ -36,7 +36,6 @@ func Index(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "index.html",
 		gin.H{
 			"activePage":         "dashboard",
-			"hasSSH":             TtydProcess != nil,
 			"osName":             fullOsName,
 			"cpu":                cpuInfo[0],
 			"memInfo":            humanize.Bytes(memInfo.Total),
