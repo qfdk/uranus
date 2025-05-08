@@ -14,6 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-acme/lego/v4 v4.6.0
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/spf13/viper v1.10.1
 	gorm.io/driver/sqlite v1.3.1
@@ -34,7 +35,6 @@ require (
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.1 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.4 // indirect
