@@ -3,9 +3,9 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"uranus/internal/config"
 	"uranus/internal/tools"
@@ -17,7 +17,7 @@ func GetConfigEditor(ctx *gin.Context) {
 	configPath := path.Join(tools.GetPWD(), "config.toml")
 
 	// Read the content of the config file
-	content, err := ioutil.ReadFile(configPath)
+	content, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Printf("Error reading config file: %v", err)
 		ctx.String(http.StatusInternalServerError, "Error reading configuration file")
@@ -46,7 +46,7 @@ func SaveConfig(ctx *gin.Context) {
 	}
 
 	// Write the new content to the config file
-	err := ioutil.WriteFile(configPath, []byte(content), 0644)
+	err := os.WriteFile(configPath, []byte(content), 0644)
 	if err != nil {
 		log.Printf("Error saving config file: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error saving configuration: " + err.Error()})
@@ -75,10 +75,10 @@ func SaveConfig(ctx *gin.Context) {
 
 // copyFile copies a file from src to dst
 func copyFile(src, dst string) error {
-	input, err := ioutil.ReadFile(src)
+	input, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(dst, input, 0644)
+	return os.WriteFile(dst, input, 0644)
 }

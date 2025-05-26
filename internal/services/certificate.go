@@ -47,7 +47,11 @@ func IssueCert(domains []string, configName string) error {
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
-		data, _ := ioutil.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
+		data, err := os.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
+		if err != nil {
+			log.Printf("[SSL] Failed to read domains file: %v", err)
+			return err
+		}
 		domains = strings.Split(string(data), ",")
 	}
 
@@ -66,7 +70,11 @@ func IssueCert(domains []string, configName string) error {
 	config.Certificate.KeyType = certcrypto.RSA2048
 
 	// A client facilitates communication with the CA server.
-	client, _ := lego.NewClient(config)
+	client, err := lego.NewClient(config)
+	if err != nil {
+		log.Printf("[SSL] Failed to create ACME client: %v", err)
+		return err
+	}
 
 	// 9999 端口为签名端口
 	err = client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "9999"))

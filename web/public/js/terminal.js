@@ -52,9 +52,8 @@
             if ('fonts' in document) {
                 // 预加载monospace字体
                 document.fonts.load('1em monospace').then(function () {
-                    console.log('Terminal fonts preloaded');
                 }).catch(function (err) {
-                    console.warn('Font preloading failed:', err);
+                    // Font preloading failed
                 });
             }
 
@@ -89,7 +88,6 @@
             }
 
             // 报告初始化成功
-            console.log('Terminal initialized successfully');
         } catch (err) {
             // 错误处理 - 尝试降级到基本终端
             console.error('Terminal initialization failed:', err);
@@ -115,7 +113,6 @@
         terminal.onData(function (data) {
             // 检查是否是Ctrl+C (ASCII值 3, '\x03')
             if (data.charCodeAt(0) === 3) {
-                console.log('Detected Ctrl+C, sending interrupt signal');
 
                 // 同时使用两种方式发送中断信号，提高成功率
 
@@ -217,7 +214,6 @@
         // 清理之前的连接
         cleanupConnections();
 
-        console.log('Connecting to WebSocket terminal...');
         terminal.write('正在连接终端服务器...\r\n');
 
         // 建立WebSocket连接
@@ -247,7 +243,6 @@
 
             // 处理WebSocket事件
             ws.onopen = function () {
-                console.log('WebSocket connection established');
                 clearTimeout(connectTimeout); // 清除连接超时
                 reconnectAttempts = 0; // 重置重连计数
 
@@ -280,7 +275,6 @@
             };
 
             ws.onclose = function (event) {
-                console.log('WebSocket connection closed:', event);
                 clearTimeout(connectTimeout); // 清除连接超时
 
                 // 自动重连函数
@@ -291,7 +285,6 @@
 
                         // 指数退避重连
                         var timeout = Math.min(30000, 1000 * Math.pow(2, reconnectAttempts));
-                        console.log('Reconnecting in ' + (timeout / 1000) + ' seconds...');
 
                         reconnectTimeout = setTimeout(function () {
                             if (terminal) { // 确保终端仍然存在
@@ -343,7 +336,6 @@
         // 清理之前的连接
         cleanupConnections();
 
-        console.log('Connecting to MQTT terminal...');
         terminal.write('正在连接MQTT终端...\r\n');
 
         // 连接超时处理
@@ -465,7 +457,6 @@
 
     // MQTT连接成功回调
     function onMQTTConnect() {
-        console.log('MQTT connected');
 
         // 订阅响应主题
         mqttClient.subscribe(mqttOutputTopic);
@@ -494,7 +485,6 @@
 
     // MQTT连接丢失回调
     function onMQTTConnectionLost(response) {
-        console.log('MQTT connection lost:', response);
         terminal.write('\r\n\nMQTT connection lost: ' + response.errorMessage + '\r\n');
 
         cleanupConnections();
@@ -555,7 +545,6 @@
             switch (message.type) {
                 case 'pong':
                     // 收到pong，连接保持活跃
-                    console.debug('Pong received from server');
                     break;
 
                 case 'error':
@@ -565,7 +554,6 @@
                     break;
 
                 default:
-                    console.log('Unknown message type:', message.type, message);
             }
         } catch (e) {
             console.error('Failed to parse message:', e);
@@ -626,7 +614,6 @@
 
     // 清理连接 - 增强版本，确保所有资源正确释放
     function cleanupConnections() {
-        console.log('正在清理所有连接和资源...');
 
         var cleanupPromises = [];
 
@@ -648,7 +635,6 @@
 
                             // 设置关闭超时，确保不会卡住
                             var closeTimeout = setTimeout(function () {
-                                console.log('WebSocket关闭超时，强制关闭');
                                 resolve();
                             }, 2000);
 
@@ -707,7 +693,6 @@
                     function disconnectMQTT() {
                         try {
                             mqttClient.disconnect();
-                            console.log('MQTT连接已断开');
                         } catch (e) {
                             console.error('断开MQTT连接时发生错误:', e);
                         } finally {
@@ -737,7 +722,6 @@
 
         // 等待所有清理操作完成
         Promise.all(cleanupPromises).then(function () {
-            console.log('所有连接已清理完成');
         }).catch(function (error) {
             console.error('清理连接时发生错误:', error);
         });

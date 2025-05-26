@@ -28,8 +28,11 @@ var responseTopicCache = make(map[string]string)
 var responseTopicMutex sync.RWMutex
 
 // 使用已发送消息缓存，防止重复消息
-var recentOutputs = make(map[string]time.Time)
-var maxRecentOutputs = 100 // 最多缓存100条最近消息
+var (
+	recentOutputs      = make(map[string]time.Time)
+	recentOutputsMutex sync.RWMutex
+	maxRecentOutputs   = 100 // 最多缓存100条最近消息
+)
 
 // 输出缓冲设置
 const (
@@ -90,7 +93,7 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
 		return
 	}
-	
+
 	// 处理Nginx相关命令
 	switch command.Command {
 	case "reload":
@@ -618,7 +621,9 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 		}
 
 		// 添加到最近消息缓存
+		recentOutputsMutex.Lock()
 		recentOutputs[outputHash] = time.Now()
+		recentOutputsMutex.Unlock()
 
 		// 发布到前端响应主题
 		token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
@@ -745,15 +750,15 @@ func handleReloadCommand(client mqtt.Client, command struct {
 }, agentUuid string) {
 	// 导入services包以调用ReloadNginx
 	log.Printf("[MQTTY] 执行Nginx重载，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
-	
+
 	// 调用Nginx重载服务
 	result := services.ReloadNginx()
 	log.Printf("[MQTTY] Nginx重载结果: %s", result)
-	
+
 	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
 	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
-	
+
 	// 准备响应
 	response := struct {
 		Success   bool   `json:"success"`
@@ -768,19 +773,19 @@ func handleReloadCommand(client mqtt.Client, command struct {
 		Result:    result,
 		Message:   "Nginx配置已重载",
 	}
-	
+
 	// 如果重载失败，更新消息
 	if result != "OK" {
 		response.Message = fmt.Sprintf("Nginx重载失败: %s", result)
 	}
-	
+
 	// 发送响应
 	respPayload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("[MQTTY] 序列化响应失败: %v", err)
 		return
 	}
-	
+
 	token := client.Publish(responseTopic, 1, false, respPayload)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
@@ -799,15 +804,15 @@ func handleStartCommand(client mqtt.Client, command struct {
 	Data      interface{} `json:"data"`
 }, agentUuid string) {
 	log.Printf("[MQTTY] 执行Nginx启动，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
-	
+
 	// 调用Nginx启动服务
 	result := services.StartNginx()
 	log.Printf("[MQTTY] Nginx启动结果: %s", result)
-	
+
 	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
 	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
-	
+
 	// 准备响应
 	response := struct {
 		Success   bool   `json:"success"`
@@ -822,19 +827,19 @@ func handleStartCommand(client mqtt.Client, command struct {
 		Result:    result,
 		Message:   "Nginx服务已启动",
 	}
-	
+
 	// 如果启动失败，更新消息
 	if result != "OK" {
 		response.Message = fmt.Sprintf("Nginx启动失败: %s", result)
 	}
-	
+
 	// 发送响应
 	respPayload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("[MQTTY] 序列化响应失败: %v", err)
 		return
 	}
-	
+
 	token := client.Publish(responseTopic, 1, false, respPayload)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
@@ -853,15 +858,15 @@ func handleStopCommand(client mqtt.Client, command struct {
 	Data      interface{} `json:"data"`
 }, agentUuid string) {
 	log.Printf("[MQTTY] 执行Nginx停止，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
-	
+
 	// 调用Nginx停止服务
 	result := services.StopNginx()
 	log.Printf("[MQTTY] Nginx停止结果: %s", result)
-	
+
 	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
 	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
-	
+
 	// 准备响应
 	response := struct {
 		Success   bool   `json:"success"`
@@ -876,19 +881,19 @@ func handleStopCommand(client mqtt.Client, command struct {
 		Result:    result,
 		Message:   "Nginx服务已停止",
 	}
-	
+
 	// 如果停止失败，更新消息
 	if result != "OK" {
 		response.Message = fmt.Sprintf("Nginx停止失败: %s", result)
 	}
-	
+
 	// 发送响应
 	respPayload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("[MQTTY] 序列化响应失败: %v", err)
 		return
 	}
-	
+
 	token := client.Publish(responseTopic, 1, false, respPayload)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
@@ -907,11 +912,11 @@ func handleRestartCommand(client mqtt.Client, command struct {
 	Data      interface{} `json:"data"`
 }, agentUuid string) {
 	log.Printf("[MQTTY] 执行Nginx重启，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
-	
+
 	// 先停止Nginx
 	stopResult := services.StopNginx()
 	log.Printf("[MQTTY] Nginx停止结果: %s", stopResult)
-	
+
 	// 如果停止失败，不再尝试启动
 	if stopResult != "OK" {
 		// 创建响应主题
@@ -930,32 +935,32 @@ func handleRestartCommand(client mqtt.Client, command struct {
 			Result:    stopResult,
 			Message:   fmt.Sprintf("Nginx重启失败，无法停止服务: %s", stopResult),
 		}
-		
+
 		// 发送响应
 		respPayload, err := json.Marshal(response)
 		if err != nil {
 			log.Printf("[MQTTY] 序列化响应失败: %v", err)
 			return
 		}
-		
+
 		token := client.Publish(responseTopic, 1, false, respPayload)
 		if token.Wait() && token.Error() != nil {
 			log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
 		}
 		return
 	}
-	
+
 	// 等待一小段时间确保Nginx完全停止
 	time.Sleep(500 * time.Millisecond)
-	
+
 	// 然后启动Nginx
 	startResult := services.StartNginx()
 	log.Printf("[MQTTY] Nginx启动结果: %s", startResult)
-	
+
 	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
 	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
-	
+
 	// 准备响应
 	response := struct {
 		Success   bool   `json:"success"`
@@ -970,19 +975,19 @@ func handleRestartCommand(client mqtt.Client, command struct {
 		Result:    startResult,
 		Message:   "Nginx服务已重启",
 	}
-	
+
 	// 如果启动失败，更新消息
 	if startResult != "OK" {
 		response.Message = fmt.Sprintf("Nginx重启失败，无法启动服务: %s", startResult)
 	}
-	
+
 	// 发送响应
 	respPayload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("[MQTTY] 序列化响应失败: %v", err)
 		return
 	}
-	
+
 	token := client.Publish(responseTopic, 1, false, respPayload)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
@@ -997,7 +1002,10 @@ func cleanupRecentOutputs() {
 	now := time.Now()
 	toDelete := make([]string, 0, 10) // 预分配一个合理大小的切片
 
-	// 先收集要删除的key
+	// 先收集要删除的key（使用写锁）
+	recentOutputsMutex.Lock()
+	defer recentOutputsMutex.Unlock()
+
 	for hash, timestamp := range recentOutputs {
 		if now.Sub(timestamp) > 5*time.Second {
 			toDelete = append(toDelete, hash)

@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -85,7 +84,7 @@ func GetTemplate(ctx *gin.Context) {
 // GetSites 获取所有站点配置
 func GetSites(ctx *gin.Context) {
 	vhostPath := GetAppConfig().VhostPath
-	allFiles, err := ioutil.ReadDir(vhostPath)
+	allFiles, err := os.ReadDir(vhostPath)
 	if err != nil {
 		log.Println(err)
 		ctx.HTML(http.StatusOK, "sites.html", gin.H{
@@ -95,7 +94,7 @@ func GetSites(ctx *gin.Context) {
 	}
 
 	// 只过滤显示.conf文件
-	var confFiles []os.FileInfo
+	var confFiles []os.DirEntry
 	for _, file := range allFiles {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".conf") {
 			confFiles = append(confFiles, file)
@@ -137,7 +136,7 @@ func EditSiteConf(ctx *gin.Context) {
 	}
 
 	// 读取默认配置
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Printf("读取默认配置出错: %v", err)
 		ctx.String(http.StatusInternalServerError, "读取配置出错")
@@ -249,7 +248,7 @@ func SaveSiteConf(ctx *gin.Context) {
 
 	// 写入配置文件
 	filePath := filepath.Join(vhostPath, fullFileName)
-	err := ioutil.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
 		log.Printf("写入配置文件出错: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "写入文件出错"})
