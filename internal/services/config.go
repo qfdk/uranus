@@ -146,6 +146,7 @@ func getCurrentIP() (string, error) {
 	// 尝试多个IP检测服务
 	urls := []string{
 		"https://ifconfig.me",
+		"https://ip.sb",
 		"https://ipinfo.io/ip",
 		"https://api.ipify.org",
 		"https://icanhazip.com",
