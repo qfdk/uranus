@@ -71,7 +71,9 @@ func getResponseTopic(agentUuid string) string {
 
 // 处理从命令主题接收到的消息
 func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, manager *SessionManager, agentUuid string) {
-	// 解析消息内容
+	log.Printf("[MQTTY] 收到MQTT消息 - 主题: %s, 内容: %s", msg.Topic(), string(msg.Payload()))
+
+	// 解析普通消息内容
 	var command struct {
 		Command   string      `json:"command"`
 		RequestId string      `json:"requestId"`
@@ -91,6 +93,13 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 	// 终端命令另行处理
 	if command.Command == "terminal" {
 		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
+		return
+	}
+
+	// 处理配置更新命令
+	if command.Command == "update_config" {
+		log.Printf("[MQTTY] 收到配置更新命令，完整命令: %+v", command)
+		handleConfigCommand(client, command, agentUuid)
 		return
 	}
 
@@ -1044,3 +1053,102 @@ func cleanupRecentOutputs() {
 		}
 	}
 }
+
+// handleConfigCommand 处理配置更新命令
+func handleConfigCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	log.Printf("[MQTTY] 处理配置更新命令，RequestId: %s", command.RequestId)
+
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+
+	// 准备响应
+	response := struct {
+		Success     bool     `json:"success"`
+		RequestId   string   `json:"requestId"`
+		Command     string   `json:"command"`
+		Message     string   `json:"message"`
+		UpdatedKeys []string `json:"updatedKeys,omitempty"`
+	}{
+		RequestId: command.RequestId,
+		Command:   "update_config",
+	}
+
+	// 解析配置数据
+	configData, ok := command.Data.(map[string]interface{})
+	if !ok || configData == nil || len(configData) == 0 {
+		response.Success = false
+		response.Message = "没有提供有效的配置数据"
+		respPayload, _ := json.Marshal(response)
+		client.Publish(responseTopic, 1, false, respPayload)
+		return
+	}
+
+	log.Printf("[MQTTY] 配置数据: %+v", configData)
+
+	// 更新配置文件
+	updatedKeys, err := services.UpdateAgentConfig(configData)
+	if err != nil {
+		log.Printf("[MQTTY] 配置更新失败: %v", err)
+		response.Success = false
+		response.Message = fmt.Sprintf("配置更新失败: %v", err)
+	} else {
+		log.Printf("[MQTTY] 配置更新成功，更新的字段: %v", updatedKeys)
+		response.Success = true
+		response.Message = "配置已更新"
+		response.UpdatedKeys = updatedKeys
+
+		// 如果更新了关键配置（如token或MQTT服务器），需要重启
+		needRestart := false
+		for _, key := range updatedKeys {
+			if key == "token" || key == "mqttBroker" {
+				needRestart = true
+				break
+			}
+		}
+
+		if needRestart {
+			response.Message = "配置已更新，Agent将在3秒后重启"
+		}
+	}
+
+	// 发送响应
+	respPayload, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("[MQTTY] 序列化响应失败: %v", err)
+		return
+	}
+
+	token := client.Publish(responseTopic, 1, false, respPayload)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("[MQTTY] 发布配置更新响应失败: %v", token.Error())
+	} else {
+		log.Printf("[MQTTY] 配置更新响应已发送: %s", string(respPayload))
+	}
+
+	// 如果需要重启，延迟3秒后重启
+	if response.Success {
+		needRestart := false
+		for _, key := range response.UpdatedKeys {
+			if key == "token" || key == "mqttBroker" {
+				needRestart = true
+				break
+			}
+		}
+
+		if needRestart {
+			go func() {
+				time.Sleep(3 * time.Second)
+				log.Printf("[MQTTY] 配置更新完成，重启Agent...")
+				services.RestartAgent()
+			}()
+		}
+	}
+}
+

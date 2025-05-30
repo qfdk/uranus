@@ -30,7 +30,8 @@ type AppConfig struct {
 	InstallPath   string `json:"installPath"`
 	IP            string `json:"ip"`
 	// MQTT配置
-	MQTTBroker string `json:"mqttBroker"` // MQTT服务器地址
+	MQTTEnabled bool   `json:"mqttEnabled"` // 是否启用MQTT
+	MQTTBroker  string `json:"mqttBroker"`  // MQTT服务器地址
 }
 
 var (
