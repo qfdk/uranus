@@ -2,11 +2,14 @@ package services
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -153,15 +156,26 @@ func getCurrentIP() (string, error) {
 		"https://ipecho.net/plain",
 	}
 
+	// 创建HTTP客户端，设置超时
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
 	for _, url := range urls {
-		cmd := exec.Command("curl", "-s", "--connect-timeout", "5", url)
-		output, err := cmd.Output()
+		resp, err := client.Get(url)
 		if err != nil {
 			log.Printf("[CONFIG] 从 %s 获取IP失败: %v", url, err)
 			continue
 		}
 
-		ip := strings.TrimSpace(string(output))
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Printf("[CONFIG] 读取 %s 响应失败: %v", url, err)
+			continue
+		}
+
+		ip := strings.TrimSpace(string(body))
 		// 验证IP格式（简单检查）
 		if len(ip) > 7 && len(ip) < 16 && strings.Count(ip, ".") == 3 {
 			log.Printf("[CONFIG] 从 %s 获取到IP: %s", url, ip)
