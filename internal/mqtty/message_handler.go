@@ -103,6 +103,13 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 		return
 	}
 
+	// 处理IP地址刷新命令
+	if command.Command == "refresh_ip" {
+		log.Printf("[MQTTY] 收到IP地址刷新命令")
+		handleRefreshIPCommand(client, command, agentUuid)
+		return
+	}
+
 	// 处理Nginx相关命令
 	switch command.Command {
 	case "reload":
@@ -1150,5 +1157,49 @@ func handleConfigCommand(client mqtt.Client, command struct {
 			}()
 		}
 	}
+}
+
+// handleRefreshIPCommand 处理IP地址刷新命令
+func handleRefreshIPCommand(client mqtt.Client, command struct {
+	Command   string      `json:"command"`
+	RequestId string      `json:"requestId"`
+	ClientId  string      `json:"clientId"`
+	Type      string      `json:"type"`
+	SessionId string      `json:"sessionId"`
+	Data      interface{} `json:"data"`
+}, agentUuid string) {
+	log.Printf("[MQTTY] 处理IP地址刷新命令，RequestId: %s", command.RequestId)
+
+	// 创建响应主题
+	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
+
+	// 准备响应
+	response := struct {
+		Success   bool   `json:"success"`
+		RequestId string `json:"requestId"`
+		Command   string `json:"command"`
+		Message   string `json:"message"`
+		NewIP     string `json:"newIP,omitempty"`
+	}{
+		RequestId: command.RequestId,
+		Command:   "refresh_ip",
+	}
+
+	// 刷新IP地址
+	newIP, err := services.RefreshAgentIP()
+	if err != nil {
+		log.Printf("[MQTTY] IP地址刷新失败: %v", err)
+		response.Success = false
+		response.Message = fmt.Sprintf("IP地址刷新失败: %v", err)
+	} else {
+		log.Printf("[MQTTY] IP地址刷新成功，新IP: %s", newIP)
+		response.Success = true
+		response.Message = "IP地址已更新"
+		response.NewIP = newIP
+	}
+
+	// 发送响应
+	respPayload, _ := json.Marshal(response)
+	client.Publish(responseTopic, 1, false, respPayload)
 }
 

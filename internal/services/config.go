@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/viper"
@@ -113,4 +114,59 @@ func RestartAgent() error {
 
 	log.Printf("[SERVICE] 已发送重启信号")
 	return nil
+}
+
+// RefreshAgentIP 刷新Agent的IP地址并更新配置文件
+func RefreshAgentIP() (string, error) {
+	log.Printf("[CONFIG] 开始刷新IP地址...")
+
+	// 获取新的IP地址
+	newIP, err := getCurrentIP()
+	if err != nil {
+		return "", fmt.Errorf("获取IP地址失败: %v", err)
+	}
+
+	log.Printf("[CONFIG] 获取到新IP地址: %s", newIP)
+
+	// 更新配置文件中的IP地址
+	viper.Set("ip", newIP)
+
+	// 保存配置文件
+	if err := viper.WriteConfig(); err != nil {
+		log.Printf("[CONFIG] 保存IP地址到配置文件失败: %v", err)
+		return "", fmt.Errorf("保存配置文件失败: %v", err)
+	}
+
+	log.Printf("[CONFIG] IP地址已更新到配置文件: %s", newIP)
+	return newIP, nil
+}
+
+// getCurrentIP 获取当前的公网IP地址
+func getCurrentIP() (string, error) {
+	// 尝试多个IP检测服务
+	urls := []string{
+		"https://ipinfo.io/ip",
+		"https://api.ipify.org",
+		"https://icanhazip.com",
+		"https://ipecho.net/plain",
+	}
+
+	for _, url := range urls {
+		cmd := exec.Command("curl", "-s", "--connect-timeout", "5", url)
+		output, err := cmd.Output()
+		if err != nil {
+			log.Printf("[CONFIG] 从 %s 获取IP失败: %v", url, err)
+			continue
+		}
+
+		ip := strings.TrimSpace(string(output))
+		// 验证IP格式（简单检查）
+		if len(ip) > 7 && len(ip) < 16 && strings.Count(ip, ".") == 3 {
+			log.Printf("[CONFIG] 从 %s 获取到IP: %s", url, ip)
+			return ip, nil
+		}
+		log.Printf("[CONFIG] 从 %s 获取到无效IP: %s", url, ip)
+	}
+
+	return "", fmt.Errorf("所有IP检测服务都失败")
 }
