@@ -104,6 +104,10 @@ func loadConfig() {
 
 	if _appConfig.IP == "" {
 		ip := getIP()
+		if ip == "" {
+			ip = "Unknown"
+		}
+		_appConfig.IP = ip
 		viper.Set("ip", ip)
 		_ = viper.WriteConfig()
 		log.Println("[+] IP保存成功")
@@ -196,14 +200,14 @@ func getIP() string {
 	req, err := http.NewRequest("GET", "https://ip.tar.tn", nil)
 	if err != nil {
 		log.Printf("请求创建失败: %v", err)
-		return ""
+		return "Unknown"
 	}
 	req.Header.Set("User-Agent", "Uranus")
 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("请求失败: %v", err)
-		return ""
+		return "Unknown"
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
@@ -211,13 +215,13 @@ func getIP() string {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("请求返回非200状态码: %d", resp.StatusCode)
-		return ""
+		return "Unknown"
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("读取响应体失败: %v", err)
-		return ""
+		return "Unknown"
 	}
 
 	ip := strings.TrimSpace(string(body))

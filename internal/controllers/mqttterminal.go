@@ -155,17 +155,12 @@ func SendMQTTTerminalCommand(c *gin.Context) {
 	// 发送到命令主题
 	commandTopic := fmt.Sprintf("uranus/command/%s", command.AgentUUID)
 	
-	// 使用接口类型断言来获取Publish方法
+	// 直接使用MQTT客户端发布消息
 	publishResult := false
 	var publishError error
 	
-	if publisher, ok := mqttClient.(interface{ 
-		Publish(topic string, qos byte, retained bool, payload interface{}) interface{ 
-			Wait() bool
-			Error() error
-		}
-	}); ok {
-		token := publisher.Publish(commandTopic, 1, false, commandBytes)
+	if mqttClient != nil {
+		token := mqttClient.Publish(commandTopic, 1, false, commandBytes)
 		if token.Wait() && token.Error() != nil {
 			publishError = token.Error()
 		} else {
