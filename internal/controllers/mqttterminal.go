@@ -85,11 +85,11 @@ func MQTTTerminalPage(c *gin.Context) {
 		// 如果未指定代理，使用本地代理
 		agentUUID = config.GetAppConfig().UUID
 	}
-	
+
 	c.HTML(http.StatusOK, "terminal.html", gin.H{
-		"title":    "MQTT Terminal",
+		"title":     "MQTT Terminal",
 		"agentUUID": agentUUID,
-		"mode":     "mqtt",
+		"mode":      "mqtt",
 	})
 }
 
@@ -154,11 +154,11 @@ func SendMQTTTerminalCommand(c *gin.Context) {
 
 	// 发送到命令主题
 	commandTopic := fmt.Sprintf("uranus/command/%s", command.AgentUUID)
-	
+
 	// 直接使用MQTT客户端发布消息
 	publishResult := false
 	var publishError error
-	
+
 	if mqttClient != nil {
 		token := mqttClient.Publish(commandTopic, 1, false, commandBytes)
 		if token.Wait() && token.Error() != nil {
@@ -167,7 +167,7 @@ func SendMQTTTerminalCommand(c *gin.Context) {
 			publishResult = true
 		}
 	}
-	
+
 	if !publishResult {
 		errMsg := "Failed to send command"
 		if publishError != nil {

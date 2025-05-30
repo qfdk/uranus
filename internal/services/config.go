@@ -26,7 +26,7 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		"email":         "email",
 		"username":      "username",
 		"vhostPath":     "vhostpath",     // 配置文件中是小写
-		"sslPath":       "sslpath",      // 配置文件中是小写
+		"sslPath":       "sslpath",       // 配置文件中是小写
 		"controlCenter": "controlcenter", // 配置文件中是小写
 		"token":         "token",
 	}
@@ -48,22 +48,11 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		return nil, fmt.Errorf("没有有效的配置字段需要更新")
 	}
 
-	// 调试：显示viper的配置文件路径
-	log.Printf("[CONFIG] 配置文件路径: %s", viper.ConfigFileUsed())
-	
-	// 调试：显示当前所有配置
-	allSettings := viper.AllSettings()
-	log.Printf("[CONFIG] 更新前的所有配置: %+v", allSettings)
-
 	// 保存配置文件
 	if err := viper.WriteConfig(); err != nil {
 		log.Printf("[CONFIG] 保存配置文件失败: %v", err)
 		return nil, fmt.Errorf("保存配置文件失败: %v", err)
 	}
-
-	// 调试：显示更新后的配置
-	allSettingsAfter := viper.AllSettings()
-	log.Printf("[CONFIG] 更新后的所有配置: %+v", allSettingsAfter)
 
 	log.Printf("[CONFIG] 配置文件已更新，更新的字段: %v", updatedKeys)
 	return updatedKeys, nil
@@ -84,7 +73,6 @@ func RestartAgent() error {
 		{"service", "service", []string{"uranus", "restart"}},
 	}
 
-	var _ error
 	for _, method := range methods {
 		log.Printf("[SERVICE] 尝试使用 %s 重启服务...", method.name)
 
@@ -97,7 +85,6 @@ func RestartAgent() error {
 		}
 
 		log.Printf("[SERVICE] %s 重启失败: %v, 输出: %s", method.name, err, string(output))
-		_ = err
 	}
 
 	// 如果所有方法都失败，尝试发送信号给自己
@@ -116,6 +103,13 @@ func RestartAgent() error {
 	}
 
 	log.Printf("[SERVICE] 已发送重启信号")
+
+	// 延迟触发Agent注册，确保重启后配置生效
+	go func() {
+		time.Sleep(3 * time.Second) // 等待重启完成
+		RegisterAgent()
+	}()
+
 	return nil
 }
 
@@ -141,30 +135,51 @@ func RefreshAgentIP() (string, error) {
 	}
 
 	log.Printf("[CONFIG] IP地址已更新到配置文件: %s", newIP)
+
+	// 立即触发Agent注册，更新控制中心的IP信息
+	go func() {
+		time.Sleep(1 * time.Second) // 等待配置生效
+		RegisterAgent()
+	}()
+
 	return newIP, nil
 }
 
 // getCurrentIP 获取当前的公网IP地址
 func getCurrentIP() (string, error) {
-	// 尝试多个IP检测服务
+	// 尝试多个IP检测服务，优先使用更稳定的服务
 	urls := []string{
-		"https://ifconfig.me",
-		"https://ip.sb",
-		"https://ipinfo.io/ip",
 		"https://api.ipify.org",
+		"https://ifconfig.me",
+		"https://ipinfo.io/ip",
 		"https://icanhazip.com",
 		"https://ipecho.net/plain",
 	}
 
-	// 创建HTTP客户端，设置超时
+	// 创建HTTP客户端，设置超时和User-Agent
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 10 * time.Second,
 	}
 
 	for _, url := range urls {
-		resp, err := client.Get(url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			log.Printf("[CONFIG] 创建请求失败 %s: %v", url, err)
+			continue
+		}
+
+		// 设置User-Agent避免被某些服务阻止
+		req.Header.Set("User-Agent", "Uranus-Agent/1.0")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			log.Printf("[CONFIG] 从 %s 获取IP失败: %v", url, err)
+			continue
+		}
+
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			log.Printf("[CONFIG] 从 %s 获取IP失败，状态码: %d", url, resp.StatusCode)
 			continue
 		}
 
@@ -176,13 +191,60 @@ func getCurrentIP() (string, error) {
 		}
 
 		ip := strings.TrimSpace(string(body))
-		// 验证IP格式（简单检查）
-		if len(ip) > 7 && len(ip) < 16 && strings.Count(ip, ".") == 3 {
+
+		// 更严格的IP格式验证
+		if isValidIPv4(ip) {
 			log.Printf("[CONFIG] 从 %s 获取到IP: %s", url, ip)
 			return ip, nil
+		}
+
+		// 如果返回的内容太长，可能是HTML页面，只记录前100个字符
+		if len(ip) > 100 {
+			ip = ip[:100] + "..."
 		}
 		log.Printf("[CONFIG] 从 %s 获取到无效IP: %s", url, ip)
 	}
 
 	return "", fmt.Errorf("所有IP检测服务都失败")
+}
+
+// isValidIPv4 验证IPv4地址格式
+func isValidIPv4(ip string) bool {
+	if len(ip) < 7 || len(ip) > 15 {
+		return false
+	}
+
+	parts := strings.Split(ip, ".")
+	if len(parts) != 4 {
+		return false
+	}
+
+	for _, part := range parts {
+		if len(part) == 0 || len(part) > 3 {
+			return false
+		}
+
+		// 检查是否全是数字
+		for _, char := range part {
+			if char < '0' || char > '9' {
+				return false
+			}
+		}
+
+		// 检查数值范围
+		num := 0
+		for _, char := range part {
+			num = num*10 + int(char-'0')
+		}
+		if num > 255 {
+			return false
+		}
+
+		// 检查前导零（除了单独的0）
+		if len(part) > 1 && part[0] == '0' {
+			return false
+		}
+	}
+
+	return true
 }

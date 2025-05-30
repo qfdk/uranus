@@ -614,12 +614,6 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 		// 清空积累缓冲区以备下次使用
 		accumulated.Reset()
 
-		// 打印输出的前50个字符以便于调试
-		preview := accumulatedOutput
-		if len(preview) > 50 {
-			preview = preview[:50] + "..."
-		}
-
 		// 创建标准MQTT消息
 		message := Message{
 			SessionID: sessionID,
@@ -645,8 +639,6 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 		token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
 		if token.Wait() && token.Error() != nil {
 			log.Printf("[MQTTY] 发布输出消息失败: %v", token.Error())
-		} else {
-			log.Printf("[MQTTY] 发送会话输出 (%s): %q", sessionID, preview)
 		}
 
 		lastSendTime = time.Now()
@@ -1202,4 +1194,3 @@ func handleRefreshIPCommand(client mqtt.Client, command struct {
 	respPayload, _ := json.Marshal(response)
 	client.Publish(responseTopic, 1, false, respPayload)
 }
-

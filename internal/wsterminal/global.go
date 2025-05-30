@@ -7,10 +7,10 @@ import (
 var (
 	// globalManager is the global terminal manager instance
 	globalManager *Manager
-	
+
 	// initOnce ensures the globalManager is initialized only once
 	initOnce sync.Once
-	
+
 	// managerMutex protects access to the globalManager
 	managerMutex sync.RWMutex
 )
@@ -22,7 +22,7 @@ func GetGlobalManager() *Manager {
 		managerMutex.RUnlock()
 		managerMutex.Lock()
 		defer managerMutex.Unlock()
-		
+
 		if globalManager == nil {
 			globalManager = NewManager()
 		}
@@ -36,10 +36,10 @@ func GetGlobalManager() *Manager {
 func InitGlobalManager() *Manager {
 	managerMutex.Lock()
 	defer managerMutex.Unlock()
-	
+
 	initOnce.Do(func() {
 		globalManager = NewManager()
 	})
-	
+
 	return globalManager
 }

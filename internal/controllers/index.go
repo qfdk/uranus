@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"encoding/base64"
-	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"log"
 	"net/http"
 	config2 "uranus/internal/config"
 	"uranus/internal/services"
@@ -18,7 +18,7 @@ func Index(ctx *gin.Context) {
 	var actionMessage = ctx.Query("message")
 	actionMessageDec, err := base64.StdEncoding.DecodeString(actionMessage)
 	if err != nil {
-		fmt.Printf("base64 decode failure, error=[%v]\n", err)
+		log.Printf("[CONTROLLER] base64 decode failure: %v", err)
 	}
 	// host
 	hostInfo, _ := host.Info()

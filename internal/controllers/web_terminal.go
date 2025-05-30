@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"net/http"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // WebTerminalPage serves the WebSocket-based terminal page

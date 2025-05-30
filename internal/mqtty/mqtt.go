@@ -104,7 +104,7 @@ func (t *Terminal) Start() error {
 
 	// 初始化会话管理器
 	t.manager = NewSessionManager()
-	
+
 	// 设置全局会话管理器
 	globalSessionManagerMutex.Lock()
 	globalSessionManager = t.manager
