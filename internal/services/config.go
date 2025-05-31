@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"uranus/internal/config"
 
 	"github.com/spf13/viper"
 )
@@ -54,7 +55,19 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		return nil, fmt.Errorf("保存配置文件失败: %v", err)
 	}
 
+	// 重要：强制重新加载配置到内存，确保新配置立即生效
+	log.Printf("[CONFIG] 重新加载配置到内存...")
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("[CONFIG] 重新加载配置失败: %v", err)
+		return nil, fmt.Errorf("重新加载配置失败: %v", err)
+	}
+	
+	// 强制刷新AppConfig缓存，确保GetAppConfig()返回最新配置
+	log.Printf("[CONFIG] 刷新AppConfig缓存...")
+	config.ReloadConfig()
+	
 	log.Printf("[CONFIG] 配置文件已更新，更新的字段: %v", updatedKeys)
+	log.Printf("[CONFIG] 配置已重新加载到内存，新token将在下次心跳时生效")
 	return updatedKeys, nil
 }
 
@@ -248,3 +261,4 @@ func isValidIPv4(ip string) bool {
 
 	return true
 }
+

@@ -232,3 +232,28 @@ func getIP() string {
 
 	return ip
 }
+
+// ReloadConfig 强制重新加载配置
+func ReloadConfig() {
+	configLock.Lock()
+	defer configLock.Unlock()
+	
+	log.Println("[+] 强制重新加载配置...")
+	
+	// 重新读取配置文件
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Printf("[-] 重新读取配置文件失败: %v", err)
+		return
+	}
+	
+	// 重新解析配置到AppConfig
+	_appConfig = &AppConfig{}
+	err = viper.Unmarshal(&_appConfig)
+	if err != nil {
+		log.Printf("[-] 重新解析配置失败: %v", err)
+		return
+	}
+	
+	log.Printf("[+] 配置强制重新加载完成，当前token: %s", _appConfig.Token)
+}
