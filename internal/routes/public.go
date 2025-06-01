@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"io"
 	"log"
 	"net/http"
@@ -182,7 +181,7 @@ func publicRoute(engine *gin.Engine) {
 	})
 
 	engine.POST("/update-config", func(context *gin.Context) {
-		// 是否验证下token
+		// 验证token
 		data := gin.H{}
 		rawData, err := context.GetRawData()
 		if err != nil {
@@ -190,13 +189,24 @@ func publicRoute(engine *gin.Engine) {
 		}
 		_ = json.Unmarshal(rawData, &data)
 		if data["uuid"] == config.GetAppConfig().UUID {
-			viper.SetConfigName("config")
-			viper.SetConfigType("toml")
-			viper.AddConfigPath(".")
+			// 使用安全的配置更新服务，避免配置丢失
+			configData := make(map[string]interface{})
 			for key, value := range data {
-				viper.Set(key, value)
+				if key != "uuid" { // 排除uuid字段，因为它不应该被更新
+					configData[key] = value
+				}
 			}
-			_ = viper.WriteConfig()
+			
+			if len(configData) > 0 {
+				updatedKeys, err := services.UpdateAgentConfig(configData)
+				if err != nil {
+					log.Printf("[CONFIG] HTTP配置更新失败: %v", err)
+					context.JSON(500, gin.H{"status": "ERROR", "message": err.Error()})
+					return
+				}
+				log.Printf("[CONFIG] HTTP配置更新成功，更新的字段: %v", updatedKeys)
+			}
+			
 			context.JSON(200, gin.H{"status": "OK"})
 		} else {
 			context.JSON(200, gin.H{"status": "KO"})
