@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"time"
 	"uranus/internal/config"
 	"uranus/internal/tools"
 )
@@ -37,40 +38,66 @@ func SaveConfig(ctx *gin.Context) {
 	// Get config file path
 	configPath := path.Join(tools.GetPWD(), "config.toml")
 
-	// Backup the existing config file
-	backupPath := configPath + ".bak"
+	// Create a timestamped backup file
+	backupPath := configPath + ".backup." + time.Now().Format("20060102-150405")
 	if err := copyFile(configPath, backupPath); err != nil {
 		log.Printf("Error creating backup: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error creating backup: " + err.Error()})
 		return
 	}
+	log.Printf("Configuration backed up to: %s", backupPath)
 
-	// Write the new content to the config file
-	err := os.WriteFile(configPath, []byte(content), 0644)
-	if err != nil {
-		log.Printf("Error saving config file: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error saving configuration: " + err.Error()})
+	// Validate the new content before saving
+	tempConfigPath := configPath + ".temp"
+	if err := os.WriteFile(tempConfigPath, []byte(content), 0644); err != nil {
+		log.Printf("Error writing temporary config file: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error writing temporary configuration: " + err.Error()})
 		return
 	}
 
-	// Reload the configuration
+	// Test if the new configuration is valid
+	tempViper := viper.New()
+	tempViper.SetConfigFile(tempConfigPath)
+	tempViper.SetConfigType("toml")
+	
+	if err := tempViper.ReadInConfig(); err != nil {
+		// Clean up temp file and restore from backup if needed
+		os.Remove(tempConfigPath)
+		log.Printf("Invalid configuration format: %v", err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid configuration format: " + err.Error()})
+		return
+	}
+
+	// Configuration is valid, atomically replace the original file
+	if err := os.Rename(tempConfigPath, configPath); err != nil {
+		// If rename fails, try copy and remove
+		if copyErr := copyFile(tempConfigPath, configPath); copyErr != nil {
+			log.Printf("Error saving config file: %v", copyErr)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error saving configuration: " + copyErr.Error()})
+			return
+		}
+		os.Remove(tempConfigPath)
+	}
+
+	// Reload the configuration using the main viper instance
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Error reloading configuration: %v", err)
+		// Try to restore from backup
+		if restoreErr := copyFile(backupPath, configPath); restoreErr != nil {
+			log.Printf("Error restoring backup: %v", restoreErr)
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error reloading configuration: " + err.Error()})
 		return
 	}
 
-	// Update the app config
-	if err := viper.Unmarshal(config.GetAppConfig()); err != nil {
-		log.Printf("Error unmarshalling config: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error applying configuration: " + err.Error()})
-		return
-	}
+	// Force reload the app config cache
+	config.ReloadConfig()
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
+	log.Printf("Configuration successfully updated and reloaded")
+	ctx.JSON(http.StatusOK, gin.H{"message": "Configuration updated successfully"})
 }
 
 // copyFile copies a file from src to dst
