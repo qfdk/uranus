@@ -17,8 +17,6 @@ import (
 
 // UpdateAgentConfig 更新Agent配置文件，简单直接的方法
 func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
-	log.Printf("[CONFIG] 开始配置更新: %+v", configData)
-
 	var updatedKeys []string
 
 	// 允许更新的配置字段
@@ -44,10 +42,9 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 
 	// 强制重新读取配置文件，确保viper内存中有完整配置
 	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("[CONFIG] 重新读取配置文件失败: %v", err)
-		return nil, fmt.Errorf("重新读取配置文件失败: %v", err)
+		log.Printf("[CONFIG] 读取配置文件失败: %v", err)
+		return nil, fmt.Errorf("读取配置文件失败: %v", err)
 	}
-	log.Printf("[CONFIG] 重新读取配置成功，当前有 %d 个配置项", len(viper.AllSettings()))
 
 	// 简单更新配置值
 	for key, value := range configData {
@@ -55,7 +52,6 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 			if strValue, ok := value.(string); ok && strValue != "" {
 				viper.Set(configKey, strValue)
 				updatedKeys = append(updatedKeys, key)
-				log.Printf("[CONFIG] 设置配置 %s = %s", configKey, strValue)
 			}
 		}
 	}
@@ -64,15 +60,13 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		return nil, fmt.Errorf("没有有效的配置字段需要更新")
 	}
 
-	log.Printf("[CONFIG] 更新后viper中有 %d 个配置项", len(viper.AllSettings()))
-
 	// 直接写入配置文件
 	if err := viper.WriteConfig(); err != nil {
 		log.Printf("[CONFIG] 写入配置失败: %v", err)
 		return nil, fmt.Errorf("写入配置失败: %v", err)
 	}
 
-	log.Printf("[CONFIG] 配置更新完成，更新的字段: %v", updatedKeys)
+	log.Printf("[CONFIG] 配置已更新: %v", updatedKeys)
 	return updatedKeys, nil
 }
 
