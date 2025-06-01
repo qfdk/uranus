@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,124 +15,55 @@ import (
 	"github.com/spf13/viper"
 )
 
-// UpdateAgentConfig 更新Agent配置文件，保留原有配置项
+// UpdateAgentConfig 更新Agent配置文件，简单直接的方法
 func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
-	log.Printf("[CONFIG] 开始更新配置: %+v", configData)
+	log.Printf("[CONFIG] 开始简单配置更新: %+v", configData)
 
 	var updatedKeys []string
 
-	// 允许更新的配置字段 (前端字段名 -> 配置文件字段名)
+	// 允许更新的配置字段
 	allowedFields := map[string]string{
-		"mqttBroker":    "mqttbroker",    // 配置文件中是小写
-		"email":         "email",
+		"mqttBroker":    "mqttbroker",
+		"email":         "email", 
 		"username":      "username",
-		"vhostPath":     "vhostpath",     // 配置文件中是小写
-		"sslPath":       "sslpath",       // 配置文件中是小写
-		"controlCenter": "controlcenter", // 配置文件中是小写
+		"vhostPath":     "vhostpath",
+		"sslPath":       "sslpath",
+		"controlCenter": "controlcenter",
 		"token":         "token",
 		"password":      "password",
 		"ip":            "ip",
 		"url":           "url",
 		"uuid":          "uuid",
-		"installPath":   "installpath",   // 配置文件中是小写
+		"installPath":   "installpath",
 	}
 
-	// 确保viper配置正确设置并重新读取配置文件
-	configPath := viper.ConfigFileUsed()
-	if configPath == "" {
-		// 如果viper没有配置文件路径，使用默认路径
-		pwd := os.Getenv("PWD")
-		if pwd == "" {
-			var err error
-			pwd, err = os.Getwd()
-			if err != nil {
-				return nil, fmt.Errorf("无法获取当前工作目录: %v", err)
-			}
-		}
-		configPath = filepath.Join(pwd, "config.toml")
-		
-		// 重新设置viper配置
-		viper.SetConfigFile(configPath)
-		viper.SetConfigType("toml")
-		log.Printf("[CONFIG] 重新设置viper配置文件路径: %s", configPath)
-	}
-	
-	// 强制重新读取配置文件以确保所有配置项都在内存中
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("[CONFIG] 读取配置文件失败 %s: %v", configPath, err)
-		return nil, fmt.Errorf("读取配置文件失败: %v", err)
-	}
-	
-	log.Printf("[CONFIG] 成功读取配置文件，当前所有配置: %+v", viper.AllSettings())
+	// 使用相同的锁确保与loadConfig不冲突
+	configLock := config.GetConfigLock()
+	configLock.Lock()
+	defer configLock.Unlock()
 
-	// 更新配置值 - 只更新传入的字段，保留其他配置项
+	// 简单更新配置值
 	for key, value := range configData {
 		if configKey, allowed := allowedFields[key]; allowed {
 			if strValue, ok := value.(string); ok && strValue != "" {
-				// 获取当前值，只有值真的不同时才更新
-				currentValue := viper.GetString(configKey)
-				if currentValue != strValue {
-					viper.Set(configKey, strValue)
-					updatedKeys = append(updatedKeys, key)
-					log.Printf("[CONFIG] 更新配置 %s: %s -> %s", configKey, currentValue, strValue)
-				} else {
-					log.Printf("[CONFIG] 配置 %s 值未变化，跳过更新", configKey)
-				}
+				viper.Set(configKey, strValue)
+				updatedKeys = append(updatedKeys, key)
+				log.Printf("[CONFIG] 设置配置 %s = %s", configKey, strValue)
 			}
-		} else {
-			log.Printf("[CONFIG] 跳过不允许的配置字段: %s", key)
 		}
 	}
 
 	if len(updatedKeys) == 0 {
-		log.Printf("[CONFIG] 没有需要更新的配置字段")
 		return nil, fmt.Errorf("没有有效的配置字段需要更新")
 	}
 
-	// 创建配置文件备份（重用之前的configPath变量）
-	if configPath == "" {
-		configPath = viper.ConfigFileUsed()
-		if configPath == "" {
-			configPath = "config.toml" // 默认配置文件路径
-		}
-	}
-	backupPath := configPath + ".backup." + time.Now().Format("20060102-150405")
-	
-	if err := copyConfigFile(configPath, backupPath); err != nil {
-		log.Printf("[CONFIG] 创建配置备份失败: %v", err)
-		// 不因为备份失败而中断更新，只记录警告
-	} else {
-		log.Printf("[CONFIG] 配置文件已备份到: %s", backupPath)
-	}
-
-	// 保存配置文件 - 这会保留所有现有配置项，只更新修改的部分
+	// 直接写入配置文件
 	if err := viper.WriteConfig(); err != nil {
-		log.Printf("[CONFIG] 保存配置文件失败: %v", err)
-		
-		// 如果保存失败且有备份，可以考虑恢复备份
-		if backupPath != "" {
-			log.Printf("[CONFIG] 尝试从备份恢复配置文件...")
-			if restoreErr := copyConfigFile(backupPath, configPath); restoreErr != nil {
-				log.Printf("[CONFIG] 从备份恢复失败: %v", restoreErr)
-			}
-		}
-		
-		return nil, fmt.Errorf("保存配置文件失败: %v", err)
+		log.Printf("[CONFIG] 写入配置失败: %v", err)
+		return nil, fmt.Errorf("写入配置失败: %v", err)
 	}
 
-	// 重新加载配置到内存，确保新配置立即生效
-	log.Printf("[CONFIG] 重新加载配置到内存...")
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("[CONFIG] 重新加载配置失败: %v", err)
-		return nil, fmt.Errorf("重新加载配置失败: %v", err)
-	}
-	
-	// 强制刷新AppConfig缓存，确保GetAppConfig()返回最新配置
-	log.Printf("[CONFIG] 刷新AppConfig缓存...")
-	config.ReloadConfig()
-	
-	log.Printf("[CONFIG] 配置文件已更新，更新的字段: %v", updatedKeys)
-	log.Printf("[CONFIG] 配置已重新加载到内存，新配置立即生效")
+	log.Printf("[CONFIG] 配置更新完成，更新的字段: %v", updatedKeys)
 	return updatedKeys, nil
 }
 
@@ -204,13 +134,14 @@ func RefreshAgentIP() (string, error) {
 
 	log.Printf("[CONFIG] 获取到新IP地址: %s", newIP)
 
-	// 更新配置文件中的IP地址
-	viper.Set("ip", newIP)
-
-	// 保存配置文件
-	if err := viper.WriteConfig(); err != nil {
-		log.Printf("[CONFIG] 保存IP地址到配置文件失败: %v", err)
-		return "", fmt.Errorf("保存配置文件失败: %v", err)
+	// 简单直接更新IP
+	configData := map[string]interface{}{
+		"ip": newIP,
+	}
+	
+	_, err = UpdateAgentConfig(configData)
+	if err != nil {
+		return "", err
 	}
 
 	log.Printf("[CONFIG] IP地址已更新到配置文件: %s", newIP)

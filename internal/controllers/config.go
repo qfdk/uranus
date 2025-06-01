@@ -79,21 +79,9 @@ func SaveConfig(ctx *gin.Context) {
 		os.Remove(tempConfigPath)
 	}
 
-	// Reload the configuration using the main viper instance
-	viper.SetConfigName("config")
-	viper.SetConfigType("toml")
-	viper.AddConfigPath(".")
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("Error reloading configuration: %v", err)
-		// Try to restore from backup
-		if restoreErr := copyFile(backupPath, configPath); restoreErr != nil {
-			log.Printf("Error restoring backup: %v", restoreErr)
-		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error reloading configuration: " + err.Error()})
-		return
-	}
-
-	// Force reload the app config cache
+	// 不需要重新设置viper配置，这会干扰全局状态
+	// 直接强制重新加载应用配置缓存
+	log.Printf("Configuration file updated successfully, reloading app config cache")
 	config.ReloadConfig()
 
 	log.Printf("Configuration successfully updated and reloaded")

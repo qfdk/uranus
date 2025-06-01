@@ -41,6 +41,11 @@ var (
 	ipCacheTTL time.Time
 )
 
+// GetConfigLock 获取配置锁，用于外部同步
+func GetConfigLock() *sync.RWMutex {
+	return &configLock
+}
+
 // GenerateSecureToken 创建一个加密安全的随机令牌
 // 返回4字节（32位）随机数据的base64编码字符串
 func GenerateSecureToken() string {
@@ -97,6 +102,7 @@ func loadConfig() {
 		newUUID, _ := uuid.NewUUID()
 		_appConfig.UUID = newUUID.String()
 		viper.Set("uuid", _appConfig.UUID)
+		// 注意：在loadConfig中已经持有configLock，这里的WriteConfig是安全的
 		_ = viper.WriteConfig()
 		log.Println("[+] UUID保存成功")
 	}
@@ -108,6 +114,7 @@ func loadConfig() {
 		}
 		_appConfig.IP = ip
 		viper.Set("ip", ip)
+		// 注意：在loadConfig中已经持有configLock，这里的WriteConfig是安全的
 		_ = viper.WriteConfig()
 		log.Println("[+] IP保存成功")
 	}
