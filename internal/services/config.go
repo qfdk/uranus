@@ -17,7 +17,7 @@ import (
 
 // UpdateAgentConfig 更新Agent配置文件，简单直接的方法
 func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
-	log.Printf("[CONFIG] 开始简单配置更新: %+v", configData)
+	log.Printf("[CONFIG] 开始配置更新: %+v", configData)
 
 	var updatedKeys []string
 
@@ -42,6 +42,13 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 	configLock.Lock()
 	defer configLock.Unlock()
 
+	// 强制重新读取配置文件，确保viper内存中有完整配置
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("[CONFIG] 重新读取配置文件失败: %v", err)
+		return nil, fmt.Errorf("重新读取配置文件失败: %v", err)
+	}
+	log.Printf("[CONFIG] 重新读取配置成功，当前有 %d 个配置项", len(viper.AllSettings()))
+
 	// 简单更新配置值
 	for key, value := range configData {
 		if configKey, allowed := allowedFields[key]; allowed {
@@ -56,6 +63,8 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 	if len(updatedKeys) == 0 {
 		return nil, fmt.Errorf("没有有效的配置字段需要更新")
 	}
+
+	log.Printf("[CONFIG] 更新后viper中有 %d 个配置项", len(viper.AllSettings()))
 
 	// 直接写入配置文件
 	if err := viper.WriteConfig(); err != nil {
