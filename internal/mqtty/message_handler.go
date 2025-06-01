@@ -238,6 +238,9 @@ func handleInputMessage(sessionID string, msg *Message, manager *SessionManager)
 		return
 	}
 
+	// 更新会话活动时间
+	manager.updateSessionActivity(sessionID)
+
 	// 转换数据
 	input := extractInputData(msg.Data)
 	if input == "" {
@@ -287,6 +290,9 @@ func handleControlMessage(sessionID string, msg *Message, manager *SessionManage
 			// 会话存在且活跃，直接复用
 			log.Printf("[MQTTY] 复用已存在的活跃会话: %s", sessionID)
 
+			// 更新活动时间
+			manager.updateSessionActivity(sessionID)
+
 			// 发送创建状态
 			publishStatus("created")
 
@@ -329,6 +335,9 @@ func handleResizeMessage(sessionID string, msg *Message, manager *SessionManager
 		log.Printf("[MQTTY] 会话不存在: %s", sessionID)
 		return
 	}
+
+	// 更新会话活动时间
+	manager.updateSessionActivity(sessionID)
 
 	// 解析尺寸数据
 	var resizeData map[string]interface{}
@@ -402,36 +411,6 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 		// 创建终端会话
 		log.Printf("[MQTTY] 创建终端会话: %s", command.SessionId)
 
-		// 检查会话是否已经存在并活跃
-		session, err := manager.GetSession(command.SessionId)
-		if err == nil && session != nil && !isSessionClosed(session) {
-			// 会话存在且活跃，直接复用
-			log.Printf("[MQTTY] 复用已存在的活跃会话: %s", command.SessionId)
-
-			// 准备成功响应
-			response := struct {
-				Success   bool   `json:"success"`
-				RequestId string `json:"requestId"`
-				SessionId string `json:"sessionId"`
-				Type      string `json:"type"`
-				Message   string `json:"message,omitempty"`
-			}{
-				Success:   true,
-				RequestId: command.RequestId,
-				SessionId: command.SessionId,
-				Type:      "created",
-				Message:   "终端会话已创建(复用现有会话)",
-			}
-
-			// 发送响应
-			respPayload, _ := json.Marshal(response)
-			client.Publish(responseTopic, 1, false, respPayload)
-
-			// 确保输出转发正在运行
-			go forwardSessionOutputWithUUID(topicPrefix, command.SessionId, manager, agentUuid)
-			return
-		}
-
 		// 获取Shell命令（如果有）
 		var shell string
 		if shellData, ok := command.Data.(string); ok && shellData != "" {
@@ -440,8 +419,8 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 			shell = getDefaultShell()
 		}
 
-		// 创建会话
-		err = manager.CreateSession(command.SessionId, shell)
+		// 创建会话（如果已存在会先关闭旧会话）
+		err := manager.CreateSession(command.SessionId, shell)
 
 		// 准备响应
 		response := struct {
@@ -498,12 +477,17 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 			return
 		}
 
+		// 更新会话活动时间
+		manager.updateSessionActivity(command.SessionId)
+
 		// 会话存在，处理输入
 		handleInputMessage(command.SessionId, &message, manager)
 
 		// 不需要发送特定响应，输出将通过通道发送
 
 	case "resize":
+		// 更新会话活动时间
+		manager.updateSessionActivity(command.SessionId)
 		// 处理终端调整大小
 		handleResizeMessage(command.SessionId, &message, manager)
 
@@ -1194,3 +1178,4 @@ func handleRefreshIPCommand(client mqtt.Client, command struct {
 	respPayload, _ := json.Marshal(response)
 	client.Publish(responseTopic, 1, false, respPayload)
 }
+

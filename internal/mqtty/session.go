@@ -34,13 +34,104 @@ type Session struct {
 type SessionManager struct {
 	sessions map[string]*Session
 	mu       sync.RWMutex
+	// 添加会话清理机制
+	cleanupTicker    *time.Ticker
+	stopCleanup      chan struct{}
+	sessionTimeout   time.Duration
+	lastActivityMap  map[string]time.Time
+	activityMu       sync.RWMutex
+	cleanupStopped   bool
+	cleanupStoppedMu sync.Mutex
 }
 
 // NewSessionManager 创建会话管理器
 func NewSessionManager() *SessionManager {
-	return &SessionManager{
-		sessions: make(map[string]*Session),
+	sm := &SessionManager{
+		sessions:        make(map[string]*Session),
+		stopCleanup:     make(chan struct{}),
+		sessionTimeout:  10 * time.Minute, // 10分钟无活动超时
+		lastActivityMap: make(map[string]time.Time),
 	}
+	
+	// 启动定期清理
+	sm.startCleanupRoutine()
+	return sm
+}
+
+// startCleanupRoutine 启动定期清理协程
+func (m *SessionManager) startCleanupRoutine() {
+	m.cleanupTicker = time.NewTicker(2 * time.Minute) // 每2分钟检查一次
+	
+	go func() {
+		log.Printf("[MQTTY] 启动会话清理协程，超时时间: %v", m.sessionTimeout)
+		for {
+			select {
+			case <-m.cleanupTicker.C:
+				m.cleanupExpiredSessions()
+			case <-m.stopCleanup:
+				m.cleanupTicker.Stop()
+				log.Printf("[MQTTY] 会话清理协程已停止")
+				return
+			}
+		}
+	}()
+}
+
+// cleanupExpiredSessions 清理过期会话
+func (m *SessionManager) cleanupExpiredSessions() {
+	now := time.Now()
+	var expiredSessions []string
+	var orphanedActivities []string
+	
+	m.activityMu.RLock()
+	m.mu.RLock()
+	
+	for sessionID, lastActivity := range m.lastActivityMap {
+		if now.Sub(lastActivity) > m.sessionTimeout {
+			// 检查会话是否仍然存在
+			if _, exists := m.sessions[sessionID]; exists {
+				expiredSessions = append(expiredSessions, sessionID)
+			} else {
+				// 会话已不存在，但活动记录还在，标记为孤立记录
+				orphanedActivities = append(orphanedActivities, sessionID)
+			}
+		} else {
+			// 检查是否有会话已删除但活动记录仍存在的情况
+			if _, exists := m.sessions[sessionID]; !exists {
+				orphanedActivities = append(orphanedActivities, sessionID)
+			}
+		}
+	}
+	
+	m.mu.RUnlock()
+	m.activityMu.RUnlock()
+	
+	// 清理过期会话
+	for _, sessionID := range expiredSessions {
+		log.Printf("[MQTTY] 清理过期会话: %s", sessionID)
+		m.CloseSession(sessionID)
+	}
+	
+	// 清理孤立的活动记录
+	if len(orphanedActivities) > 0 {
+		m.activityMu.Lock()
+		for _, sessionID := range orphanedActivities {
+			delete(m.lastActivityMap, sessionID)
+		}
+		m.activityMu.Unlock()
+		log.Printf("[MQTTY] 清理了 %d 个孤立的活动记录", len(orphanedActivities))
+	}
+	
+	if len(expiredSessions) > 0 {
+		log.Printf("[MQTTY] 本次清理了 %d 个过期会话", len(expiredSessions))
+	}
+}
+
+// updateSessionActivity 更新会话活动时间
+func (m *SessionManager) updateSessionActivity(sessionID string) {
+	m.activityMu.Lock()
+	m.lastActivityMap[sessionID] = time.Now()
+	m.activityMu.Unlock()
 }
 
 // isSessionClosed 检查会话是否已关闭
@@ -58,24 +149,17 @@ func (m *SessionManager) CreateSession(sessionID, shell string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 检查会话是否已存在
+	// 检查会话是否已存在，如果存在则先关闭旧会话
 	if session, exists := m.sessions[sessionID]; exists {
-		// 检查会话是否已关闭
-		isClosed := isSessionClosed(session)
-
-		if isClosed {
-			// 会话已关闭，重新创建
-			log.Printf("[MQTT] 会话 %s 已关闭，重新创建", sessionID)
-			newSession, err := newSession(sessionID, shell)
-			if err != nil {
-				return fmt.Errorf("创建会话失败: %v", err)
-			}
-			m.sessions[sessionID] = newSession
-		} else {
-			// 会话未关闭，可以复用
-			log.Printf("[MQTT] 会话ID已存在: %s，复用该会话", sessionID)
-		}
-		return nil
+		log.Printf("[MQTTY] 会话ID已存在: %s，关闭旧会话并创建新会话", sessionID)
+		// 关闭旧会话（不需要锁，因为已经在锁内）
+		session.Close()
+		delete(m.sessions, sessionID)
+		
+		// 清理活动记录
+		m.activityMu.Lock()
+		delete(m.lastActivityMap, sessionID)
+		m.activityMu.Unlock()
 	}
 
 	if shell == "" {
@@ -88,6 +172,10 @@ func (m *SessionManager) CreateSession(sessionID, shell string) error {
 	}
 
 	m.sessions[sessionID] = session
+	
+	// 记录活动时间
+	m.updateSessionActivity(sessionID)
+	
 	log.Printf("[MQTTY] 会话已创建: %s", sessionID)
 
 	return nil
@@ -118,6 +206,11 @@ func (m *SessionManager) CloseSession(sessionID string) error {
 	delete(m.sessions, sessionID)
 	m.mu.Unlock()
 
+	// 清理活动记录
+	m.activityMu.Lock()
+	delete(m.lastActivityMap, sessionID)
+	m.activityMu.Unlock()
+
 	session.Close()
 	log.Printf("[MQTTY] 会话已关闭: %s", sessionID)
 
@@ -126,6 +219,14 @@ func (m *SessionManager) CloseSession(sessionID string) error {
 
 // CloseAll 关闭所有会话
 func (m *SessionManager) CloseAll() {
+	// 安全地停止清理协程
+	m.cleanupStoppedMu.Lock()
+	if !m.cleanupStopped {
+		close(m.stopCleanup)
+		m.cleanupStopped = true
+	}
+	m.cleanupStoppedMu.Unlock()
+	
 	m.mu.Lock()
 	sessions := make([]*Session, 0, len(m.sessions))
 	for _, session := range m.sessions {
@@ -133,6 +234,11 @@ func (m *SessionManager) CloseAll() {
 	}
 	m.sessions = make(map[string]*Session)
 	m.mu.Unlock()
+
+	// 清理所有活动记录
+	m.activityMu.Lock()
+	m.lastActivityMap = make(map[string]time.Time)
+	m.activityMu.Unlock()
 
 	for _, session := range sessions {
 		session.Close()
@@ -413,12 +519,15 @@ func (s *Session) SendInput(data []byte) error {
 				log.Printf("[MQTTY] 获取进程组ID失败: %v", err)
 			}
 
-			// 3. 还可以尝试使用killall终止可能的stuck进程
+			// 3. 强化进程清理 - 尝试终止可能的stuck进程
 			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-				// 只尝试终止ping进程，很可能是导致问题的进程
-				pingKillCmd := exec.Command("killall", "-SIGINT", "ping")
-				if err := pingKillCmd.Run(); err != nil {
-					log.Printf("[MQTTY] 尝试使用killall终止ping进程: %v", err)
+				// 尝试终止常见的可能卡住的进程
+				stuckProcesses := []string{"ping", "curl", "wget", "ssh", "tail"}
+				for _, proc := range stuckProcesses {
+					killCmd := exec.Command("killall", "-SIGINT", proc)
+					if err := killCmd.Run(); err == nil {
+						log.Printf("[MQTTY] 已终止可能卡住的进程: %s", proc)
+					}
 				}
 			}
 

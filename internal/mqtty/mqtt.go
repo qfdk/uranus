@@ -129,6 +129,7 @@ func (t *Terminal) Stop() {
 	if t.manager != nil {
 		t.manager.CloseAll()
 	}
+	
 	DisconnectMQTT()
 	log.Println("[MQTTY] MQTT终端服务已停止")
 }
