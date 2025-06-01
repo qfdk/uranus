@@ -71,7 +71,6 @@ func getResponseTopic(agentUuid string) string {
 
 // 处理从命令主题接收到的消息
 func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, manager *SessionManager, agentUuid string) {
-	log.Printf("[MQTTY] 收到MQTT消息 - 主题: %s, 内容: %s", msg.Topic(), string(msg.Payload()))
 
 	// 解析普通消息内容
 	var command struct {
@@ -88,8 +87,6 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 		return
 	}
 
-	log.Printf("[MQTTY] 收到命令: %s", msg.Payload())
-
 	// 终端命令另行处理
 	if command.Command == "terminal" {
 		handleTerminalCommand(client, command, manager, agentUuid, topicPrefix)
@@ -98,14 +95,12 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 
 	// 处理配置更新命令
 	if command.Command == "update_config" {
-		log.Printf("[MQTTY] 收到配置更新命令，完整命令: %+v", command)
 		handleConfigCommand(client, command, agentUuid)
 		return
 	}
 
 	// 处理IP地址刷新命令
 	if command.Command == "refresh_ip" {
-		log.Printf("[MQTTY] 收到IP地址刷新命令")
 		handleRefreshIPCommand(client, command, agentUuid)
 		return
 	}
@@ -113,19 +108,15 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 	// 处理Nginx相关命令
 	switch command.Command {
 	case "reload":
-		log.Printf("[MQTTY] 收到Nginx重载命令")
 		handleReloadCommand(client, command, agentUuid)
 		return
 	case "start":
-		log.Printf("[MQTTY] 收到Nginx启动命令")
 		handleStartCommand(client, command, agentUuid)
 		return
 	case "stop":
-		log.Printf("[MQTTY] 收到Nginx停止命令")
 		handleStopCommand(client, command, agentUuid)
 		return
 	case "restart":
-		log.Printf("[MQTTY] 收到Nginx重启命令")
 		handleRestartCommand(client, command, agentUuid)
 		return
 	}

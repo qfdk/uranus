@@ -92,21 +92,15 @@ func loadConfig() {
 
 	_appConfig = &AppConfig{}
 	_ = viper.Unmarshal(&_appConfig)
-	log.Println("[+] 配置成功加载")
-
-	// 注意：不要在这里重新设置viper配置，会导致配置丢失
-	// viper配置应该在loadConfig函数的开头或InitAppConfig函数中设置
-
+	// 自动生成缺失的UUID
 	if _appConfig.UUID == "" {
-		log.Println("[-] 未找到UUID，正在自动生成")
 		newUUID, _ := uuid.NewUUID()
 		_appConfig.UUID = newUUID.String()
 		viper.Set("uuid", _appConfig.UUID)
-		// 注意：在loadConfig中已经持有configLock，这里的WriteConfig是安全的
 		_ = viper.WriteConfig()
-		log.Println("[+] UUID保存成功")
 	}
 
+	// 自动获取IP地址
 	if _appConfig.IP == "" {
 		ip := getIP()
 		if ip == "" {
@@ -114,14 +108,11 @@ func loadConfig() {
 		}
 		_appConfig.IP = ip
 		viper.Set("ip", ip)
-		// 注意：在loadConfig中已经持有configLock，这里的WriteConfig是安全的
 		_ = viper.WriteConfig()
-		log.Println("[+] IP保存成功")
 	}
 }
 
 func InitAppConfig() {
-	log.Println("[+] 正在初始化配置文件...")
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 
@@ -130,7 +121,6 @@ func InitAppConfig() {
 
 	configFile := path.Join(pwd, "config.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		log.Println("[-] 未找到配置文件，正在生成默认配置")
 
 		// 默认配置
 		defaultConfig := map[string]interface{}{
@@ -195,8 +185,6 @@ func getIP() string {
 		return ipCache
 	}
 
-	log.Println("[-] 正在获取IP...")
-
 	// Create an HTTP client with timeout
 	client := &http.Client{
 		Timeout: 5 * time.Second,
@@ -230,7 +218,6 @@ func getIP() string {
 	}
 
 	ip := strings.TrimSpace(string(body))
-	log.Printf("[+] IP获取成功: %s", ip)
 
 	// Update cache
 	ipCache = ip
@@ -243,8 +230,6 @@ func getIP() string {
 func ReloadConfig() {
 	configLock.Lock()
 	defer configLock.Unlock()
-	
-	log.Println("[+] 强制重新加载配置...")
 	
 	// 重新读取配置文件
 	err := viper.ReadInConfig()
@@ -260,6 +245,4 @@ func ReloadConfig() {
 		log.Printf("[-] 重新解析配置失败: %v", err)
 		return
 	}
-	
-	log.Printf("[+] 配置强制重新加载完成，当前token: %s", _appConfig.Token)
 }
