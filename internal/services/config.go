@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -37,11 +38,33 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		"installPath":   "installpath",   // 配置文件中是小写
 	}
 
-	// 首先确保已经读取了当前配置
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("[CONFIG] 读取当前配置失败: %v", err)
-		return nil, fmt.Errorf("读取当前配置失败: %v", err)
+	// 确保viper配置正确设置并重新读取配置文件
+	configPath := viper.ConfigFileUsed()
+	if configPath == "" {
+		// 如果viper没有配置文件路径，使用默认路径
+		pwd := os.Getenv("PWD")
+		if pwd == "" {
+			var err error
+			pwd, err = os.Getwd()
+			if err != nil {
+				return nil, fmt.Errorf("无法获取当前工作目录: %v", err)
+			}
+		}
+		configPath = filepath.Join(pwd, "config.toml")
+		
+		// 重新设置viper配置
+		viper.SetConfigFile(configPath)
+		viper.SetConfigType("toml")
+		log.Printf("[CONFIG] 重新设置viper配置文件路径: %s", configPath)
 	}
+	
+	// 强制重新读取配置文件以确保所有配置项都在内存中
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("[CONFIG] 读取配置文件失败 %s: %v", configPath, err)
+		return nil, fmt.Errorf("读取配置文件失败: %v", err)
+	}
+	
+	log.Printf("[CONFIG] 成功读取配置文件，当前所有配置: %+v", viper.AllSettings())
 
 	// 更新配置值 - 只更新传入的字段，保留其他配置项
 	for key, value := range configData {
@@ -67,10 +90,12 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 		return nil, fmt.Errorf("没有有效的配置字段需要更新")
 	}
 
-	// 创建配置文件备份
-	configPath := viper.ConfigFileUsed()
+	// 创建配置文件备份（重用之前的configPath变量）
 	if configPath == "" {
-		configPath = "config.toml" // 默认配置文件路径
+		configPath = viper.ConfigFileUsed()
+		if configPath == "" {
+			configPath = "config.toml" // 默认配置文件路径
+		}
 	}
 	backupPath := configPath + ".backup." + time.Now().Format("20060102-150405")
 	

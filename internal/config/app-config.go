@@ -89,9 +89,8 @@ func loadConfig() {
 	_ = viper.Unmarshal(&_appConfig)
 	log.Println("[+] 配置成功加载")
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("toml")
-	viper.AddConfigPath(".")
+	// 注意：不要在这里重新设置viper配置，会导致配置丢失
+	// viper配置应该在loadConfig函数的开头或InitAppConfig函数中设置
 
 	if _appConfig.UUID == "" {
 		log.Println("[-] 未找到UUID，正在自动生成")
