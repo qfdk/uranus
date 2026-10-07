@@ -2,6 +2,7 @@ package mqtty
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -84,6 +85,13 @@ func handleCommandMessage(client mqtt.Client, msg mqtt.Message, topicPrefix stri
 
 	if err := json.Unmarshal(msg.Payload(), &command); err != nil {
 		log.Printf("[MQTTY] 解析命令消息失败: %v", err)
+		return
+	}
+
+	// 安全：命令（终端、改配置、nginx 启停）必须携带本 agent 的 token。
+	// 之前任何能向 broker 发布消息的人只要知道 UUID（UUID 会出现在心跳/状态主题中）即可获得 root 终端。
+	if !authorizeCommand(msg.Payload()) {
+		log.Printf("[MQTTY] 拒绝未授权命令: %s", command.Command)
 		return
 	}
 
@@ -1170,3 +1178,18 @@ func handleRefreshIPCommand(client mqtt.Client, command struct {
 	client.Publish(responseTopic, 1, false, respPayload)
 }
 
+
+// authorizeCommand 校验命令消息中的 token 是否与本 agent 配置的 token 一致（常量时间比较）
+func authorizeCommand(payload []byte) bool {
+	var auth struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(payload, &auth); err != nil {
+		return false
+	}
+	expected := config.GetAppConfig().Token
+	if expected == "" || auth.Token == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(auth.Token), []byte(expected)) == 1
+}

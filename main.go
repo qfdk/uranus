@@ -310,14 +310,17 @@ func Graceful() {
 
 	// 启动MQTT终端服务
 	mqttyOpts := mqtty.DefaultOptions()
-	mqttyServer := mqtty.NewTerminal(mqttyOpts)
-	err = mqttyServer.Start()
-	if err != nil {
-		log.Printf("[进程][%d]: MQTT终端服务启动失败: %v", os.Getpid(), err)
+	if mqttyOpts.BrokerURL == "" {
+		log.Printf("[进程][%d]: 未配置 mqttBroker，MQTT 远程管理已禁用", os.Getpid())
 	} else {
-		log.Printf("[进程][%d]: MQTT终端服务已启动", os.Getpid())
+		mqttyServer := mqtty.NewTerminal(mqttyOpts)
+		if err := mqttyServer.Start(); err != nil {
+			log.Printf("[进程][%d]: MQTT终端服务启动失败: %v", os.Getpid(), err)
+		} else {
+			log.Printf("[进程][%d]: MQTT终端服务已启动", os.Getpid())
+		}
+		defer mqttyServer.Stop()
 	}
-	defer mqttyServer.Stop()
 
 	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {
