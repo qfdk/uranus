@@ -18,7 +18,7 @@ MQTT 远程管理（远程终端、配置下发、心跳上报）**默认关闭*
 mqttBroker = "mqtts://your-mqtt-server:8883"
 ```
 
-- 所有经 MQTT 下发的命令必须携带本 agent 的 `token`（见 `config.toml`），否则会被拒绝。
+- 所有经 MQTT 下发的命令必须携带本 agent 的 `token`（见 `config.toml`），否则会被拒绝。token 不会出现在心跳等 MQTT 消息中，只通过 `controlcenter` 的 HTTPS 注册接口交给控制中心。
 - 首次启动会生成随机管理员密码并打印在日志中，请登录后立即修改。
 - 报告安全问题请见 [SECURITY.md](SECURITY.md)。
 
