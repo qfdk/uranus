@@ -29,7 +29,6 @@ type HeartbeatData struct {
 	OS       string `json:"os"`
 	Memory   string `json:"memory"`
 	URL      string `json:"url"`
-	Token    string `json:"token"`
 	// 心跳信息
 	Timestamp  time.Time `json:"timestamp"`
 	ActiveTime string    `json:"activeTime"`
@@ -156,7 +155,6 @@ func buildHeartbeatData() (*HeartbeatData, error) {
 		OS:           runtime.GOOS,
 		Memory:       tools.FormatBytes(vmStat.Total),
 		URL:          appConfig.URL,
-		Token:        appConfig.Token,
 		Timestamp:    currentTime,
 		ActiveTime:   currentTime.Format("2006-01-02 15:04:05"),
 	}, nil
