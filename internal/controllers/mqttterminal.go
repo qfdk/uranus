@@ -55,7 +55,7 @@ func MQTTTerminalConnect(c *gin.Context) {
 		// 获取MQTT代理地址
 		mqttBroker := config.GetAppConfig().MQTTBroker
 		if mqttBroker == "" {
-			mqttBroker = "mqtt://mqtt.qfdk.me:1883" // 默认MQTT服务器地址
+			available = false
 		}
 
 		// 如果是本地代理且MQTT会话管理器可用，预创建会话

@@ -7,29 +7,22 @@ Gin 框架写的 nginx 图形界面管理程序，可以 增、删、改、查 n
 
 **自用**，暂时不出文档, 任何问题与本人无关。
 
-### ⚠️ 隐私声明
+### ⚠️ 安全说明 / MQTT 远程管理
 
-**此为个人使用的代理程序，MQTT功能用于远程命令执行和数据上报。**
+MQTT 远程管理（远程终端、配置下发、心跳上报）**默认关闭**，不会连接任何第三方服务器。
 
-- 默认MQTT服务器: `mqtt://mqtt.qfdk.me:1883`
-- **MQTT主要用途：**
-  - 远程终端命令执行
-  - 系统心跳和状态监控
-  - 上报数据：系统信息、构建版本、IP地址、主机名等
-- 如果您不希望连接到作者的MQTT服务器，请修改配置文件
-
-**如何使用自己的MQTT服务器：**
-1. 编辑 `config.toml` 文件
-2. 修改 `mqttBroker` 为您自己的MQTT服务器地址
+如需启用，请在 `config.toml` 中配置**你自己的** broker：
 
 ```toml
-# 修改为您自己的MQTT服务器
-mqttBroker = "mqtt://your-mqtt-server:1883"
+# 强烈建议使用 TLS（mqtts://）、broker 账号密码，并为每个 agent 配置 ACL
+mqttBroker = "mqtts://your-mqtt-server:8883"
 ```
 
-**注意：** MQTT功能是远程管理的核心，禁用后将无法使用远程终端和集中管理功能。
+- 所有经 MQTT 下发的命令必须携带本 agent 的 `token`（见 `config.toml`），否则会被拒绝。
+- 首次启动会生成随机管理员密码并打印在日志中，请登录后立即修改。
+- 报告安全问题请见 [SECURITY.md](SECURITY.md)。
 
-### 功能特性
+## 功能特性
 
 * SSL 自动更新 : [Lego](https://github.com/go-acme/lego)
 * 平滑更新支持 : [cloudflare/tableflip](https://github.com/cloudflare/tableflip)

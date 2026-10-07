@@ -46,6 +46,15 @@ func GetConfigLock() *sync.RWMutex {
 	return &configLock
 }
 
+// generateInitialPassword 生成首次启动使用的随机管理员密码（16 字节熵，20 个字符）
+func generateInitialPassword() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("[-] 无法生成初始管理员密码: %v", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b)[:20]
+}
+
 // GenerateSecureToken 创建一个加密安全的随机令牌
 // 返回4字节（32位）随机数据的base64编码字符串
 func GenerateSecureToken() string {
@@ -122,6 +131,10 @@ func InitAppConfig() {
 	configFile := path.Join(pwd, "config.toml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 
+		// 首次启动生成随机管理员密码，只打印一次
+		initialPassword := generateInitialPassword()
+		log.Printf("[安全] 已生成初始管理员密码: %s （请登录后立即修改，或编辑 config.toml）", initialPassword)
+
 		// 默认配置
 		defaultConfig := map[string]interface{}{
 			"url":           "http://" + getIP() + ":7777",
@@ -131,12 +144,12 @@ func InitAppConfig() {
 			"sslpath":       "/etc/nginx/ssl",
 			"email":         "hello@world.com",
 			"username":      "admin",
-			"password":      "admin",
+			"password":      initialPassword,
 			"installPath":   pwd,
 			"controlCenter": "https://uranus-control.vercel.app",
 			"ip":            getIP(),
-			// 默认MQTT配置
-			"mqttBroker": "mqtt://mqtt.qfdk.me:1883",
+			// 默认不启用 MQTT 远程管理；需要时配置自己的 broker（建议 mqtts:// + 账号 + ACL）
+			"mqttBroker": "",
 			//"mqttUsername": "",
 			//"mqttPassword": "",
 			//"mqttTopic":    "uranus",

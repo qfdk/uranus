@@ -75,10 +75,8 @@ type Message struct {
 // DefaultOptions 返回默认配置
 func DefaultOptions() Options {
 	appConfig := config.GetAppConfig()
+	// 安全：不再默认连接作者的公共 MQTT 服务器。未配置 mqttBroker 时 MQTT 远程管理保持关闭。
 	mqttBroker := appConfig.MQTTBroker
-	if mqttBroker == "" {
-		mqttBroker = "mqtt://mqtt.qfdk.me:1883" // 默认MQTT服务器地址
-	}
 	return Options{
 		BrokerURL:    mqttBroker,
 		ClientID:     "mqtty-server-" + appConfig.UUID,

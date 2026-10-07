@@ -23,7 +23,7 @@ RUN mkdir -p /var/lib/nginx/tmp
 # 将上一个阶段构建的二进制文件复制进来
 COPY --from=builder /app/uranus .
 # 创建示例配置文件
-RUN echo 'controlcenter = "http://localhost:3000"\nemail = "admin@example.com"\nip = "127.0.0.1"\nmqttbroker = "mqtt://mqtt.qfdk.me:1883"\npassword = "admin"\ntoken = "yourtoken"\nusername = "admin"\nuuid = "generate-new-uuid"' > config.toml.example
+RUN echo 'controlcenter = "http://localhost:3000"\nemail = "admin@example.com"\nip = "127.0.0.1"\nmqttbroker = ""\npassword = "change-me-strong-password"\ntoken = "yourtoken"\nusername = "admin"\nuuid = "generate-new-uuid"' > config.toml.example
 # 指定运行时环境变量
 ENV GIN_MODE=release
 EXPOSE 7777
