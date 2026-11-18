@@ -29,11 +29,11 @@
                 <div class="flex min-w-0 flex-col gap-0.5">
                     {{ range $i, $domain := .domains }}
                     <a href="https://{{ $domain }}" target="_blank" rel="noopener"
-                       class="truncate hover:text-emerald-700 {{ if eq $i 0 }}font-medium text-slate-900{{ else }}text-xs text-slate-500{{ end }}">{{ $domain }}</a>
+                       class="truncate hover:text-fg {{ if eq $i 0 }}font-medium text-fg{{ else }}text-xs text-muted{{ end }}">{{ $domain }}</a>
                     {{ end }}
                 </div>
             </td>
-            <td class="hidden text-slate-500 md:table-cell">{{ .configName }}</td>
+            <td class="hidden text-muted md:table-cell">{{ .configName }}</td>
             <td>
                 <div class="flex flex-col items-start gap-1">
                     {{ if lt .daysLeft 0 }}
@@ -45,7 +45,7 @@
                     {{ else }}
                     <span class="badge badge-green"><span class="dot"></span>剩余 {{ .daysLeft }} 天</span>
                     {{ end }}
-                    <span class="whitespace-nowrap text-xs text-slate-500">{{ .expiredAt }} 到期</span>
+                    <span class="whitespace-nowrap text-xs text-muted">{{ .expiredAt }} 到期</span>
                 </div>
             </td>
             <td>
@@ -56,7 +56,7 @@
                         <span class="hidden sm:inline">续签</span>
                     </button>
                     <a href="/admin/ssl/delete?configName={{ .configName }}"
-                       class="btn btn-ghost btn-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                       class="btn btn-ghost-danger btn-sm"
                        onclick="return confirm('确定要删除这个证书吗？')">
                         {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
                     </a>
@@ -69,9 +69,9 @@
     </div>
     {{ else }}
     <div class="flex flex-col items-center px-6 py-16 text-center">
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "shield-check" }}</div>
-        <h3 class="mt-4 text-sm font-semibold text-slate-900">还没有证书</h3>
-        <p class="mt-1 text-sm text-slate-500">在网站编辑页点击「申请证书」，即可通过 Let's Encrypt 签发</p>
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-hover text-subtle [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "shield-check" }}</div>
+        <h3 class="mt-4 text-sm font-semibold text-fg">还没有证书</h3>
+        <p class="mt-1 text-sm text-muted">在网站编辑页点击「申请证书」，即可通过 Let's Encrypt 签发</p>
         <a href="/admin/sites" class="btn btn-secondary mt-5">{{ svgIcon "globe" }}前往网站</a>
     </div>
     {{ end }}

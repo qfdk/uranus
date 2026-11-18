@@ -2,9 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 主题：页面只使用语义颜色（bg、card、fg、muted…），浅色和深色只在这里定义 */
 @layer base {
+    :root {
+        --bg: 255 255 255;
+        --surface: 250 250 250;
+        --card: 255 255 255;
+        --line: 228 228 231;
+        --line-soft: 244 244 245;
+        --fg: 24 24 27;
+        --muted: 113 113 122;
+        --subtle: 161 161 170;
+        --hover: 244 244 245;
+        --primary: 24 24 27;
+        --primary-fg: 250 250 250;
+        --accent: 22 163 74;
+        color-scheme: light;
+    }
+
+    .dark {
+        --bg: 9 9 11;
+        --surface: 12 12 14;
+        --card: 19 19 22;
+        --line: 39 39 42;
+        --line-soft: 30 30 34;
+        --fg: 244 244 245;
+        --muted: 161 161 170;
+        --subtle: 113 113 122;
+        --hover: 33 33 37;
+        --primary: 244 244 245;
+        --primary-fg: 24 24 27;
+        --accent: 74 222 128;
+        color-scheme: dark;
+    }
+
     body {
-        @apply bg-slate-50 text-slate-900 antialiased;
+        @apply bg-bg text-fg antialiased;
     }
 }
 
@@ -16,36 +49,42 @@
     .icon > svg {
         @apply h-4 w-4;
     }
-    .icon-lg > svg {
+    .tile {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-hover text-muted;
+    }
+    .tile > svg {
         @apply h-5 w-5;
     }
 
     /* 按钮 */
     .btn {
         @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-colors
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-1
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-fg/20 focus-visible:ring-offset-1 focus-visible:ring-offset-bg
         disabled:pointer-events-none disabled:opacity-40;
     }
     .btn svg {
         @apply h-4 w-4 shrink-0;
     }
     .btn-primary {
-        @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-700;
+        @apply bg-primary text-primary-fg shadow-sm hover:bg-primary/85;
     }
     .btn-secondary {
-        @apply border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50;
+        @apply border border-line bg-card text-fg shadow-sm hover:bg-hover;
     }
     .btn-danger {
-        @apply border border-rose-200 bg-white text-rose-600 shadow-sm hover:border-rose-300 hover:bg-rose-50;
+        @apply border border-red-600/25 bg-card text-red-600 shadow-sm hover:bg-red-500/10 dark:border-red-400/25 dark:text-red-400;
     }
     .btn-ghost {
-        @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+        @apply text-muted hover:bg-hover hover:text-fg;
+    }
+    .btn-ghost-danger {
+        @apply text-red-600 hover:bg-red-500/10 dark:text-red-400;
     }
     .btn-sm {
         @apply h-8 px-2.5 text-[13px];
     }
     .btn-icon {
-        @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900;
+        @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg;
     }
     .btn-icon svg {
         @apply h-5 w-5;
@@ -53,30 +92,33 @@
 
     /* 卡片 */
     .card {
-        @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+        @apply rounded-xl border border-line bg-card shadow-sm shadow-black/[0.03];
     }
     .card-header {
-        @apply flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5;
+        @apply flex items-center justify-between gap-4 border-b border-line-soft px-5 py-3.5;
     }
     .card-title {
-        @apply flex items-center gap-2 text-[15px] font-semibold text-slate-900;
+        @apply flex items-center gap-2 text-sm font-semibold text-fg;
     }
     .card-title svg {
-        @apply h-4 w-4 text-slate-400;
+        @apply h-4 w-4 text-subtle;
+    }
+    .link {
+        @apply text-sm font-medium text-muted transition-colors hover:text-fg;
     }
 
     /* 页面标题 */
     .page-header {
-        @apply mb-6 flex flex-wrap items-end justify-between gap-4;
+        @apply mb-8 flex flex-wrap items-end justify-between gap-4;
     }
     .page-title {
-        @apply text-[22px] font-semibold tracking-tight text-slate-900;
+        @apply text-2xl font-semibold tracking-tight text-fg;
     }
     .page-desc {
-        @apply mt-1 text-sm text-slate-500;
+        @apply mt-1.5 text-sm text-muted;
     }
     .back-link {
-        @apply mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900;
+        @apply mb-3 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-fg;
     }
     .back-link svg {
         @apply h-4 w-4;
@@ -84,30 +126,35 @@
 
     /* 侧边导航 */
     .nav-link {
-        @apply relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100;
+        @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-fg;
     }
     .nav-link svg {
         @apply h-[18px] w-[18px] shrink-0;
     }
     .nav-link.active {
-        @apply bg-white/10 text-white;
+        @apply bg-card text-fg shadow-sm ring-1 ring-line;
     }
-    .nav-link.active::before {
-        content: "";
-        @apply absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-400;
+    .theme-btn {
+        @apply inline-flex h-7 flex-1 items-center justify-center rounded-md text-muted transition-colors hover:text-fg;
+    }
+    .theme-btn svg {
+        @apply h-4 w-4;
+    }
+    .theme-btn[aria-pressed="true"] {
+        @apply bg-card text-fg shadow-sm ring-1 ring-line;
     }
 
     /* 表单 */
     .label {
-        @apply mb-1.5 block text-sm font-medium text-slate-700;
+        @apply mb-1.5 block text-sm font-medium text-fg;
     }
     .input {
-        @apply block h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400
-        focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20
-        read-only:bg-slate-50 read-only:text-slate-500;
+        @apply block h-10 w-full rounded-lg border border-line bg-card px-3 text-sm text-fg shadow-sm placeholder:text-subtle
+        focus:border-fg/30 focus:outline-none focus:ring-2 focus:ring-fg/10
+        read-only:bg-surface read-only:text-muted;
     }
     .hint {
-        @apply mt-1.5 text-xs text-slate-500;
+        @apply mt-1.5 text-xs text-muted;
     }
 
     /* 提示 */
@@ -118,13 +165,13 @@
         @apply mt-0.5 h-4 w-4 shrink-0;
     }
     .alert-error {
-        @apply border-rose-200 bg-rose-50 text-rose-700;
+        @apply border-red-600/20 bg-red-500/10 text-red-700 dark:border-red-400/20 dark:text-red-300;
     }
     .alert-success {
-        @apply border-emerald-200 bg-emerald-50 text-emerald-800;
+        @apply border-green-600/20 bg-green-500/10 text-green-800 dark:border-green-400/20 dark:text-green-300;
     }
     .alert-info {
-        @apply border-sky-200 bg-sky-50 text-sky-800;
+        @apply border-line bg-surface text-muted;
     }
 
     /* 状态标签 */
@@ -132,16 +179,16 @@
         @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
     }
     .badge-green {
-        @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20;
+        @apply bg-green-500/10 text-green-700 ring-green-600/20 dark:text-green-400 dark:ring-green-400/20;
     }
     .badge-amber {
-        @apply bg-amber-50 text-amber-700 ring-amber-600/20;
+        @apply bg-amber-500/10 text-amber-700 ring-amber-600/20 dark:text-amber-400 dark:ring-amber-400/20;
     }
     .badge-red {
-        @apply bg-rose-50 text-rose-700 ring-rose-600/20;
+        @apply bg-red-500/10 text-red-700 ring-red-600/20 dark:text-red-400 dark:ring-red-400/20;
     }
     .badge-gray {
-        @apply bg-slate-50 text-slate-600 ring-slate-500/20;
+        @apply bg-hover text-muted ring-line;
     }
     .dot {
         @apply inline-block h-1.5 w-1.5 rounded-full bg-current;
@@ -149,16 +196,33 @@
 
     /* 键值列表 */
     .kv {
-        @apply divide-y divide-slate-100 px-5;
+        @apply divide-y divide-line-soft px-5;
     }
     .kv > div {
         @apply flex items-center justify-between gap-6 py-3 text-sm;
     }
     .kv dt {
-        @apply shrink-0 text-slate-500;
+        @apply shrink-0 text-muted;
     }
     .kv dd {
-        @apply min-w-0 truncate text-right font-medium text-slate-800;
+        @apply min-w-0 truncate text-right font-medium text-fg;
+    }
+
+    /* 指标 */
+    .stat-label {
+        @apply flex items-center justify-between text-sm text-muted;
+    }
+    .stat-label svg {
+        @apply h-4 w-4 text-subtle;
+    }
+    .stat-value {
+        @apply mt-3 text-2xl font-semibold tracking-tight text-fg;
+    }
+    .stat-unit {
+        @apply ml-1 text-sm font-normal text-muted;
+    }
+    .meter {
+        @apply mt-3 h-1.5 overflow-hidden rounded-full bg-hover;
     }
 
     /* 表格 */
@@ -166,20 +230,20 @@
         @apply w-full text-left text-sm;
     }
     .table thead th {
-        @apply whitespace-nowrap border-b border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs font-medium text-slate-500 sm:px-5;
+        @apply whitespace-nowrap border-b border-line bg-surface px-4 py-2.5 text-xs font-medium text-muted sm:px-5;
     }
     .table tbody td {
-        @apply border-b border-slate-100 px-4 py-3.5 align-middle sm:px-5;
+        @apply border-b border-line-soft px-4 py-3.5 align-middle sm:px-5;
     }
     .table tbody tr:last-child td {
         @apply border-b-0;
     }
     .table tbody tr {
-        @apply transition-colors hover:bg-slate-50/70;
+        @apply transition-colors hover:bg-surface;
     }
 
-    /* 代码编辑器容器 */
+    /* 代码编辑器容器：两种主题下都用深色编辑器 */
     .editor-frame {
-        @apply overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e];
+        @apply overflow-hidden rounded-xl border border-line bg-[#1e1e1e] shadow-sm;
     }
 }

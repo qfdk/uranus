@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/base64"
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
@@ -10,10 +9,13 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
-	"log"
 	"net/http"
+	"os"
 	"runtime"
+	"strings"
+	"time"
 	config2 "uranus/internal/config"
+	"uranus/internal/models"
 	"uranus/internal/services"
 )
 
@@ -46,22 +48,28 @@ func formatUptime(seconds uint64) string {
 	return fmt.Sprintf("%d 小时 %d 分钟", hours, seconds%3600/60)
 }
 
-func Index(ctx *gin.Context) {
-	// 启动、重载、停止 Nginx 之后带回来的结果
-	actionMessage, err := base64.StdEncoding.DecodeString(ctx.Query("message"))
-	if err != nil {
-		log.Printf("[CONTROLLER] base64 decode failure: %v", err)
+// shortCommit 返回提交号的前 8 位。从不带 .git 的源码构建时提交号为空
+func shortCommit(id string) string {
+	if len(id) > 8 {
+		return id[:8]
 	}
+	return id
+}
 
+func Index(ctx *gin.Context) {
+	nginxInfo := config2.ReadNginxCompileInfo()
 	data := gin.H{
-		"activePage":         "dashboard",
-		"nginxStatus":        services.NginxStatus(),
+		"activePage":     "dashboard",
+		"nginxInstalled": nginxInfo.NginxConfPath != "",
+		"nginxStatus":    services.NginxStatus(),
+		// 启动、重载、重启、停止 Nginx 之后带回来的结果
 		"nginxAction":        ctx.Query("action"),
-		"nginxActionMessage": string(actionMessage),
-		"nginxCompileInfo":   config2.ReadNginxCompileInfo(),
+		"nginxActionMessage": ctx.Query("message"),
+		"nginxCompileInfo":   nginxInfo,
 		"buildTime":          config2.BuildTime,
 		"buildVersion":       config2.BuildVersion,
 		"commitID":           config2.CommitID,
+		"commitShort":        shortCommit(config2.CommitID),
 		"cpuCount":           runtime.NumCPU(),
 	}
 
@@ -90,6 +98,26 @@ func Index(ctx *gin.Context) {
 	if diskInfo, err := disk.Usage("/"); err == nil && diskInfo != nil {
 		data["disk"] = newUsage(diskInfo.Used, diskInfo.Total, diskInfo.UsedPercent)
 	}
+
+	// 网站和证书概况
+	sites := 0
+	if entries, err := os.ReadDir(config2.GetAppConfig().VhostPath); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".conf") {
+				sites++
+			}
+		}
+	}
+	certs := models.IssuedCertificates()
+	expiring := 0
+	for _, cert := range certs {
+		if time.Until(cert.NotAfter) < 30*24*time.Hour {
+			expiring++
+		}
+	}
+	data["sitesCount"] = sites
+	data["certsCount"] = len(certs)
+	data["certsExpiring"] = expiring
 
 	ctx.HTML(http.StatusOK, "index.html", data)
 }

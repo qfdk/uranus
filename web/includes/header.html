@@ -7,35 +7,35 @@
     <link rel="shortcut icon" href="/public/icon/favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="/public/icon/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
+    {{ template "theme-init" }}
     <link rel="stylesheet" href="/public/css/tailwind.min.css">
     <title>Uranus · Nginx 管理面板</title>
 </head>
 <body class="h-full">
 
 <!-- 移动端顶栏 -->
-<header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white/90 px-3 backdrop-blur md:hidden">
+<header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-bg/90 px-3 backdrop-blur md:hidden">
     <button type="button" class="btn-icon" onclick="toggleSidebar()" aria-label="打开菜单">{{ svgIcon "menu" }}</button>
     <a href="/admin/dashboard" class="flex items-center gap-2">
-        <img src="/public/icon/nginx.png" alt="" class="h-7 w-7">
-        <span class="text-[15px] font-semibold text-slate-900">Uranus</span>
+        <img src="/public/icon/nginx.png" alt="" class="h-6 w-6">
+        <span class="text-[15px] font-semibold">Uranus</span>
     </a>
 </header>
 
 <!-- 侧边栏：桌面端常驻，移动端为抽屉 -->
-<div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/60 md:hidden" onclick="toggleSidebar()"></div>
+<div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-black/40 backdrop-blur-sm md:hidden" onclick="toggleSidebar()"></div>
 <aside id="sidebar"
-       class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col bg-slate-900 transition-transform duration-200 md:translate-x-0">
+       class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-line bg-surface transition-transform duration-200 md:translate-x-0">
     <div class="flex h-16 shrink-0 items-center gap-3 px-5">
-        <img src="/public/icon/nginx.png" alt="" class="h-8 w-8">
+        <img src="/public/icon/nginx.png" alt="" class="h-7 w-7">
         <div class="leading-tight">
-            <div class="text-[15px] font-semibold text-white">Uranus</div>
-            <div class="text-xs text-slate-400">Nginx 管理面板</div>
+            <div class="text-[15px] font-semibold text-fg">Uranus</div>
+            <div class="text-xs text-muted">Nginx 管理面板</div>
         </div>
-        <button type="button" class="btn-icon ml-auto text-slate-400 hover:bg-white/10 hover:text-white md:hidden"
-                onclick="toggleSidebar()" aria-label="关闭菜单">{{ svgIcon "x" }}</button>
+        <button type="button" class="btn-icon ml-auto md:hidden" onclick="toggleSidebar()" aria-label="关闭菜单">{{ svgIcon "x" }}</button>
     </div>
 
-    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-3">
         <a href="/admin/dashboard" class="nav-link {{ if eq .activePage "dashboard" }}active{{ end }}">
             {{ svgIcon "layout-dashboard" }}<span>概览</span>
         </a>
@@ -51,13 +51,18 @@
         <a href="/admin/config/edit" class="nav-link {{ if eq .activePage "app-config" }}active{{ end }}">
             {{ svgIcon "settings" }}<span>Uranus 设置</span>
         </a>
-    </nav>
-
-    <div class="space-y-1 border-t border-white/10 p-3">
         <a href="/admin/terminal" target="_blank" class="nav-link">
             {{ svgIcon "terminal" }}<span>终端</span>
-            <span class="ml-auto opacity-60 [&>svg]:h-3.5 [&>svg]:w-3.5">{{ svgIcon "external-link" }}</span>
+            <span class="ml-auto text-subtle [&>svg]:h-3.5 [&>svg]:w-3.5">{{ svgIcon "external-link" }}</span>
         </a>
+    </nav>
+
+    <div class="space-y-3 border-t border-line p-3">
+        <div class="flex items-center gap-1 rounded-lg bg-hover p-1" role="group" aria-label="外观">
+            <button type="button" class="theme-btn" data-theme-set="light" title="浅色">{{ svgIcon "sun" }}</button>
+            <button type="button" class="theme-btn" data-theme-set="dark" title="深色">{{ svgIcon "moon" }}</button>
+            <button type="button" class="theme-btn" data-theme-set="system" title="跟随系统">{{ svgIcon "monitor" }}</button>
+        </div>
         <a href="/logout" class="nav-link">
             {{ svgIcon "log-out" }}<span>退出登录</span>
         </a>
@@ -65,5 +70,17 @@
 </aside>
 
 <main class="md:pl-64">
-    <div class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+{{ end }}
+
+{{ define "theme-init" }}
+<script>
+    // 在样式生效前确定主题，避免刷新时闪烁：浅色、深色或跟随系统（默认）
+    (function () {
+        var mode = 'system';
+        try { mode = localStorage.getItem('theme') || 'system'; } catch (e) {}
+        var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+    })();
+</script>
 {{ end }}

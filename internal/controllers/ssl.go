@@ -15,15 +15,13 @@ import (
 
 func Certificates(ctx *gin.Context) {
 	var results []gin.H
-	for _, cert := range models2.GetCertificates() {
-		if cert.NotAfter.Unix() != -62135596800 {
-			results = append(results, gin.H{
-				"configName": cert.FileName,
-				"domains":    strings.Split(cert.Domains, ","),
-				"expiredAt":  cert.NotAfter.Format("2006-01-02"),
-				"daysLeft":   int(time.Until(cert.NotAfter).Hours() / 24),
-			})
-		}
+	for _, cert := range models2.IssuedCertificates() {
+		results = append(results, gin.H{
+			"configName": cert.FileName,
+			"domains":    strings.Split(cert.Domains, ","),
+			"expiredAt":  cert.NotAfter.Format("2006-01-02"),
+			"daysLeft":   int(time.Until(cert.NotAfter).Hours() / 24),
+		})
 	}
 	ctx.HTML(http.StatusOK, "ssl.html", gin.H{
 		"activePage": "ssl",

@@ -22,6 +22,17 @@ func GetCertificates() (certs []Cert) {
 	return
 }
 
+// IssuedCertificates 返回已经签发了证书的网站。
+// 每个网站保存时都会有一条记录，签发证书之后 NotAfter 才有值
+func IssuedCertificates() (certs []Cert) {
+	for _, cert := range GetCertificates() {
+		if !cert.NotAfter.IsZero() {
+			certs = append(certs, cert)
+		}
+	}
+	return
+}
+
 // GetCertByFilename 根据文件名获取证书
 func GetCertByFilename(filename string) (cert Cert) {
 	// 确保删除可能存在的.conf后缀

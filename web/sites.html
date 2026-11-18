@@ -24,17 +24,17 @@
         {{ range .files }}
         <tr>
             <td>
-                <a href="/admin/sites/edit/{{ .Name }}" class="flex min-w-0 items-center gap-3 font-medium text-slate-900 hover:text-emerald-700">
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 [&>svg]:h-4 [&>svg]:w-4">{{ svgIcon "globe" }}</span>
+                <a href="/admin/sites/edit/{{ .Name }}" class="flex min-w-0 items-center gap-3 font-medium text-fg">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-muted [&>svg]:h-4 [&>svg]:w-4">{{ svgIcon "globe" }}</span>
                     <span class="truncate">{{ .Name }}</span>
                 </a>
             </td>
-            <td class="hidden text-slate-500 sm:table-cell">{{ .Size }}</td>
-            <td class="hidden text-slate-500 md:table-cell">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
+            <td class="hidden text-muted sm:table-cell">{{ .Size }}</td>
+            <td class="hidden text-muted md:table-cell">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
             <td>
                 <div class="flex justify-end gap-1">
                     <a href="/admin/sites/edit/{{ .Name }}" class="btn btn-ghost btn-sm">{{ svgIcon "pencil" }}<span class="hidden sm:inline">编辑</span></a>
-                    <a href="/admin/sites/delete/{{ .Name }}" class="btn btn-ghost btn-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    <a href="/admin/sites/delete/{{ .Name }}" class="btn btn-ghost-danger btn-sm"
                        onclick="return confirm('确定要删除 {{ .Name }} 吗？对应的 SSL 证书也会一起删除。')">
                         {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
                     </a>
@@ -47,9 +47,9 @@
     </div>
     {{ else }}
     <div class="flex flex-col items-center px-6 py-16 text-center">
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "globe" }}</div>
-        <h3 class="mt-4 text-sm font-semibold text-slate-900">还没有网站</h3>
-        <p class="mt-1 text-sm text-slate-500">新建的配置文件会保存在 {{ .vhostPath }}</p>
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-hover text-subtle [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "globe" }}</div>
+        <h3 class="mt-4 text-sm font-semibold text-fg">还没有网站</h3>
+        <p class="mt-1 text-sm text-muted">新建的配置文件会保存在 {{ .vhostPath }}</p>
         <a href="/admin/sites/new" class="btn btn-primary mt-5">{{ svgIcon "plus" }}新建网站</a>
     </div>
     {{ end }}

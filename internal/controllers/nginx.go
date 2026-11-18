@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/base64"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -34,10 +33,7 @@ func Nginx(ctx *gin.Context) {
 	}
 
 	// 直接回到仪表盘显示结果：经过 / 再跳转会丢掉查询参数
-	query := url.Values{
-		"action":  {action},
-		"message": {base64.StdEncoding.EncodeToString([]byte(nginxActionResult))},
-	}
+	query := url.Values{"action": {action}, "message": {nginxActionResult}}
 	ctx.Redirect(http.StatusFound, "/admin/dashboard?"+query.Encode())
 }
 

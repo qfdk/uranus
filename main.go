@@ -57,32 +57,10 @@ func initRouter() *gin.Engine {
 	app := gin.New()
 	app.Use(gin.Recovery())
 
-	// 创建一个包含自定义函数的模板引擎
-	funcMap := template.FuncMap{
-		"isEven": func(num int) bool {
-			return num%2 == 0
-		},
-		"add": func(a, b int) int {
-			return a + b
-		},
-		"svgIcon": func(name string) template.HTML {
-			content, err := staticFS.ReadFile("web/public/icons/" + name + ".svg")
-			if err != nil {
-				return ""
-			}
-			return template.HTML(content)
-		},
-	}
-
-	// 使用自定义函数创建一个模板实例
-	tmpl := template.New("").Funcs(funcMap)
-
-	// 解析模板文件
-	tmpl, err := tmpl.ParseFS(templates, "web/includes/*.html", "web/*.html")
+	tmpl, err := parseTemplates()
 	if err != nil {
 		panic(err)
 	}
-
 	app.SetHTMLTemplate(tmpl)
 
 	// 使用缓存中间件
@@ -128,6 +106,20 @@ func initRouter() *gin.Engine {
 	routes.RegisterRoutes(app)
 
 	return app
+}
+
+// parseTemplates 解析页面模板。页面用 svgIcon "名称" 内联 web/public/icons 下的图标
+func parseTemplates() (*template.Template, error) {
+	funcMap := template.FuncMap{
+		"svgIcon": func(name string) template.HTML {
+			content, err := staticFS.ReadFile("web/public/icons/" + name + ".svg")
+			if err != nil {
+				return ""
+			}
+			return template.HTML(content)
+		},
+	}
+	return template.New("").Funcs(funcMap).ParseFS(templates, "web/includes/*.html", "web/*.html")
 }
 
 // 根据文件扩展名获取 MIME 类型

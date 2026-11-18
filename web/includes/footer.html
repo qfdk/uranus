@@ -9,6 +9,38 @@
         document.getElementById('sidebarBackdrop').classList.toggle('hidden');
     }
 
+    // 外观切换：浅色 / 深色 / 跟随系统，选择保存在浏览器里
+    (function () {
+        var media = window.matchMedia('(prefers-color-scheme: dark)');
+        var buttons = document.querySelectorAll('[data-theme-set]');
+
+        function current() {
+            try { return localStorage.getItem('theme') || 'system'; } catch (e) { return 'system'; }
+        }
+
+        function apply(mode) {
+            var dark = mode === 'dark' || (mode === 'system' && media.matches);
+            document.documentElement.classList.toggle('dark', dark);
+            buttons.forEach(function (button) {
+                button.setAttribute('aria-pressed', String(button.getAttribute('data-theme-set') === mode));
+            });
+        }
+
+        buttons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                var mode = button.getAttribute('data-theme-set');
+                try { localStorage.setItem('theme', mode); } catch (e) {}
+                apply(mode);
+            });
+        });
+        media.addEventListener('change', function () {
+            if (current() === 'system') {
+                apply('system');
+            }
+        });
+        apply(current());
+    })();
+
     // 禁用 iOS 双指缩放和双击缩放，安卓不需要这段代码
     (function () {
         var agent = navigator.userAgent.toLowerCase();

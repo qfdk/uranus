@@ -12,7 +12,7 @@
         <a href="/admin/terminal" target="_blank" class="btn btn-secondary">{{ svgIcon "terminal" }}终端</a>
         <button type="button" id="openUpgradeModal" class="btn btn-secondary">
             {{ svgIcon "circle-arrow-up" }}检查更新
-            <span id="updateDot" class="hidden h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span id="updateDot" class="hidden h-2 w-2 rounded-full bg-accent"></span>
         </button>
     </div>
 </div>
@@ -20,48 +20,49 @@
 {{ if eq .nginxActionMessage "OK" }}
 <div class="alert alert-success mb-6">
     {{ svgIcon "circle-check" }}
-    <span>Nginx 已{{ if eq .nginxAction "start" }}启动{{ else if eq .nginxAction "reload" }}重新加载配置{{ else if eq .nginxAction "stop" }}停止{{ else }}完成操作{{ end }}</span>
+    <span>Nginx 已{{ if eq .nginxAction "start" }}启动{{ else if eq .nginxAction "reload" }}重新加载配置{{ else if eq .nginxAction "restart" }}重启{{ else if eq .nginxAction "stop" }}停止{{ else }}完成操作{{ end }}</span>
 </div>
 {{ else if .nginxActionMessage }}
 <div class="alert alert-error mb-6">
     {{ svgIcon "circle-alert" }}
     <div class="min-w-0">
-        <p class="font-medium">操作失败</p>
-        <p class="mt-1 whitespace-pre-wrap break-all">{{ .nginxActionMessage }}</p>
+        <p class="font-medium">操作没有完成</p>
+        <p class="mt-1 whitespace-pre-wrap break-all opacity-90">{{ .nginxActionMessage }}</p>
     </div>
 </div>
 {{ end }}
 
 <!-- Nginx 状态 -->
 <section class="card">
+    {{ if .nginxInstalled }}
     <div class="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex min-w-0 items-center gap-4">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl [&>svg]:h-6 [&>svg]:w-6 {{ if $running }}bg-emerald-50 text-emerald-600{{ else }}bg-slate-100 text-slate-400{{ end }}">
-                {{ svgIcon "server" }}
-            </div>
+            <div class="tile h-12 w-12 [&>svg]:h-6 [&>svg]:w-6 {{ if $running }}bg-accent/10 text-accent{{ end }}">{{ svgIcon "server" }}</div>
             <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="text-base font-semibold text-slate-900">Nginx</h2>
+                    <h2 class="text-base font-semibold text-fg">Nginx</h2>
                     {{ if $running }}
                     <span class="badge badge-green">
                         <span class="relative flex h-1.5 w-1.5">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60"></span>
-                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60"></span>
+                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-current"></span>
                         </span>
                         运行中
                     </span>
                     {{ else }}
-                    <span class="badge badge-gray"><span class="dot"></span>未运行</span>
+                    <span class="badge badge-gray"><span class="dot"></span>已停止</span>
                     {{ end }}
                 </div>
-                <p class="mt-1 truncate text-sm text-slate-500">
+                <p class="mt-1 truncate text-sm text-muted">
                     {{ .nginxCompileInfo.Version }}{{ if $running }} · 主进程 PID {{ .nginxStatus }}{{ end }}
                 </p>
             </div>
         </div>
         <form action="/admin/nginx" method="post" class="flex flex-wrap gap-2">
             {{ if $running }}
-            <button type="submit" name="action" value="reload" class="btn btn-primary">{{ svgIcon "rotate-cw" }}重载配置</button>
+            <button type="submit" name="action" value="reload" class="btn btn-primary" title="检查配置后平滑加载，不中断连接">{{ svgIcon "rotate-cw" }}重载配置</button>
+            <button type="submit" name="action" value="restart" class="btn btn-secondary"
+                    onclick="return confirm('重启会停止 Nginx 再重新启动，期间网站会短暂无法访问。确定继续吗？')">{{ svgIcon "refresh-cw" }}重启</button>
             <button type="submit" name="action" value="stop" class="btn btn-danger"
                     onclick="return confirm('确定要停止 Nginx 吗？停止后所有网站都将无法访问。')">{{ svgIcon "circle-stop" }}停止</button>
             {{ else }}
@@ -70,58 +71,64 @@
             <a href="/admin/nginx/config" class="btn btn-secondary">{{ svgIcon "file-code" }}编辑 nginx.conf</a>
         </form>
     </div>
+    {{ else }}
+    <div class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-start gap-4">
+            <div class="tile h-12 w-12 bg-amber-500/10 text-amber-600 dark:text-amber-400 [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "circle-alert" }}</div>
+            <div>
+                <h2 class="text-base font-semibold text-fg">未检测到 Nginx</h2>
+                <p class="mt-1 max-w-xl text-sm text-muted">
+                    以 root 身份运行时，Uranus 会自动用系统包管理器安装 Nginx（Debian、Ubuntu、CentOS、Rocky、Alma、Alpine、Arch）。
+                    也可以在终端里手动安装，例如 <span class="whitespace-nowrap font-medium text-fg">apt install nginx</span>，安装后刷新本页即可。
+                </p>
+            </div>
+        </div>
+        <a href="/admin/terminal" target="_blank" class="btn btn-primary shrink-0">{{ svgIcon "terminal" }}打开终端</a>
+    </div>
+    {{ end }}
 </section>
 
-<!-- 资源 -->
+<!-- 概况 -->
 <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <div class="card p-5">
-        <div class="flex items-center justify-between text-sm text-slate-500">
-            <span>CPU</span><span class="icon text-slate-400">{{ svgIcon "cpu" }}</span>
-        </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ .cpuCount }}<span class="ml-1 text-sm font-normal text-slate-500">核</span></p>
-        <p class="mt-2 truncate text-xs text-slate-500" title="{{ .cpuModel }}">{{ or .cpuModel "—" }}</p>
-    </div>
+    <a href="/admin/sites" class="card group p-5 transition-colors hover:border-fg/20">
+        <div class="stat-label"><span>网站</span>{{ svgIcon "globe" }}</div>
+        <p class="stat-value">{{ .sitesCount }}<span class="stat-unit">个</span></p>
+        <p class="mt-2 text-xs text-muted group-hover:text-fg">管理网站配置 →</p>
+    </a>
+
+    <a href="/admin/ssl" class="card group p-5 transition-colors hover:border-fg/20">
+        <div class="stat-label"><span>SSL 证书</span>{{ svgIcon "shield-check" }}</div>
+        <p class="stat-value">{{ .certsCount }}<span class="stat-unit">个</span></p>
+        {{ if .certsExpiring }}
+        <p class="mt-2"><span class="badge badge-amber"><span class="dot"></span>{{ .certsExpiring }} 个 30 天内到期</span></p>
+        {{ else }}
+        <p class="mt-2 text-xs text-muted group-hover:text-fg">{{ if .certsCount }}全部有效{{ else }}还没有证书{{ end }} →</p>
+        {{ end }}
+    </a>
 
     {{ with .mem }}
     <div class="card p-5">
-        <div class="flex items-center justify-between text-sm text-slate-500">
-            <span>内存</span><span class="icon text-slate-400">{{ svgIcon "memory-stick" }}</span>
-        </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ printf "%.0f" .Percent }}<span class="ml-0.5 text-sm font-normal text-slate-500">%</span></p>
-        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div class="h-full rounded-full {{ if eq .Level "high" }}bg-rose-500{{ else if eq .Level "warn" }}bg-amber-500{{ else }}bg-emerald-500{{ end }}"
+        <div class="stat-label"><span>内存</span>{{ svgIcon "memory-stick" }}</div>
+        <p class="stat-value">{{ printf "%.0f" .Percent }}<span class="stat-unit">%</span></p>
+        <div class="meter">
+            <div class="h-full rounded-full {{ if eq .Level "high" }}bg-red-500{{ else if eq .Level "warn" }}bg-amber-500{{ else }}bg-accent{{ end }}"
                  style="width: {{ printf "%.0f" .Percent }}%"></div>
         </div>
-        <p class="mt-2 text-xs text-slate-500">已用 {{ .Used }} / {{ .Total }}</p>
+        <p class="mt-2 text-xs text-muted">已用 {{ .Used }} / {{ .Total }}</p>
     </div>
     {{ end }}
 
     {{ with .disk }}
     <div class="card p-5">
-        <div class="flex items-center justify-between text-sm text-slate-500">
-            <span>磁盘</span><span class="icon text-slate-400">{{ svgIcon "hard-drive" }}</span>
-        </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ printf "%.0f" .Percent }}<span class="ml-0.5 text-sm font-normal text-slate-500">%</span></p>
-        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div class="h-full rounded-full {{ if eq .Level "high" }}bg-rose-500{{ else if eq .Level "warn" }}bg-amber-500{{ else }}bg-emerald-500{{ end }}"
+        <div class="stat-label"><span>磁盘</span>{{ svgIcon "hard-drive" }}</div>
+        <p class="stat-value">{{ printf "%.0f" .Percent }}<span class="stat-unit">%</span></p>
+        <div class="meter">
+            <div class="h-full rounded-full {{ if eq .Level "high" }}bg-red-500{{ else if eq .Level "warn" }}bg-amber-500{{ else }}bg-accent{{ end }}"
                  style="width: {{ printf "%.0f" .Percent }}%"></div>
         </div>
-        <p class="mt-2 text-xs text-slate-500">已用 {{ .Used }} / {{ .Total }}</p>
+        <p class="mt-2 text-xs text-muted">已用 {{ .Used }} / {{ .Total }}</p>
     </div>
     {{ end }}
-
-    <div class="card p-5">
-        <div class="flex items-center justify-between text-sm text-slate-500">
-            <span>负载</span><span class="icon text-slate-400">{{ svgIcon "activity" }}</span>
-        </div>
-        {{ with .load }}
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ index . 0 }}<span class="ml-1 text-sm font-normal text-slate-500">1 分钟</span></p>
-        <p class="mt-2 text-xs text-slate-500">5 分钟 {{ index . 1 }} · 15 分钟 {{ index . 2 }}</p>
-        {{ else }}
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">—</p>
-        <p class="mt-2 text-xs text-slate-500">暂无数据</p>
-        {{ end }}
-    </div>
 </div>
 
 <!-- 详细信息 -->
@@ -133,7 +140,8 @@
         <dl class="kv">
             <div><dt>主机名</dt><dd title="{{ .hostname }}">{{ or .hostname "—" }}</dd></div>
             <div><dt>操作系统</dt><dd>{{ or .osName "—" }}</dd></div>
-            <div><dt>内核</dt><dd title="{{ .kernel }}">{{ or .kernel "—" }}</dd></div>
+            <div><dt>CPU</dt><dd title="{{ .cpuModel }}">{{ .cpuCount }} 核{{ if .cpuModel }} · {{ .cpuModel }}{{ end }}</dd></div>
+            <div><dt>负载</dt><dd>{{ with .load }}{{ index . 0 }} / {{ index . 1 }} / {{ index . 2 }}{{ else }}—{{ end }}</dd></div>
             <div><dt>运行时长</dt><dd>{{ or .uptime "—" }}</dd></div>
         </dl>
     </section>
@@ -141,7 +149,7 @@
     <section class="card">
         <div class="card-header">
             <h3 class="card-title">{{ svgIcon "file-cog" }}Nginx</h3>
-            <a href="/admin/nginx/config-info" class="text-sm font-medium text-emerald-700 hover:text-emerald-800">编译参数</a>
+            <a href="/admin/nginx/config-info" class="link">编译参数</a>
         </div>
         <dl class="kv">
             <div><dt>版本</dt><dd>{{ .nginxCompileInfo.Version }}</dd></div>
@@ -159,43 +167,43 @@
         <dl class="kv">
             <div><dt>版本</dt><dd>{{ .buildVersion }}</dd></div>
             <div><dt>构建时间</dt><dd>{{ .buildTime }}</dd></div>
-            <div><dt>提交</dt><dd>{{ slice .commitID 0 8 }}</dd></div>
+            <div><dt>提交</dt><dd>{{ .commitShort }}</dd></div>
         </dl>
     </section>
 </div>
 
 <!-- 升级弹窗 -->
 <div id="upgrade-modal" class="fixed inset-0 z-50 hidden">
-    <div class="modal-background absolute inset-0 bg-slate-950/50 backdrop-blur-sm"></div>
+    <div class="modal-background absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
     <div class="relative flex min-h-full items-center justify-center p-4">
-        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-line bg-card shadow-2xl">
             <div id="upgrade-message">
-                <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-                    <h3 class="text-base font-semibold text-slate-900">检查更新</h3>
+                <div class="flex items-center justify-between border-b border-line-soft px-6 py-4">
+                    <h3 class="text-base font-semibold text-fg">检查更新</h3>
                     <button type="button" class="btn-icon -mr-2" data-close-modal aria-label="关闭">{{ svgIcon "x" }}</button>
                 </div>
                 <div class="px-6 py-5">
                     <dl class="space-y-3 text-sm">
                         <div class="flex justify-between gap-4">
-                            <dt class="text-slate-500">当前版本</dt>
-                            <dd class="font-medium text-slate-900">{{ .buildVersion }} · {{ slice .commitID 0 8 }}</dd>
+                            <dt class="text-muted">当前版本</dt>
+                            <dd class="font-medium text-fg">{{ .buildVersion }} · {{ .commitShort }}</dd>
                         </div>
                         <div class="flex justify-between gap-4">
-                            <dt class="text-slate-500">构建时间</dt>
-                            <dd class="font-medium text-slate-900">{{ .buildTime }}</dd>
+                            <dt class="text-muted">构建时间</dt>
+                            <dd class="font-medium text-fg">{{ .buildTime }}</dd>
                         </div>
                         <div id="latestRow" class="flex hidden justify-between gap-4">
-                            <dt class="text-slate-500">最新版本</dt>
-                            <dd class="font-medium text-emerald-700"><span id="buildVersion"></span> · <span id="commitID"></span></dd>
+                            <dt class="text-muted">最新版本</dt>
+                            <dd class="font-medium text-accent"><span id="buildVersion"></span> · <span id="commitID"></span></dd>
                         </div>
                         <div id="latestTimeRow" class="flex hidden justify-between gap-4">
-                            <dt class="text-slate-500">发布时间</dt>
-                            <dd id="buildTime" class="font-medium text-slate-900"></dd>
+                            <dt class="text-muted">发布时间</dt>
+                            <dd id="buildTime" class="font-medium text-fg"></dd>
                         </div>
                     </dl>
-                    <p id="upgrade_status" class="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-600">正在检查更新…</p>
+                    <p id="upgrade_status" class="mt-5 rounded-lg bg-surface px-3 py-2.5 text-sm text-muted">正在检查更新…</p>
                 </div>
-                <div class="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                <div class="flex justify-end gap-2 border-t border-line-soft px-6 py-4">
                     <button type="button" class="btn btn-secondary" data-close-modal>关闭</button>
                     <button type="button" id="upgrade" class="btn btn-primary" disabled>
                         <span id="upgrade_icon" class="icon">{{ svgIcon "download" }}</span>
@@ -207,14 +215,14 @@
 
             <div id="upgradeFinish" class="hidden px-6 py-10 text-center">
                 <div id="upgradeFinish-OK" class="hidden">
-                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 [&>svg]:h-6 [&>svg]:w-6 [&>svg]:animate-spin">
+                    <div class="tile mx-auto h-12 w-12 rounded-full bg-accent/10 text-accent [&>svg]:h-6 [&>svg]:w-6 [&>svg]:animate-spin">
                         {{ svgIcon "loader" }}
                     </div>
-                    <h3 class="mt-4 text-base font-semibold text-slate-900">正在升级 Uranus</h3>
-                    <p id="upgradeFinish-text" class="mt-1 text-sm text-slate-500">下载新版本并重启服务，完成后页面会自动刷新</p>
+                    <h3 class="mt-4 text-base font-semibold text-fg">正在升级 Uranus</h3>
+                    <p id="upgradeFinish-text" class="mt-1 text-sm text-muted">下载新版本并重启服务，完成后页面会自动刷新</p>
                 </div>
                 <div id="upgradeFinish-KO" class="hidden">
-                    <h3 class="text-base font-semibold text-slate-900">已经是最新版本</h3>
+                    <h3 class="text-base font-semibold text-fg">已经是最新版本</h3>
                 </div>
                 <button type="button" id="manual-refresh" class="btn btn-secondary mt-5 hidden">{{ svgIcon "refresh-cw" }}刷新页面</button>
             </div>

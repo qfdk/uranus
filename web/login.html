@@ -5,25 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="/public/icon/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
+    {{ template "theme-init" }}
     <link rel="stylesheet" href="/public/css/tailwind.min.css">
     <title>登录 · Uranus</title>
 </head>
-<body class="h-full bg-slate-950">
+<body class="h-full bg-surface">
 <div class="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-12">
-    <!-- 背景光晕 -->
-    <div class="pointer-events-none absolute left-1/2 top-[-12rem] h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl"></div>
-    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(2,6,23,0.9))]"></div>
+    <!-- 背景：淡淡的网格和一点品牌绿 -->
+    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgb(var(--line)/0.6)_1px,transparent_1px),linear-gradient(to_bottom,rgb(var(--line)/0.6)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]"></div>
+    <div class="pointer-events-none absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/15 blur-3xl"></div>
 
     <div class="relative w-full max-w-sm">
         <div class="mb-8 flex flex-col items-center text-center">
-            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-                <img src="/public/icon/nginx.png" alt="" class="h-9 w-9">
+            <div class="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-card shadow-sm">
+                <img src="/public/icon/nginx.png" alt="" class="h-8 w-8">
             </div>
-            <h1 class="text-2xl font-semibold tracking-tight text-white">Uranus</h1>
-            <p class="mt-1 text-sm text-slate-400">登录 Nginx 管理面板</p>
+            <h1 class="text-2xl font-semibold tracking-tight text-fg">登录 Uranus</h1>
+            <p class="mt-1.5 text-sm text-muted">管理这台服务器上的 Nginx</p>
         </div>
 
-        <div class="rounded-2xl bg-white p-7 shadow-2xl shadow-black/40">
+        <div class="card p-7 shadow-xl shadow-black/5">
             {{ if .loginError }}
             <div class="alert alert-error mb-5">
                 {{ svgIcon "circle-alert" }}
@@ -41,14 +42,11 @@
                     <input id="password" name="password" type="password" class="input"
                            autocomplete="current-password" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn btn-primary h-10 w-full">
-                    {{ svgIcon "log-in" }}
-                    登录
-                </button>
+                <button type="submit" class="btn btn-primary h-10 w-full">登录</button>
             </form>
         </div>
 
-        <p class="mt-8 text-center text-xs text-slate-500">Οὐρανός · A simple Nginx manager</p>
+        <p class="mt-8 text-center text-xs text-subtle">Οὐρανός · A simple Nginx manager</p>
     </div>
 </div>
 </body>

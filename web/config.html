@@ -10,20 +10,20 @@
 
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <div class="card p-5">
-        <p class="text-sm text-slate-500">版本</p>
-        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.Version }}">{{ .nginxCompileInfo.Version }}</p>
+        <p class="text-sm text-muted">版本</p>
+        <p class="mt-2 truncate text-base font-semibold text-fg" title="{{ .nginxCompileInfo.Version }}">{{ .nginxCompileInfo.Version }}</p>
     </div>
     <div class="card p-5">
-        <p class="text-sm text-slate-500">编译器</p>
-        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.CompilerVersion }}">{{ .nginxCompileInfo.CompilerVersion }}</p>
+        <p class="text-sm text-muted">编译器</p>
+        <p class="mt-2 truncate text-base font-semibold text-fg" title="{{ .nginxCompileInfo.CompilerVersion }}">{{ .nginxCompileInfo.CompilerVersion }}</p>
     </div>
     <div class="card p-5">
-        <p class="text-sm text-slate-500">OpenSSL</p>
-        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.SSLVersion }}">{{ .nginxCompileInfo.SSLVersion }}</p>
+        <p class="text-sm text-muted">OpenSSL</p>
+        <p class="mt-2 truncate text-base font-semibold text-fg" title="{{ .nginxCompileInfo.SSLVersion }}">{{ .nginxCompileInfo.SSLVersion }}</p>
     </div>
     <div class="card p-5">
-        <p class="text-sm text-slate-500">TLS</p>
-        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.TLSSupport }}">{{ or .nginxCompileInfo.TLSSupport "—" }}</p>
+        <p class="text-sm text-muted">TLS</p>
+        <p class="mt-2 truncate text-base font-semibold text-fg" title="{{ .nginxCompileInfo.TLSSupport }}">{{ or .nginxCompileInfo.TLSSupport "—" }}</p>
     </div>
 </div>
 
@@ -41,16 +41,16 @@
 <section class="card mt-6">
     <div class="card-header">
         <h3 class="card-title">{{ svgIcon "list" }}编译参数</h3>
-        <span class="text-xs text-slate-500">{{ len .nginxCompileInfo.Params }} 项</span>
+        <span class="text-xs text-muted">{{ len .nginxCompileInfo.Params }} 项</span>
     </div>
     {{ if .nginxCompileInfo.Params }}
-    <ul class="divide-y divide-slate-100">
+    <ul class="divide-y divide-line-soft">
         {{ range .nginxCompileInfo.Params }}
-        <li class="break-all px-5 py-2.5 font-mono text-[13px] text-slate-700">--{{ . }}</li>
+        <li class="break-all px-5 py-2.5 font-mono text-[13px] text-fg">--{{ . }}</li>
         {{ end }}
     </ul>
     {{ else }}
-    <p class="px-5 py-8 text-center text-sm text-slate-500">没有读取到编译参数</p>
+    <p class="px-5 py-8 text-center text-sm text-muted">没有读取到编译参数</p>
     {{ end }}
 </section>
 
