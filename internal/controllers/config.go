@@ -49,7 +49,8 @@ func SaveConfig(ctx *gin.Context) {
 
 	// Validate the new content before saving
 	tempConfigPath := configPath + ".temp"
-	if err := os.WriteFile(tempConfigPath, []byte(content), 0644); err != nil {
+	// 配置里有管理员密码和 token，临时文件、备份和最终文件都只允许属主读写
+	if err := os.WriteFile(tempConfigPath, []byte(content), 0600); err != nil {
 		log.Printf("Error writing temporary config file: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Error writing temporary configuration: " + err.Error()})
 		return
@@ -59,7 +60,7 @@ func SaveConfig(ctx *gin.Context) {
 	tempViper := viper.New()
 	tempViper.SetConfigFile(tempConfigPath)
 	tempViper.SetConfigType("toml")
-	
+
 	if err := tempViper.ReadInConfig(); err != nil {
 		// Clean up temp file and restore from backup if needed
 		os.Remove(tempConfigPath)
@@ -88,12 +89,15 @@ func SaveConfig(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Configuration updated successfully"})
 }
 
-// copyFile copies a file from src to dst
+// copyFile copies a file from src to dst, readable by its owner only
 func copyFile(src, dst string) error {
 	input, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(dst, input, 0644)
+	if err := os.WriteFile(dst, input, 0600); err != nil {
+		return err
+	}
+	return os.Chmod(dst, 0600)
 }

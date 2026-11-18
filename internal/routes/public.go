@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -8,9 +9,23 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"time"
 	"uranus/internal/config"
 	"uranus/internal/services"
 )
+
+// 升级相关操作，测试中替换为桩函数，避免真的下载和替换程序
+var (
+	checkSelfUpdate = services.CheckSelfUpdate
+	runUpgrade      = func() error {
+		return services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
+	}
+)
+
+// secureEqual 以常量时间比较凭证；期望值为空时一律不通过
+func secureEqual(given, expected string) bool {
+	return expected != "" && subtle.ConstantTimeCompare([]byte(given), []byte(expected)) == 1
+}
 
 // 版本信息响应结构体
 type VersionResponse struct {
@@ -47,7 +62,8 @@ func publicRoute(engine *gin.Engine) {
 		session := sessions.Default(context)
 		username, _ := context.GetPostForm("username")
 		password, _ := context.GetPostForm("password")
-		if username == config.GetAppConfig().Username && password == config.GetAppConfig().Password {
+		appConfig := config.GetAppConfig()
+		if secureEqual(username, appConfig.Username) && secureEqual(password, appConfig.Password) {
 			session.Set("login", true)
 			_ = session.Save()
 			context.Redirect(http.StatusFound, "/admin/dashboard")
@@ -71,7 +87,8 @@ func publicRoute(engine *gin.Engine) {
 
 	// 检查更新接口
 	engine.GET("/checkUpdate", func(context *gin.Context) {
-		resp, err := http.Get("https://fr.qfdk.me/uranus.php")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Get("https://fr.qfdk.me/uranus.php")
 		if err != nil {
 			log.Println("[-] 检查更新出错")
 			log.Println(err)
@@ -114,102 +131,79 @@ func publicRoute(engine *gin.Engine) {
 		}
 	})
 
-	// 升级接口：支持本地调用和远程调用
+	// 升级接口：仪表盘（已登录会话）或携带 token 的远程调用
 	engine.POST("/upgrade", func(context *gin.Context) {
-		// 检查是否是内部直接调用的场景（没有请求体或请求体为空）
-		if context.Request.ContentLength == 0 {
-			log.Printf("[升级] 本地直接调用升级接口")
+		if !isLoggedIn(context) {
+			var request struct {
+				Token string `json:"token"`
+			}
+			if err := context.ShouldBindJSON(&request); err != nil || !secureEqual(request.Token, config.GetAppConfig().Token) {
+				log.Printf("[升级] 拒绝未授权的升级请求，来源: %s", context.ClientIP())
+				context.JSON(http.StatusUnauthorized, gin.H{
+					"status":  "error",
+					"message": "未登录或 token 无效",
+				})
+				return
+			}
+			log.Printf("[升级] 收到远程升级请求，Token验证通过")
+		}
 
-			// 执行升级操作，无需验证token
-			go func() {
-				upgradeErr := services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
-				if upgradeErr != nil {
-					log.Printf("[升级] 升级过程出错: %v", upgradeErr)
-				}
-			}()
-
-			context.JSON(200, gin.H{
-				"status":  "OK",
-				"message": "本地升级请求已接收，正在处理中",
+		if err := checkSelfUpdate(); err != nil {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": err.Error(),
 			})
 			return
 		}
 
-		// 远程调用场景，需要验证token
-		var requestData map[string]interface{}
-		if err := context.BindJSON(&requestData); err == nil {
-			// 检查token是否匹配
-			if token, exists := requestData["token"].(string); exists {
-				// 验证token是否正确
-				if token == config.GetAppConfig().Token {
-					// 记录日志
-					log.Printf("[升级] 收到远程升级请求，Token验证通过")
-
-					// Token验证通过，执行升级操作
-					go func() {
-						// 使用协程执行升级，避免阻塞HTTP响应
-						upgradeErr := services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
-						if upgradeErr != nil {
-							log.Printf("[升级] 升级过程出错: %v", upgradeErr)
-						}
-					}()
-
-					// 立即返回成功响应
-					context.JSON(200, gin.H{
-						"status":  "OK",
-						"message": "远程升级请求已接收，正在处理中",
-					})
-					return
-				} else {
-					// Token不匹配
-					log.Printf("[升级] 远程升级请求Token验证失败")
-					context.JSON(401, gin.H{
-						"status":  "error",
-						"message": "无效的Token",
-					})
-					return
-				}
+		// 使用协程执行升级，避免阻塞HTTP响应
+		go func() {
+			if err := runUpgrade(); err != nil {
+				log.Printf("[升级] 升级过程出错: %v", err)
 			}
-		}
+		}()
 
-		// 如果没有提供Token或解析失败，返回错误
-		log.Printf("[升级] 远程请求格式无效或缺少Token")
-		context.JSON(400, gin.H{
-			"status":  "error",
-			"message": "请求无效，缺少有效的Token",
+		context.JSON(http.StatusOK, gin.H{
+			"status":  "OK",
+			"message": "升级请求已接收，正在处理中",
 		})
 	})
 
+	// 控制中心下发配置：必须同时带上本机 uuid 和 token。uuid 会通过 /info 公开，不能单独作为凭证。
 	engine.POST("/update-config", func(context *gin.Context) {
-		// 验证token
-		data := gin.H{}
-		rawData, err := context.GetRawData()
-		if err != nil {
-			panic(err)
+		data := map[string]interface{}{}
+		if err := context.ShouldBindJSON(&data); err != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"status": "KO", "message": "请求格式无效"})
+			return
 		}
-		_ = json.Unmarshal(rawData, &data)
-		if data["uuid"] == config.GetAppConfig().UUID {
-			// 使用安全的配置更新服务，避免配置丢失
-			configData := make(map[string]interface{})
-			for key, value := range data {
-				if key != "uuid" { // 排除uuid字段，因为它不应该被更新
-					configData[key] = value
-				}
-			}
-			
-			if len(configData) > 0 {
-				updatedKeys, err := services.UpdateAgentConfig(configData)
-				if err != nil {
-					log.Printf("[CONFIG] HTTP配置更新失败: %v", err)
-					context.JSON(500, gin.H{"status": "ERROR", "message": err.Error()})
-					return
-				}
-				log.Printf("[CONFIG] HTTP配置更新成功，更新的字段: %v", updatedKeys)
-			}
-			
-			context.JSON(200, gin.H{"status": "OK"})
-		} else {
-			context.JSON(200, gin.H{"status": "KO"})
+
+		appConfig := config.GetAppConfig()
+		uuid, _ := data["uuid"].(string)
+		token, _ := data["token"].(string)
+		if uuid != appConfig.UUID || !secureEqual(token, appConfig.Token) {
+			log.Printf("[CONFIG] 拒绝未授权的配置更新请求，来源: %s", context.ClientIP())
+			context.JSON(http.StatusUnauthorized, gin.H{"status": "KO"})
+			return
 		}
+
+		// uuid 和 token 只用于鉴权，不作为要更新的配置
+		configData := make(map[string]interface{})
+		for key, value := range data {
+			if key != "uuid" && key != "token" {
+				configData[key] = value
+			}
+		}
+
+		if len(configData) > 0 {
+			updatedKeys, err := services.UpdateAgentConfig(configData)
+			if err != nil {
+				log.Printf("[CONFIG] HTTP配置更新失败: %v", err)
+				context.JSON(500, gin.H{"status": "ERROR", "message": err.Error()})
+				return
+			}
+			log.Printf("[CONFIG] HTTP配置更新成功，更新的字段: %v", updatedKeys)
+		}
+
+		context.JSON(200, gin.H{"status": "OK"})
 	})
 }

@@ -492,7 +492,8 @@
                         }, 3000); // 每3秒检查一次
                     } else {
                         // 真正的错误
-                        $("#upgrade_status").text("升级失败: " + error);
+                        var reason = (xhr.responseJSON && xhr.responseJSON.message) || error;
+                        $("#upgrade_status").text("升级失败: " + reason);
                         $('#upgrade_spinner').addClass('hidden');
                         $('#upgrade_icon').removeClass('hidden');
                         upgradeInProgress = false;

@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +33,8 @@ type AppConfig struct {
 	IP            string `json:"ip"`
 	// MQTT配置
 	MQTTBroker string `json:"mqttBroker"` // MQTT服务器地址
+	// 会话 cookie 的签名密钥，首次启动时随机生成
+	SessionSecret string `json:"sessionSecret"`
 }
 
 var (
@@ -55,34 +59,29 @@ func generateInitialPassword() string {
 	return base64.RawURLEncoding.EncodeToString(b)[:20]
 }
 
-// GenerateSecureToken 创建一个加密安全的随机令牌
-// 返回4字节（32位）随机数据的base64编码字符串
+// GenerateSecureToken 创建一个加密安全的随机令牌（128 位熵，URL 安全的 base64）。
+// token 是远程命令、远程升级和配置下发的唯一凭证，也用作命令加密的密钥材料，熵不能太低。
 func GenerateSecureToken() string {
-	// 创建一个字节切片来存储随机字节
-	randomBytes := make([]byte, 4) // 32位熵
-
-	// 使用随机数据填充字节切片
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		// 记录错误但继续使用备用方案
-		log.Printf("[-] 警告: 无法生成安全令牌: %v", err)
-		return "myToken_" + uuid.New().String()[0:8] // UUID备用方案，截取8个字符
+	randomBytes := make([]byte, 16)
+	if _, err := rand.Read(randomBytes); err != nil {
+		log.Fatalf("[-] 无法生成安全令牌: %v", err)
 	}
-
-	// 将随机字节编码为base64
-	// 使用URLEncoding确保令牌是URL安全的
-	token := base64.URLEncoding.EncodeToString(randomBytes)
-
-	return token
+	return base64.RawURLEncoding.EncodeToString(randomBytes)
 }
 
-// GetAppConfig returns the application configuration with thread-safe singleton pattern
-func GetAppConfig() *AppConfig {
-	configOnce.Do(func() {
-		InitAppConfig()
-	})
+// generateSessionSecret 生成会话 cookie 的签名密钥（256 位）
+func generateSessionSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("[-] 无法生成会话密钥: %v", err)
+	}
+	return hex.EncodeToString(b)
+}
 
-	// Use read lock for better concurrency
+// GetAppConfig 返回当前配置快照。快照创建后不再修改，配置变化时整体替换。
+func GetAppConfig() *AppConfig {
+	InitAppConfig()
+
 	configLock.RLock()
 	defer configLock.RUnlock()
 
@@ -90,46 +89,68 @@ func GetAppConfig() *AppConfig {
 }
 
 func loadConfig() {
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Fatalf("[-] 读取配置文件失败: %v", err)
-	}
-
-	// Use write lock when updating configuration
+	// 全局 viper 不是并发安全的，所有读写都在 configLock 下进行
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	_appConfig = &AppConfig{}
-	_ = viper.Unmarshal(&_appConfig)
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("[-] 读取配置文件失败: %v", err)
+	}
+
+	cfg := &AppConfig{}
+	_ = viper.Unmarshal(cfg)
 	// 自动生成缺失的UUID
-	if _appConfig.UUID == "" {
+	if cfg.UUID == "" {
 		newUUID, _ := uuid.NewUUID()
-		_appConfig.UUID = newUUID.String()
-		viper.Set("uuid", _appConfig.UUID)
+		cfg.UUID = newUUID.String()
+		viper.Set("uuid", cfg.UUID)
+		_ = viper.WriteConfig()
+	}
+
+	// 自动生成缺失的会话密钥（旧版本使用固定密钥，升级后所有人需要重新登录一次）
+	if cfg.SessionSecret == "" {
+		cfg.SessionSecret = generateSessionSecret()
+		viper.Set("sessionsecret", cfg.SessionSecret)
 		_ = viper.WriteConfig()
 	}
 
 	// 自动获取IP地址
-	if _appConfig.IP == "" {
+	if cfg.IP == "" {
 		ip := getIP()
 		if ip == "" {
 			ip = "Unknown"
 		}
-		_appConfig.IP = ip
+		cfg.IP = ip
 		viper.Set("ip", ip)
 		_ = viper.WriteConfig()
 	}
+
+	_appConfig = cfg
 }
 
+// InitAppConfig 加载配置并开始监听配置文件变化，多次调用只会执行一次
 func InitAppConfig() {
+	configOnce.Do(initAppConfig)
+}
+
+func initAppConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
+	// 配置里有管理员密码、token 和会话密钥，只允许属主读写
+	viper.SetConfigPermissions(0o600)
 
 	pwd := tools.GetPWD()
 	viper.AddConfigPath(pwd)
 
 	configFile := path.Join(pwd, "config.toml")
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+	if info, err := os.Stat(configFile); err == nil {
+		// 旧版本以 0644 创建了配置文件，收紧为仅属主可读写
+		if info.Mode().Perm()&0o077 != 0 {
+			if err := os.Chmod(configFile, 0o600); err != nil {
+				log.Printf("[-] 无法收紧配置文件权限: %v", err)
+			}
+		}
+	} else if os.IsNotExist(err) {
 
 		// 首次启动生成随机管理员密码，只打印一次
 		initialPassword := generateInitialPassword()
@@ -164,31 +185,53 @@ func InitAppConfig() {
 	}
 
 	loadConfig()
+	watchConfigFile(configFile)
+}
 
-	// 设置配置监视器，带缓冲重新加载以防止过度重新加载
-	viper.WatchConfig()
+// watchConfigFile reloads the configuration when config.toml changes on disk.
+// viper.WatchConfig is not used: it re-reads the file into the global viper
+// from its own goroutine, outside configLock, racing with the config editor and
+// remote config updates; it also stops watching once the file is replaced.
+func watchConfigFile(configFile string) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("[-] 无法监听配置文件变化: %v", err)
+		return
+	}
+	// 监听所在目录：编辑器和配置保存都会用新文件替换 config.toml
+	if err := watcher.Add(filepath.Dir(configFile)); err != nil {
+		log.Printf("[-] 无法监听配置文件变化: %v", err)
+		watcher.Close()
+		return
+	}
 
-	// 防抖配置更改
-	var configChangeTimer *time.Timer
-	var configChangeMutex sync.Mutex
-
-	viper.OnConfigChange(func(in fsnotify.Event) {
-		configChangeMutex.Lock()
-		defer configChangeMutex.Unlock()
-
-		if configChangeTimer != nil {
-			configChangeTimer.Stop()
+	go func() {
+		var reload *time.Timer
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if filepath.Clean(event.Name) != configFile || event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+					continue
+				}
+				// 将配置更改防抖至最多每秒一次
+				if reload != nil {
+					reload.Stop()
+				}
+				reload = time.AfterFunc(time.Second, func() {
+					log.Println("[+] 配置文件已更新:", configFile)
+					ReloadConfig()
+				})
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Printf("[-] 监听配置文件出错: %v", err)
+			}
 		}
-
-		// 将配置更改防抖至最多每秒一次
-		configChangeTimer = time.AfterFunc(1*time.Second, func() {
-			log.Println("[+] 配置文件已更新:", in.Name)
-
-			configLock.Lock()
-			_ = viper.Unmarshal(&_appConfig)
-			configLock.Unlock()
-		})
-	})
+	}()
 }
 
 // getIP retrieves the public IP with caching
@@ -243,19 +286,19 @@ func getIP() string {
 func ReloadConfig() {
 	configLock.Lock()
 	defer configLock.Unlock()
-	
+
 	// 重新读取配置文件
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Printf("[-] 重新读取配置文件失败: %v", err)
 		return
 	}
-	
-	// 重新解析配置到AppConfig
-	_appConfig = &AppConfig{}
-	err = viper.Unmarshal(&_appConfig)
-	if err != nil {
+
+	// 解析成功后再替换，失败时保留原配置
+	cfg := &AppConfig{}
+	if err := viper.Unmarshal(cfg); err != nil {
 		log.Printf("[-] 重新解析配置失败: %v", err)
 		return
 	}
+	_appConfig = cfg
 }

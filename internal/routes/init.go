@@ -1,37 +1,28 @@
 package routes
 
 import (
-	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"strings"
 	"uranus/internal/config"
 	"uranus/internal/controllers"
 )
 
+// sessionMaxAge 登录状态的有效期（秒）
+const sessionMaxAge = 30 * 24 * 3600
+
 func auth(context *gin.Context) {
-	var isAuth = false
-	session := sessions.Default(context)
-	isAuth = session.Get("login") == true
-
-	if !isAuth {
-		queryUrl := strings.Split(fmt.Sprint(context.Request.URL.String()), "?")[0]
-		// 针对远程路由鉴权
-		if queryUrl == "/admin/xterm.js" {
-			if context.Query("token") == config.GetAppConfig().Token {
-				isAuth = true
-			}
-		}
-	}
-
-	if isAuth {
-		context.Next()
-	} else {
+	if !isLoggedIn(context) {
 		context.Redirect(http.StatusFound, "/")
+		context.Abort()
+		return
 	}
-	context.Abort()
+	context.Next()
+}
+
+func isLoggedIn(context *gin.Context) bool {
+	return sessions.Default(context).Get("login") == true
 }
 
 // RegisterRoutes /** 路由组*/
@@ -39,7 +30,16 @@ func RegisterRoutes(engine *gin.Engine) {
 	// 错误中间件
 	//engine.Use(middlewares.ErrorHttp)
 	// 初始化路由
-	engine.Use(sessions.Sessions("uranus", cookie.NewStore([]byte("secret"))))
+	// 会话 cookie 用本机随机生成的密钥签名。以前用固定的 "secret"，任何人都能伪造登录状态。
+	store := cookie.NewStore([]byte(config.GetAppConfig().SessionSecret))
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   sessionMaxAge,
+		HttpOnly: true,
+		// 跨站发起的 POST 不带 cookie，防止其他网站借管理员的登录状态提交表单
+		SameSite: http.SameSiteLaxMode,
+	})
+	engine.Use(sessions.Sessions("uranus", store))
 	publicRoute(engine)
 	authorized := engine.Group("/admin", auth)
 	authorized.GET("/dashboard", controllers.Index)

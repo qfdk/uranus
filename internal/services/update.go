@@ -6,11 +6,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
-	"strings"
 	"time"
 	"uranus/internal/tools"
 
@@ -23,22 +22,30 @@ const (
 	installPath = "/etc/uranus"
 	// 二进制文件名
 	binaryName = "uranus"
-	// 服务名称
-	serviceName = "uranus.service"
 	// 下载超时时间（秒）
 	downloadTimeout = 600 // 10分钟
 	// 升级触发文件
 	upgradeTrigger = ".upgrade_trigger"
 )
 
+// CheckSelfUpdate 检查本机能否在线升级：发布的二进制是 Linux 版本，升级后靠 systemd 重启，
+// 并且只替换标准安装目录中的程序。macOS 等其他系统需要手动更新。
+func CheckSelfUpdate() error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("在线升级仅支持 Linux（当前系统: %s），请手动更新", runtime.GOOS)
+	}
+	if _, err := os.Stat(installPath); err != nil {
+		return fmt.Errorf("安装目录 %s 不存在，无法在线升级", installPath)
+	}
+	return nil
+}
+
 // ToUpdateProgram 从指定URL下载并安装新版本程序
 func ToUpdateProgram(url string) error {
-	log.Println("[INFO] 开始从", url, "下载更新")
-
-	// 检查安装目录是否存在
-	if _, err := os.Stat(installPath); os.IsNotExist(err) {
-		return fmt.Errorf("安装目录 %s 不存在", installPath)
+	if err := CheckSelfUpdate(); err != nil {
+		return err
 	}
+	log.Println("[INFO] 开始从", url, "下载更新")
 
 	// 准备路径
 	binaryPath := path.Join(installPath, binaryName)
@@ -212,84 +219,6 @@ func downloadFile(url, targetPath string) error {
 		}
 		log.Printf("[INFO] 下载完成")
 	}
-
-	return nil
-}
-
-// CheckAndRestartAfterUpgrade 检查是否需要重启服务
-func CheckAndRestartAfterUpgrade() bool {
-	// 优先检查标准安装路径
-	triggerPath := path.Join(installPath, upgradeTrigger)
-
-	// 检查触发文件是否存在
-	if _, err := os.Stat(triggerPath); err == nil {
-		log.Printf("[INFO] 检测到标准路径的升级触发文件，准备重启服务...")
-		// 删除触发文件
-		os.Remove(triggerPath)
-
-		// 尝试在systemd环境下重启服务
-		if err := restartSystemdService(); err != nil {
-			log.Printf("[ERROR] 重启服务失败: %v", err)
-			return false
-		}
-
-		// 重启成功后再次清理所有备份文件
-		DeleteAllBackups()
-		return true
-	}
-
-	// 备用: 检查工作目录中的触发文件
-	workingDirTrigger := path.Join(tools.GetPWD(), upgradeTrigger)
-	if _, err := os.Stat(workingDirTrigger); err == nil {
-		log.Printf("[INFO] 检测到工作目录中的升级触发文件，准备重启服务...")
-		// 删除触发文件
-		os.Remove(workingDirTrigger)
-
-		// 尝试在systemd环境下重启服务
-		if err := restartSystemdService(); err != nil {
-			log.Printf("[ERROR] 重启服务失败: %v", err)
-			return false
-		}
-
-		// 重启成功后再次清理所有备份文件
-		DeleteAllBackups()
-		return true
-	}
-
-	return false
-}
-
-// restartSystemdService 使用systemctl重启服务
-func restartSystemdService() error {
-	log.Printf("[INFO] 使用systemctl重启%s...", serviceName)
-
-	// 先检查服务是否存在
-	checkCmd := exec.Command("systemctl", "list-unit-files", serviceName)
-	checkOutput, err := checkCmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[ERROR] 无法检查服务状态: %v, 输出: %s", err, string(checkOutput))
-		if !strings.Contains(string(checkOutput), serviceName) {
-			return fmt.Errorf("服务不存在或无法检查服务状态: %v", err)
-		}
-	}
-
-	log.Printf("[INFO] 服务检查结果: %s", strings.TrimSpace(string(checkOutput)))
-
-	// 尝试重启服务
-	cmd := exec.Command("systemctl", "restart", serviceName)
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		log.Printf("[ERROR] 重启服务失败: %v, 输出: %s", err, string(output))
-		return fmt.Errorf("重启服务失败: %v, 输出: %s", err, output)
-	}
-
-	log.Printf("[INFO] 服务重启命令已执行: %s", strings.TrimSpace(string(output)))
-
-	// 额外添加检查服务状态
-	statusCmd := exec.Command("systemctl", "status", serviceName)
-	statusOutput, _ := statusCmd.CombinedOutput()
-	log.Printf("[INFO] 服务状态: %s", strings.TrimSpace(string(statusOutput)))
 
 	return nil
 }
