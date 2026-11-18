@@ -6,16 +6,27 @@
 #
 # 用法：scripts/release.sh               编译并上传
 #       scripts/release.sh --build-only  只编译到 dist/
-# 上传位置可用环境变量覆盖：URANUS_RELEASE_HOST、URANUS_RELEASE_DIR
+#
+# 上传目标只写在本地的 .release.env（已加入 .gitignore，不进公开仓库），例如：
+#   URANUS_RELEASE_HOST=user@host
+#   URANUS_RELEASE_DIR=/path/to/site/uranus
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 PUBLIC_URL="https://de.qfdk.me/uranus"
-REMOTE_HOST="${URANUS_RELEASE_HOST:-root@de.qfdk.me}"
-REMOTE_DIR="${URANUS_RELEASE_DIR:-/opt/1panel/www/sites/de.qfdk.me/index/uranus}"
 GO_VERSION="$(sed -n 's/^toolchain go//p' go.mod)"
 FILES=(uranus-amd64 uranus-arm64 install.sh upgrade.sh uninstall.sh version.json)
+
+if [ "${1:-}" != "--build-only" ]; then
+  if [ -f .release.env ]; then
+    . ./.release.env
+  fi
+  : "${URANUS_RELEASE_HOST:?请在 .release.env 中设置 URANUS_RELEASE_HOST（SSH 登录目标，如 user@host）}"
+  : "${URANUS_RELEASE_DIR:?请在 .release.env 中设置 URANUS_RELEASE_DIR（网站下 uranus 目录的路径）}"
+  REMOTE_HOST="$URANUS_RELEASE_HOST"
+  REMOTE_DIR="$URANUS_RELEASE_DIR"
+fi
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "工作区有未提交的修改：发布版本必须对应一个已提交的版本" >&2

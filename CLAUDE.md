@@ -38,7 +38,8 @@ make release
 # Install with: apt-get install -y gcc-aarch64-linux-gnu
 
 # Build the release in Docker (Ubuntu 22.04) and publish it to https://de.qfdk.me/uranus/
-# (binaries, install/upgrade/uninstall scripts and version.json); works from macOS too
+# (binaries, install/upgrade/uninstall scripts and version.json); works from macOS too.
+# The upload target (SSH host and directory) lives in the untracked .release.env
 scripts/release.sh
 # Only build into dist/
 scripts/release.sh --build-only

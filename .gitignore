@@ -156,3 +156,5 @@ dist/
 logs/
 node_modules
 **/.claude/settings.local.json
+# 发布脚本的上传目标（服务器地址和目录），只保存在本地
+/.release.env
