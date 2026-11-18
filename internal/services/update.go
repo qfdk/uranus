@@ -16,6 +16,10 @@ import (
 	"github.com/cheggaaa/pb/v3"
 )
 
+// ReleaseBaseURL 是发布文件所在的地址：各架构的程序 uranus-<arch>（amd64、arm64）、
+// 安装/升级/卸载脚本，以及描述当前发布版本的 version.json。由 scripts/release.sh 上传。
+const ReleaseBaseURL = "https://de.qfdk.me/uranus"
+
 // 系统配置常量
 const (
 	// 安装目录路径，与systemd服务配置保持一致

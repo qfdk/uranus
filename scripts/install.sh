@@ -114,7 +114,7 @@ main() {
 
   # 下载新的可执行文件
   echo -e "${FontGreen}正在下载 Uranus...${FontSuffix}"
-  wget -q --show-progress https://fr.qfdk.me/uranus/uranus-"${PLATFORM}" -O ${INSTALL_PATH}/uranus
+  wget -q --show-progress https://de.qfdk.me/uranus/uranus-"${PLATFORM}" -O ${INSTALL_PATH}/uranus
   chmod +x ${INSTALL_PATH}/${APP_NAME}
   echo -e "${FontGreen}下载完成并设置执行权限${FontSuffix}"
 

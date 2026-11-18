@@ -36,10 +36,10 @@ mqttBroker = "mqtts://your-mqtt-server:8883"
 ### 一键脚本
 
 ```bash
-# 目前只测试过 ubuntu 20.04/22.04
-wget -qO- https://fr.qfdk.me/uranus/install.sh|bash
+# 支持 Ubuntu 22.04 及以上（发布的程序需要 glibc 2.34+）
+wget -qO- https://de.qfdk.me/uranus/install.sh|bash
 # 升级脚本
-wget -qO- https://fr.qfdk.me/uranus/upgrade.sh|bash
+wget -qO- https://de.qfdk.me/uranus/upgrade.sh|bash
 # 杀死进程
 kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 ```

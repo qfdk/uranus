@@ -18,7 +18,7 @@ import (
 var (
 	checkSelfUpdate = services.CheckSelfUpdate
 	runUpgrade      = func() error {
-		return services.ToUpdateProgram("https://fr.qfdk.me/uranus/uranus-" + runtime.GOARCH)
+		return services.ToUpdateProgram(services.ReleaseBaseURL + "/uranus-" + runtime.GOARCH)
 	}
 )
 
@@ -88,7 +88,7 @@ func publicRoute(engine *gin.Engine) {
 	// 检查更新接口
 	engine.GET("/checkUpdate", func(context *gin.Context) {
 		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Get("https://fr.qfdk.me/uranus.php")
+		resp, err := client.Get(services.ReleaseBaseURL + "/version.json")
 		if err != nil {
 			log.Println("[-] 检查更新出错")
 			log.Println(err)

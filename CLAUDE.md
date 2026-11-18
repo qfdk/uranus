@@ -36,6 +36,12 @@ make release
 
 # Build for arm64 requires aarch64-linux-gnu-gcc
 # Install with: apt-get install -y gcc-aarch64-linux-gnu
+
+# Build the release in Docker (Ubuntu 22.04) and publish it to https://de.qfdk.me/uranus/
+# (binaries, install/upgrade/uninstall scripts and version.json); works from macOS too
+scripts/release.sh
+# Only build into dist/
+scripts/release.sh --build-only
 ```
 
 ### Frontend Assets
@@ -88,11 +94,11 @@ pnpm run dev:css
 The application is designed to be installed as a systemd service using the provided installation script:
 
 ```bash
-# Install (only tested on Ubuntu 20.04/22.04)
-wget -qO- https://fr.qfdk.me/uranus/install.sh|bash
+# Install (Ubuntu 22.04+; the release binaries need glibc >= 2.34)
+wget -qO- https://de.qfdk.me/uranus/install.sh|bash
 
 # Upgrade
-wget -qO- https://fr.qfdk.me/uranus/upgrade.sh|bash
+wget -qO- https://de.qfdk.me/uranus/upgrade.sh|bash
 
 # Kill the process (if needed)
 kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')

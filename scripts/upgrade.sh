@@ -2,7 +2,7 @@
 
 INSTALL_PATH="/etc/uranus"
 PLATFORM=$(dpkg --print-architecture)
-DOWNLOAD_URL="https://fr.qfdk.me/uranus/uranus-${PLATFORM}"
+DOWNLOAD_URL="https://de.qfdk.me/uranus/uranus-${PLATFORM}"
 TEMP_FILE="${INSTALL_PATH}/uranus_new"
 OLD_FILE="${INSTALL_PATH}/uranus_old"
 CUR_FILE="${INSTALL_PATH}/uranus"
