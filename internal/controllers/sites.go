@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -119,6 +120,9 @@ func GetSites(ctx *gin.Context) {
 		"activePage": "sites",
 		"files":      files,
 		"vhostPath":  vhostPath,
+		// 删除网站后带回来的结果
+		"deleted": ctx.Query("deleted"),
+		"message": ctx.Query("message"),
 	})
 }
 
@@ -180,20 +184,24 @@ func EditSiteConf(ctx *gin.Context) {
 	}
 }
 
-// DeleteSiteConf 删除站点配置
+// validSiteName 检查网站配置名称：它会成为网站目录里的文件名和证书目录里的目录名，不能带路径
+func validSiteName(name string) bool {
+	return name != "" && name == filepath.Base(name) && !strings.HasPrefix(name, ".")
+}
+
+// DeleteSiteConf 删除网站配置和它的证书，然后重新加载 Nginx
 func DeleteSiteConf(ctx *gin.Context) {
 	filename := ctx.Param("filename")
-
-	// 确保文件名具有.conf扩展名用于文件删除
-	fileToDelete := filename
-	if !strings.HasSuffix(fileToDelete, ".conf") && filename != "default" {
-		fileToDelete = filename + ".conf"
+	configName := strings.TrimSuffix(filename, ".conf")
+	if !validSiteName(configName) {
+		ctx.String(http.StatusBadRequest, "配置名称不正确")
+		return
 	}
 
-	// 提取不带扩展名的配置名称
-	configName := filename
-	if strings.HasSuffix(configName, ".conf") {
-		configName = strings.TrimSuffix(configName, ".conf")
+	// 确保文件名具有.conf扩展名用于文件删除
+	fileToDelete := configName + ".conf"
+	if filename == "default" {
+		fileToDelete = filename
 	}
 
 	// 删除配置文件
@@ -222,17 +230,16 @@ func DeleteSiteConf(ctx *gin.Context) {
 	templateCache = make(map[string]string)
 	templateCacheLock.Unlock()
 
-	// 重新加载nginx
-	services.ReloadNginx()
-
-	ctx.Redirect(http.StatusFound, "/admin/sites")
+	// 重新加载失败时 Nginx 还在用旧配置提供这个网站，要告诉用户
+	query := url.Values{"deleted": {fileToDelete}, "message": {services.ReloadNginx()}}
+	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
 }
 
 // SaveSiteConf 保存站点配置：写入后用 nginx -t 检查，不通过就撤销这次修改
 func SaveSiteConf(ctx *gin.Context) {
 	// 配置名称就是文件名（不含 .conf），不能带路径
 	fileName := strings.TrimSuffix(strings.TrimSpace(ctx.PostForm("filename")), ".conf")
-	if fileName == "" || fileName != filepath.Base(fileName) || strings.HasPrefix(fileName, ".") {
+	if !validSiteName(fileName) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "配置名称不能为空，也不能包含路径，例如 example.com"})
 		return
 	}

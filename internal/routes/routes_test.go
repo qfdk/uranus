@@ -233,3 +233,21 @@ func TestUpgradeRefusedWhereUnsupported(t *testing.T) {
 	}
 	expectUpgrade(t, called, false)
 }
+
+// Deleting a site must not be reachable with GET: the session cookie is
+// SameSite=Lax, so a link or redirect from another website still carries it.
+func TestDeleteSiteRequiresPost(t *testing.T) {
+	engine := newEngine()
+	// The test config has no vhost path, so sites live in the working directory.
+	if err := os.WriteFile("victim.conf", []byte("server { listen 80; }"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove("victim.conf") })
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/sites/delete/victim.conf", nil)
+	req.AddCookie(login(t, engine))
+	serve(engine, req)
+	if _, err := os.Stat("victim.conf"); err != nil {
+		t.Fatal("a GET request deleted the site")
+	}
+}

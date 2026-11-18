@@ -8,6 +8,20 @@
     <a href="/admin/sites/new" class="btn btn-primary">{{ svgIcon "plus" }}新建网站</a>
 </div>
 
+{{ if .deleted }}
+{{ if eq .message "OK" }}
+<div class="alert alert-success mb-6">{{ svgIcon "circle-check" }}<span>已删除 {{ .deleted }}</span></div>
+{{ else }}
+<div class="alert alert-error mb-6">
+    {{ svgIcon "circle-alert" }}
+    <div class="min-w-0">
+        <p class="font-medium">已删除 {{ .deleted }}，但 Nginx 没有重新加载，这个网站可能仍在运行</p>
+        <p class="mt-1 whitespace-pre-wrap break-all opacity-90">{{ .message }}</p>
+    </div>
+</div>
+{{ end }}
+{{ end }}
+
 <div class="card overflow-hidden">
     {{ if .files }}
     <div class="overflow-x-auto">
@@ -34,10 +48,12 @@
             <td>
                 <div class="flex justify-end gap-1">
                     <a href="/admin/sites/edit/{{ .Name }}" class="btn btn-ghost btn-sm">{{ svgIcon "pencil" }}<span class="hidden sm:inline">编辑</span></a>
-                    <a href="/admin/sites/delete/{{ .Name }}" class="btn btn-ghost-danger btn-sm"
-                       onclick="return confirm('确定要删除 {{ .Name }} 吗？对应的 SSL 证书也会一起删除。')">
-                        {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
-                    </a>
+                    <form action="/admin/sites/delete/{{ .Name }}" method="post"
+                          onsubmit="return confirm('确定要删除 {{ .Name }} 吗？对应的 SSL 证书也会一起删除。')">
+                        <button type="submit" class="btn btn-ghost-danger btn-sm">
+                            {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
+                        </button>
+                    </form>
                 </div>
             </td>
         </tr>
@@ -54,5 +70,12 @@
     </div>
     {{ end }}
 </div>
+
+<script>
+    // 去掉地址栏里的删除结果，刷新页面时不再重复提示
+    if (location.search) {
+        history.replaceState(null, '', location.pathname);
+    }
+</script>
 
 {{template "footer.html" .}}

@@ -11,10 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var nginxConfPath string
-
-const testAppConfig = "uuid = \"test-uuid\"\nip = \"127.0.0.1\"\ntoken = \"test-token\"\n" +
-	"sessionsecret = \"test-secret\"\ncontrolcenter = \"\"\n"
+var (
+	nginxConfPath string
+	// sitesDir and sslDir are the vhost and certificate directories of the test config
+	sitesDir, sslDir string
+	testAppConfig    string
+)
 
 // TestMain puts a fake nginx on PATH whose `nginx -V` points the main
 // configuration file into a temporary directory.
@@ -26,6 +28,11 @@ func TestMain(m *testing.M) {
 	}
 	dir, _ = filepath.EvalSymlinks(dir)
 	nginxConfPath = filepath.Join(dir, "nginx.conf")
+	sitesDir = filepath.Join(dir, "sites")
+	sslDir = filepath.Join(dir, "ssl")
+	testAppConfig = "uuid = \"test-uuid\"\nip = \"127.0.0.1\"\ntoken = \"test-token\"\n" +
+		"sessionsecret = \"test-secret\"\ncontrolcenter = \"\"\n" +
+		"installpath = \"" + dir + "\"\nvhostpath = \"" + sitesDir + "\"\nsslpath = \"" + sslDir + "\"\n"
 
 	bin := filepath.Join(dir, "bin")
 	script := "#!/bin/sh\n" +
