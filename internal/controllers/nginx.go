@@ -25,10 +25,12 @@ func Nginx(ctx *gin.Context) {
 		nginxActionResult = services.StartNginx()
 	case "reload":
 		nginxActionResult = services.ReloadNginx()
+	case "restart":
+		nginxActionResult = services.RestartNginx()
 	case "stop":
 		nginxActionResult = services.StopNginx()
 	default:
-		nginxActionResult = "Unknown action"
+		nginxActionResult = "未知操作：" + action
 	}
 
 	// 直接回到仪表盘显示结果：经过 / 再跳转会丢掉查询参数

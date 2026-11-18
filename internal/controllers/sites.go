@@ -228,15 +228,30 @@ func DeleteSiteConf(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/admin/sites")
 }
 
-// SaveSiteConf 保存站点配置
+// SaveSiteConf 保存站点配置：写入后用 nginx -t 检查，不通过就撤销这次修改
 func SaveSiteConf(ctx *gin.Context) {
-	fileName := ctx.PostForm("filename")
+	// 配置名称就是文件名（不含 .conf），不能带路径
+	fileName := strings.TrimSuffix(strings.TrimSpace(ctx.PostForm("filename")), ".conf")
+	if fileName == "" || fileName != filepath.Base(fileName) || strings.HasPrefix(fileName, ".") {
+		ctx.JSON(http.StatusOK, gin.H{"message": "配置名称不能为空，也不能包含路径，例如 example.com"})
+		return
+	}
 	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
 	proxy := ctx.PostForm("proxy")
 
-	// 如果不是默认配置，则保存到数据库
-	if fileName != "default" {
+	// 确保vhost目录存在
+	vhostPath := GetAppConfig().VhostPath
+	if err := os.MkdirAll(vhostPath, 0755); err != nil {
+		log.Printf("创建vhost目录出错: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})
+		return
+	}
+
+	result := services.WriteConfigChecked(filepath.Join(vhostPath, fileName+".conf"), []byte(content))
+
+	// 配置确实保存下来之后才更新数据库里的网站信息
+	if result == "OK" && fileName != "default" {
 		cert := models.GetCertByFilename(fileName)
 		cert.Content = content
 		cert.Domains = strings.Join(domains, ",")
@@ -245,38 +260,10 @@ func SaveSiteConf(ctx *gin.Context) {
 		models.GetDbClient().Save(&cert)
 	}
 
-	// 准备用于文件路径的文件名，确保具有.conf扩展名
-	fullFileName := fileName
-	if !strings.HasSuffix(fileName, ".conf") {
-		fullFileName = fileName + ".conf"
-	}
-
-	// 确保vhost目录存在
-	vhostPath := GetAppConfig().VhostPath
-	if _, err := os.Stat(vhostPath); os.IsNotExist(err) {
-		err = os.MkdirAll(vhostPath, 0755)
-		if err != nil {
-			log.Printf("创建vhost目录出错: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})
-			return
-		}
-	}
-
-	// 写入配置文件
-	filePath := filepath.Join(vhostPath, fullFileName)
-	err := os.WriteFile(filePath, []byte(content), 0644)
-	if err != nil {
-		log.Printf("写入配置文件出错: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "写入文件出错"})
-		return
-	}
-
 	// 清除所有缓存以确保数据刷新
 	templateCacheLock.Lock()
 	templateCache = make(map[string]string)
 	templateCacheLock.Unlock()
 
-	// 重新加载nginx
-	response := services.ReloadNginx()
-	ctx.JSON(http.StatusOK, gin.H{"message": response})
+	ctx.JSON(http.StatusOK, gin.H{"message": result})
 }

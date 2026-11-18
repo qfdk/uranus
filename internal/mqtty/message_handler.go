@@ -900,55 +900,11 @@ func handleRestartCommand(client mqtt.Client, command struct {
 }, agentUuid string) {
 	log.Printf("[MQTTY] 执行Nginx重启，clientId: %s, requestId: %s", command.ClientId, command.RequestId)
 
-	// 先停止Nginx
-	stopResult := services.StopNginx()
-	log.Printf("[MQTTY] Nginx停止结果: %s", stopResult)
+	// 先检查配置，再等旧进程完全退出后启动，避免端口仍被占用
+	result := services.RestartNginx()
+	log.Printf("[MQTTY] Nginx重启结果: %s", result)
 
-	// 如果停止失败，不再尝试启动
-	if stopResult != "OK" {
-		// 创建响应主题
-		responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
-		// 准备响应
-		response := struct {
-			Success   bool   `json:"success"`
-			RequestId string `json:"requestId"`
-			Command   string `json:"command"`
-			Result    string `json:"result"`
-			Message   string `json:"message,omitempty"`
-		}{
-			Success:   false,
-			RequestId: command.RequestId,
-			Command:   "restart",
-			Result:    stopResult,
-			Message:   fmt.Sprintf("Nginx重启失败，无法停止服务: %s", stopResult),
-		}
-
-		// 发送响应
-		respPayload, err := json.Marshal(response)
-		if err != nil {
-			log.Printf("[MQTTY] 序列化响应失败: %v", err)
-			return
-		}
-
-		token := client.Publish(responseTopic, 1, false, respPayload)
-		if token.Wait() && token.Error() != nil {
-			log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
-		}
-		return
-	}
-
-	// 等待一小段时间确保Nginx完全停止
-	time.Sleep(500 * time.Millisecond)
-
-	// 然后启动Nginx
-	startResult := services.StartNginx()
-	log.Printf("[MQTTY] Nginx启动结果: %s", startResult)
-
-	// 创建响应主题
 	responseTopic := fmt.Sprintf("uranus/response/%s", agentUuid)
-	log.Printf("[MQTTY] 发送响应到主题: %s", responseTopic)
-
-	// 准备响应
 	response := struct {
 		Success   bool   `json:"success"`
 		RequestId string `json:"requestId"`
@@ -956,30 +912,24 @@ func handleRestartCommand(client mqtt.Client, command struct {
 		Result    string `json:"result"`
 		Message   string `json:"message,omitempty"`
 	}{
-		Success:   startResult == "OK",
+		Success:   result == "OK",
 		RequestId: command.RequestId,
 		Command:   "restart",
-		Result:    startResult,
+		Result:    result,
 		Message:   "Nginx服务已重启",
 	}
-
-	// 如果启动失败，更新消息
-	if startResult != "OK" {
-		response.Message = fmt.Sprintf("Nginx重启失败，无法启动服务: %s", startResult)
+	if result != "OK" {
+		response.Message = fmt.Sprintf("Nginx重启失败: %s", result)
 	}
 
-	// 发送响应
 	respPayload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("[MQTTY] 序列化响应失败: %v", err)
 		return
 	}
-
 	token := client.Publish(responseTopic, 1, false, respPayload)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("[MQTTY] 发布响应失败: %v", token.Error())
-	} else {
-		log.Printf("[MQTTY] 响应已发送: %s", string(respPayload))
 	}
 }
 
