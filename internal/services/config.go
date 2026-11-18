@@ -22,7 +22,7 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 	// 允许更新的配置字段
 	allowedFields := map[string]string{
 		"mqttBroker":    "mqttbroker",
-		"email":         "email", 
+		"email":         "email",
 		"username":      "username",
 		"vhostPath":     "vhostpath",
 		"sslPath":       "sslpath",
@@ -74,14 +74,13 @@ func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
 func RestartAgent() error {
 	log.Printf("[SERVICE] 开始重启Agent...")
 
-	// 尝试不同的重启方法
+	// 尝试不同的重启方法（daemon-reload 只重新加载 unit 文件，不会重启服务，不能算作重启）
 	methods := []struct {
 		name    string
 		command string
 		args    []string
 	}{
 		{"systemctl", "systemctl", []string{"restart", "uranus.service"}},
-		{"systemctl-daemon", "systemctl", []string{"daemon-reload"}},
 		{"service", "service", []string{"uranus", "restart"}},
 	}
 
@@ -141,7 +140,7 @@ func RefreshAgentIP() (string, error) {
 	configData := map[string]interface{}{
 		"ip": newIP,
 	}
-	
+
 	_, err = UpdateAgentConfig(configData)
 	if err != nil {
 		return "", err
@@ -261,20 +260,3 @@ func isValidIPv4(ip string) bool {
 
 	return true
 }
-
-// copyConfigFile 复制配置文件，用于备份和恢复
-func copyConfigFile(src, dst string) error {
-	// 读取源文件
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("读取源文件失败: %v", err)
-	}
-	
-	// 写入目标文件
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return fmt.Errorf("写入目标文件失败: %v", err)
-	}
-	
-	return nil
-}
-

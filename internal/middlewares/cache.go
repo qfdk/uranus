@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,13 +35,9 @@ func CacheMiddleware() gin.HandlerFunc {
 	}
 }
 
-// setCacheHeaders 设置带有指定持续时间的缓存头
+// setCacheHeaders 设置带有指定持续时间的缓存头。Content-Type 由返回文件的处理函数设置。
 func setCacheHeaders(c *gin.Context, duration time.Duration) {
-	seconds := int(duration.Seconds())
-	c.Header("Cache-Control", "public, max-age="+string(rune(seconds)))
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Type", getContentType(c.Request.URL.Path))
-	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Cache-Control", "public, max-age="+strconv.Itoa(int(duration.Seconds())))
 	c.Header("Expires", time.Now().Add(duration).UTC().Format(http.TimeFormat))
 }
 
@@ -49,27 +46,4 @@ func setNoCacheHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
-}
-
-// getContentType 根据文件扩展名确定内容类型
-func getContentType(path string) string {
-	// 默认为 octet-stream
-	contentType := "application/octet-stream"
-
-	// 检查文件扩展名
-	if strings.HasSuffix(path, ".css") {
-		contentType = "text/css"
-	} else if strings.HasSuffix(path, ".js") {
-		contentType = "application/javascript"
-	} else if strings.HasSuffix(path, ".html") {
-		contentType = "text/html"
-	} else if strings.HasSuffix(path, ".png") {
-		contentType = "image/png"
-	} else if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
-		contentType = "image/jpeg"
-	} else if strings.HasSuffix(path, ".ico") {
-		contentType = "image/x-icon"
-	}
-
-	return contentType
 }

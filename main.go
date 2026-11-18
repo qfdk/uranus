@@ -186,10 +186,9 @@ func Graceful() {
 					}
 					log.Printf("[进程][%d]: 升级完成", os.Getpid())
 				case syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT:
+					// 只通知 upg 退出，由主流程完成关闭 HTTP、MQTT 离线通知、删除 PID 文件等收尾工作
 					log.Printf("[进程][%d]: 收到关闭信号，准备关闭服务器", os.Getpid())
 					upg.Stop()
-					log.Printf("[进程][%d]: 服务器完全关闭", os.Getpid())
-					os.Exit(0)
 				}
 			case <-ctx.Done():
 				return
@@ -344,6 +343,7 @@ func Graceful() {
 	if err := os.Remove(pidFile); err != nil {
 		log.Println("删除PID文件错误:", err)
 	}
+	log.Printf("[进程][%d]: 服务器完全关闭", os.Getpid())
 }
 
 func main() {
