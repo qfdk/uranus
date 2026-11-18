@@ -16,7 +16,7 @@ Uranus (Οὐρανός) is a web-based Nginx management UI written in Go using 
 
 ### Prerequisites
 
-- Go 1.23+ with Go 1.24+ toolchain
+- Go 1.26+ (go.mod pins the go1.27.4 toolchain; with the default GOTOOLCHAIN=auto it is downloaded automatically)
 - Node.js with pnpm for CSS building
 - Nginx (for testing)
 
