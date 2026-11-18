@@ -11,7 +11,6 @@ import (
 	"github.com/go-acme/lego/v4/challenge/http01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -98,26 +97,52 @@ func IssueCert(domains []string, configName string) error {
 		return err
 	}
 
-	// nginx 证书目录
-	certificateSavedDir := filepath.Join(GetAppConfig().SSLPath, configName)
-	if _, err := os.Stat(certificateSavedDir); os.IsNotExist(err) {
-		os.MkdirAll(certificateSavedDir, 0755)
+	pCert, err := certcrypto.ParsePEMCertificate(certificates.Certificate)
+	if err != nil {
+		return err
 	}
-	// Each certificate comes back with the cert bytes, the bytes of the client's
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "fullchain.cer"),
-		certificates.Certificate, 0644)
-	// private key, and a certificate URL. SAVE THESE TO DISK.
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "private.key"),
-		certificates.PrivateKey, 0644)
-	// 保存域名
-	ioutil.WriteFile(filepath.Join(certificateSavedDir, "domains"),
-		[]byte(strings.Join(domains, ",")), 0644)
-	pCert, _ := certcrypto.ParsePEMCertificate(certificates.Certificate)
+
+	// nginx 证书目录
+	if err := saveCertificate(filepath.Join(GetAppConfig().SSLPath, configName),
+		certificates.Certificate, certificates.PrivateKey, domains); err != nil {
+		return err
+	}
 
 	cert := models2.GetCertByFilename(configName)
 	cert.NotAfter = pCert.NotAfter
-	models2.GetDbClient().Save(cert)
+	if err := models2.GetDbClient().Save(&cert).Error; err != nil {
+		return err
+	}
 
 	log.Printf("[+] SSL任务完成, 证书到期时间 : %v\n", pCert.NotAfter.Format("2006-01-02 15:04:05"))
+	return nil
+}
+
+// saveCertificate writes the certificate chain, its private key and the domain
+// list where the site configuration expects them. The private key is readable
+// by its owner only: nginx loads it as root before dropping privileges.
+func saveCertificate(dir string, chain, privateKey []byte, domains []string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	files := []struct {
+		name string
+		data []byte
+		perm os.FileMode
+	}{
+		{"fullchain.cer", chain, 0644},
+		{"private.key", privateKey, 0600},
+		{"domains", []byte(strings.Join(domains, ",")), 0644},
+	}
+	for _, f := range files {
+		path := filepath.Join(dir, f.name)
+		if err := os.WriteFile(path, f.data, f.perm); err != nil {
+			return err
+		}
+		// WriteFile keeps the mode of an existing file; renewals must fix old 0644 keys too.
+		if err := os.Chmod(path, f.perm); err != nil {
+			return err
+		}
+	}
 	return nil
 }

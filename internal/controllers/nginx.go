@@ -6,15 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
 	"uranus/internal/config"
 	"uranus/internal/services"
-)
-
-var (
-	// Cache the nginx configuration content
-	nginxConfCache     string
-	nginxConfCacheLock sync.RWMutex
 )
 
 func Nginx(ctx *gin.Context) {
@@ -42,51 +35,27 @@ func Nginx(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/?message="+encodedResult)
 }
 
+// GetNginxConf shows nginx.conf as it currently is on disk. It may have been
+// edited elsewhere (e.g. in the web terminal); showing a cached copy would make
+// the next save silently undo those edits.
 func GetNginxConf(ctx *gin.Context) {
-	log.Println("Reading Nginx configuration file")
-
-	// Check cache first
-	nginxConfCacheLock.RLock()
-	cachedContent := nginxConfCache
-	nginxConfCacheLock.RUnlock()
-
-	var content string
-	if cachedContent != "" {
-		content = cachedContent
-	} else {
-		// Cache miss, read from disk
-		nginxConfPath := config.ReadNginxCompileInfo().NginxConfPath
-
-		fileContent, err := os.ReadFile(nginxConfPath)
-		if err != nil {
-			log.Printf("Failed to read Nginx configuration file: %v", err)
-			ctx.String(http.StatusInternalServerError, "Failed to read Nginx configuration file")
-			return
-		}
-
-		content = string(fileContent)
-
-		// Update cache
-		nginxConfCacheLock.Lock()
-		nginxConfCache = content
-		nginxConfCacheLock.Unlock()
+	nginxConfPath := config.ReadNginxCompileInfo().NginxConfPath
+	content, err := os.ReadFile(nginxConfPath)
+	if err != nil {
+		log.Printf("Failed to read Nginx configuration file: %v", err)
+		ctx.String(http.StatusInternalServerError, "Failed to read Nginx configuration file")
+		return
 	}
 
 	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{
 		"configFileName":     "nginx",
-		"content":            content,
+		"content":            string(content),
 		"isNginxDefaultConf": true,
 	})
 }
 
 func SaveNginxConf(ctx *gin.Context) {
 	content, _ := ctx.GetPostForm("content")
-
-	// Invalidate cache on save
-	nginxConfCacheLock.Lock()
-	nginxConfCache = ""
-	nginxConfCacheLock.Unlock()
-
 	result := services.SaveNginxConf(content)
 	ctx.JSON(http.StatusOK, gin.H{"message": result})
 }

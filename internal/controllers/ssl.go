@@ -42,7 +42,15 @@ func IssueCert(ctx *gin.Context) {
 
 func CertInfo(ctx *gin.Context) {
 	domain := ctx.Query("domain")
-	certInfo := services2.GetCertificateInfo(domain)
+	if domain == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "缺少 domain 参数"})
+		return
+	}
+	certInfo, err := services2.GetCertificateInfo(domain)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{"error": "证书获取失败: " + err.Error()})
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"domain":    certInfo.Subject.CommonName,
 		"issuer":    certInfo.Issuer.CommonName,

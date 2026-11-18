@@ -1,12 +1,13 @@
 package services
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -19,37 +20,22 @@ var (
 	nginxStatusMutex  sync.RWMutex
 	nginxStatusExpiry time.Time
 
-	// Cache for nginx configuration path
-	nginxConfPathCache string
-	nginxConfPathMutex sync.RWMutex
+	// systemdRunDir 存在说明本机由 systemd 启动（同 sd_booted(3) 的判断方式）
+	systemdRunDir = "/run/systemd/system"
 )
 
-// NginxStatus returns the status of Nginx with caching for better performance
+// NginxStatus returns the PID of the running nginx master, or "KO", with caching for better performance
 func NginxStatus() string {
 	// Check if cache is valid (read lock)
 	nginxStatusMutex.RLock()
 	if time.Now().Before(nginxStatusExpiry) && nginxStatusCache != "" {
 		status := nginxStatusCache
 		nginxStatusMutex.RUnlock()
-		log.Printf("[NGINX] Using cached status: %s", status)
 		return status
 	}
 	nginxStatusMutex.RUnlock()
 
-	// Cache is invalid, get new status (write lock)
-	pidPath := config.ReadNginxCompileInfo().NginxPidPath
-	log.Printf("[NGINX] Checking PID file at: %s", pidPath)
-
-	out, err := exec.Command("cat", pidPath).CombinedOutput()
-	var result string
-
-	if err != nil {
-		log.Printf("[NGINX] Failed to read PID file: %v", err)
-		result = "KO"
-	} else {
-		result = string(out)
-		log.Printf("[NGINX] PID file content: %s", result)
-	}
+	result := readNginxPid()
 
 	// Update cache
 	nginxStatusMutex.Lock()
@@ -60,124 +46,100 @@ func NginxStatus() string {
 	return result
 }
 
-func StartNginx() string {
-	var out []byte
-	var err error
-
-	// Command varies by OS
-	if sysType == "darwin" {
-		out, err = exec.Command("nginx").CombinedOutput()
-	} else {
-		out, err = exec.Command("systemctl", "start", "nginx").CombinedOutput()
+// readNginxPid reads nginx's PID file and makes sure that process still exists:
+// a crashed or killed nginx leaves its PID file behind.
+func readNginxPid() string {
+	pidPath := config.ReadNginxCompileInfo().NginxPidPath
+	if pidPath == "" {
+		return "KO"
 	}
-
-	var result = "OK"
+	data, err := os.ReadFile(pidPath)
 	if err != nil {
-		result = err.Error()
-		log.Printf("[PID][%d]: [NGINX] Start failed, %s", syscall.Getpid(), out)
-	} else {
-		log.Printf("[PID][%d]: [NGINX] Start successful", syscall.Getpid())
+		return "KO"
 	}
+	pidText := strings.TrimSpace(string(data))
+	pid, err := strconv.Atoi(pidText)
+	if err != nil || pid <= 0 {
+		return "KO"
+	}
+	// 信号 0 只检查进程是否存在；EPERM 表示进程存在但属于其他用户
+	if err := syscall.Kill(pid, 0); err != nil && !errors.Is(err, syscall.EPERM) {
+		return "KO"
+	}
+	return pidText
+}
+
+// useSystemd reports whether nginx is managed with systemctl. That is only the
+// case on Linux hosts booted with systemd; Docker containers (including the
+// provided image), OpenRC systems and macOS signal nginx directly.
+func useSystemd() bool {
+	if sysType != "linux" {
+		return false
+	}
+	if info, err := os.Stat(systemdRunDir); err != nil || !info.IsDir() {
+		return false
+	}
+	_, err := exec.LookPath("systemctl")
+	return err == nil
+}
+
+// nginxCommand builds the command that starts, reloads or stops nginx.
+func nginxCommand(action string) *exec.Cmd {
+	if useSystemd() {
+		return exec.Command("systemctl", action, "nginx")
+	}
+	nginx := config.NginxBinary()
+	if action == "start" {
+		return exec.Command(nginx)
+	}
+	return exec.Command(nginx, "-s", action)
+}
+
+// runNginxAction runs action and returns "OK" or why it failed.
+func runNginxAction(action string) string {
+	out, err := nginxCommand(action).CombinedOutput()
 
 	// Invalidate status cache to ensure fresh status after operation
 	nginxStatusMutex.Lock()
-	nginxStatusExpiry = time.Now()
+	nginxStatusExpiry = time.Time{}
 	nginxStatusMutex.Unlock()
 
-	return result
+	if err != nil {
+		reason := strings.TrimSpace(string(out))
+		if reason == "" {
+			reason = err.Error()
+		}
+		log.Printf("[PID][%d]: [NGINX] %s failed: %s", syscall.Getpid(), action, reason)
+		return reason
+	}
+	log.Printf("[PID][%d]: [NGINX] %s successful", syscall.Getpid(), action)
+	return "OK"
+}
+
+func StartNginx() string {
+	return runNginxAction("start")
 }
 
 func ReloadNginx() string {
-	log.Println("[NGINX] Reloading configuration")
-	var result = "OK"
-
-	// 检查Nginx状态
-	status := NginxStatus()
-	log.Printf("[NGINX] Current status: %s", status)
-
-	if status != "KO" {
-		var out []byte
-		var err error
-
-		if sysType == "darwin" {
-			log.Printf("[NGINX] 在macOS上执行: nginx -s reload")
-			out, err = exec.Command("nginx", "-s", "reload").CombinedOutput()
-		} else {
-			log.Printf("[NGINX] 在Linux上执行: systemctl reload nginx")
-			out, err = exec.Command("systemctl", "reload", "nginx").CombinedOutput()
-		}
-
-		if err != nil {
-			log.Printf("[NGINX] Error reloading configuration: %v, output: %s", err, string(out))
-			result = string(out)
-		} else {
-			log.Printf("[NGINX] 重载成功，输出: %s", string(out))
-		}
-	} else {
+	if NginxStatus() == "KO" {
 		log.Println("[NGINX] Not running, no need to reload configuration!")
+		return "OK"
 	}
-
-	// Invalidate status cache
-	nginxStatusMutex.Lock()
-	nginxStatusExpiry = time.Now()
-	nginxStatusMutex.Unlock()
-
-	return result
+	return runNginxAction("reload")
 }
 
 func StopNginx() string {
-	log.Printf("[PID][%d]: [NGINX] Stopping", syscall.Getpid())
-	var err error
-
-	if sysType == "darwin" {
-		_, err = exec.Command("nginx", "-s", "stop").CombinedOutput()
-	} else {
-		_, err = exec.Command("systemctl", "stop", "nginx").CombinedOutput()
-	}
-
-	var result = "OK"
-	if err != nil {
-		log.Printf("[PID][%d]: [NGINX] Error stopping", syscall.Getpid())
-		log.Println(err)
-		result = "KO"
-	}
-
-	// Invalidate status cache
-	nginxStatusMutex.Lock()
-	nginxStatusExpiry = time.Now()
-	nginxStatusMutex.Unlock()
-
-	return result
+	return runNginxAction("stop")
 }
 
-// Get Nginx configuration path with caching
-func getNginxConfPath() string {
-	// Check if cache is valid (read lock)
-	nginxConfPathMutex.RLock()
-	if nginxConfPathCache != "" {
-		path := nginxConfPathCache
-		nginxConfPathMutex.RUnlock()
-		return path
-	}
-	nginxConfPathMutex.RUnlock()
-
-	// Cache miss, compute the path (write lock)
-	configPath := config.ReadNginxCompileInfo().NginxConfPath
-	regex, _ := regexp.Compile("(.*)/(.*.conf)")
-	confPath := regex.FindStringSubmatch(configPath)[1]
-
-	// Update cache
-	nginxConfPathMutex.Lock()
-	nginxConfPathCache = confPath
-	nginxConfPathMutex.Unlock()
-
-	return confPath
-}
-
+// SaveNginxConf writes the main nginx configuration file, the same file that
+// is shown in the editor, and reloads nginx.
 func SaveNginxConf(content string) string {
-	path := filepath.Join(getNginxConfPath(), "nginx.conf")
-	err := os.WriteFile(path, []byte(content), 0644)
-	if err != nil {
+	confPath := config.ReadNginxCompileInfo().NginxConfPath
+	if confPath == "" {
+		return "未找到 nginx 主配置文件，请确认 nginx 已安装"
+	}
+	if err := os.WriteFile(confPath, []byte(content), 0644); err != nil {
 		log.Printf("[NGINX] Error saving configuration: %v", err)
 		return "Error saving configuration: " + err.Error()
 	}
