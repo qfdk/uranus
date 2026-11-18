@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"uranus/internal/config"
 	"uranus/internal/services"
@@ -30,9 +31,12 @@ func Nginx(ctx *gin.Context) {
 		nginxActionResult = "Unknown action"
 	}
 
-	// Encode the result for URL safety
-	encodedResult := base64.StdEncoding.EncodeToString([]byte(nginxActionResult))
-	ctx.Redirect(http.StatusFound, "/?message="+encodedResult)
+	// 直接回到仪表盘显示结果：经过 / 再跳转会丢掉查询参数
+	query := url.Values{
+		"action":  {action},
+		"message": {base64.StdEncoding.EncodeToString([]byte(nginxActionResult))},
+	}
+	ctx.Redirect(http.StatusFound, "/admin/dashboard?"+query.Encode())
 }
 
 // GetNginxConf shows nginx.conf as it currently is on disk. It may have been
@@ -48,6 +52,7 @@ func GetNginxConf(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{
+		"activePage":         "config",
 		"configFileName":     "nginx",
 		"content":            string(content),
 		"isNginxDefaultConf": true,

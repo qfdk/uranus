@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"uranus/internal/config"
 	models2 "uranus/internal/models"
 	services2 "uranus/internal/services"
@@ -20,6 +21,7 @@ func Certificates(ctx *gin.Context) {
 				"configName": cert.FileName,
 				"domains":    strings.Split(cert.Domains, ","),
 				"expiredAt":  cert.NotAfter.Format("2006-01-02"),
+				"daysLeft":   int(time.Until(cert.NotAfter).Hours() / 24),
 			})
 		}
 	}

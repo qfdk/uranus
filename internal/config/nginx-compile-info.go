@@ -172,9 +172,12 @@ func parseNginxInfo(output string) *NginxCompileInfo {
 
 	prefix := ""
 	if configArgs != "" {
-		// Split and process configure arguments
-		params := strings.Split("--"+configArgs, "--")
-		nci.Params = params[1:] // Skip first empty element
+		// 按 -- 拆分配置参数，去掉拆分产生的空项
+		for _, param := range strings.Split(configArgs, "--") {
+			if param = strings.TrimSpace(param); param != "" {
+				nci.Params = append(nci.Params, param)
+			}
+		}
 
 		// Extract paths from parameters
 		for _, param := range nci.Params {

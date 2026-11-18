@@ -45,7 +45,9 @@ func publicRoute(engine *gin.Engine) {
 			context.Redirect(http.StatusFound, "/admin/dashboard")
 			context.Abort()
 		} else {
-			context.HTML(http.StatusOK, "login.html", gin.H{})
+			context.HTML(http.StatusOK, "login.html", gin.H{
+				"loginError": context.Query("error") != "",
+			})
 		}
 	})
 
@@ -68,7 +70,7 @@ func publicRoute(engine *gin.Engine) {
 			_ = session.Save()
 			context.Redirect(http.StatusFound, "/admin/dashboard")
 		} else {
-			context.Redirect(http.StatusFound, "/")
+			context.Redirect(http.StatusFound, "/?error=1")
 		}
 		context.Abort()
 	})

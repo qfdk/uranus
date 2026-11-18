@@ -1,85 +1,54 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Οὐρανός - A simple Nginx manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .lucide {
-            width: 18px;
-            height: 18px;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
-        }
-    </style>
+    <link rel="shortcut icon" href="/public/icon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
+    <link rel="stylesheet" href="/public/css/tailwind.min.css">
+    <title>登录 · Uranus</title>
 </head>
-<body class="min-h-screen bg-gray-100 flex flex-col justify-center">
-<div class="max-w-md w-full mx-auto">
-    <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold">Οὐρανός</h1>
-        <p class="text-gray-600 mt-1">A simple Nginx manager</p>
-    </div>
+<body class="h-full bg-slate-950">
+<div class="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-12">
+    <!-- 背景光晕 -->
+    <div class="pointer-events-none absolute left-1/2 top-[-12rem] h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl"></div>
+    <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(2,6,23,0.9))]"></div>
 
-    <div class="bg-white p-8 rounded-lg shadow-md">
-        <form action="/login" method="post">
-            <div class="mb-4">
-                <label for="username" class="block text-gray-700 font-medium mb-2">用户名</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide">
-                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </span>
-                    <input
-                            id="username"
-                            name="username"
-                            type="text"
-                            class="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="输入用户名"
-                            required
-                    >
-                </div>
+    <div class="relative w-full max-w-sm">
+        <div class="mb-8 flex flex-col items-center text-center">
+            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
+                <img src="/public/icon/nginx.png" alt="" class="h-9 w-9">
             </div>
+            <h1 class="text-2xl font-semibold tracking-tight text-white">Uranus</h1>
+            <p class="mt-1 text-sm text-slate-400">登录 Nginx 管理面板</p>
+        </div>
 
-            <div class="mb-6">
-                <label for="password" class="block text-gray-700 font-medium mb-2">密码</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide">
-                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                        </svg>
-                    </span>
-                    <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            class="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="输入密码"
-                            required
-                    >
-                </div>
+        <div class="rounded-2xl bg-white p-7 shadow-2xl shadow-black/40">
+            {{ if .loginError }}
+            <div class="alert alert-error mb-5">
+                {{ svgIcon "circle-alert" }}
+                <span>用户名或密码不正确</span>
             </div>
-
-            <button
-                    type="submit"
-                    class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md flex items-center justify-center"
-            >
-                <span class="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide mr-2">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                        <polyline points="10 17 15 12 10 7"></polyline>
-                        <line x1="15" x2="3" y1="12" y2="12"></line>
-                    </svg>
+            {{ end }}
+            <form action="/login" method="post" class="space-y-5">
+                <div>
+                    <label for="username" class="label">用户名</label>
+                    <input id="username" name="username" type="text" class="input" autocomplete="username"
+                           placeholder="admin" required autofocus>
+                </div>
+                <div>
+                    <label for="password" class="label">密码</label>
+                    <input id="password" name="password" type="password" class="input"
+                           autocomplete="current-password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary h-10 w-full">
+                    {{ svgIcon "log-in" }}
                     登录
-                </span>
-            </button>
-        </form>
+                </button>
+            </form>
+        </div>
+
+        <p class="mt-8 text-center text-xs text-slate-500">Οὐρανός · A simple Nginx manager</p>
     </div>
 </div>
 </body>

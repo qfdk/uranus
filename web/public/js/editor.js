@@ -133,23 +133,25 @@ require.config({
     'vs/nls': {availableLanguages: {'*': 'zh-cn'}}
 });
 
+// 提示框靠 hidden 类显示和隐藏；内容用 text 插入，nginx 报错里的尖括号不会被当成 HTML
 const processResponse = (data, redirect = "/admin/sites", successMessage) => {
     if (data.message === 'OK') {
         if (redirect) {
             window.location = redirect;
         }
-        $("#successMessage").html(successMessage);
-        $("#alertSuccess").show()
+        $("#successMessage").text(successMessage);
+        $("#alertSuccess").removeClass('hidden');
+        $("#alert").addClass('hidden');
     } else {
-        $("#message").html(data.message);
-        $("#alert").show();
-        $("#alertSuccess").hide();
+        $("#message").text(data.message);
+        $("#alert").removeClass('hidden');
+        $("#alertSuccess").addClass('hidden');
     }
 }
 
 $('#enableSSL').click(() => {
-    $("#alert").hide();
-    $("#alertSuccess").hide();
+    $("#alert").addClass('hidden');
+    $("#alertSuccess").addClass('hidden');
 
     // Show spinner, hide icon, update status
     $('#ssl_spinner').removeClass('hidden');
@@ -162,12 +164,12 @@ $('#enableSSL').click(() => {
     const proxy = $("#proxy").val();
 
     $.get('/admin/ssl/renew', {domains, configName}, (data) => {
-        processResponse(data, false, "SSL 签名成功,自动添加 SSL 部分");
+        processResponse(data, false, "证书签发成功，已在下方配置中加入 SSL 部分，保存后生效");
 
         // Restore button state
         $('#ssl_spinner').addClass('hidden');
         $('#ssl_icon').removeClass('hidden');
-        $('#ssl_status').text("Let's Encrypt");
+        $('#ssl_status').text("申请证书");
         $('#enableSSL').attr("disabled", false);
 
         if (data.message === 'OK') {
@@ -179,10 +181,10 @@ $('#enableSSL').click(() => {
         // In case of error, restore the button
         $('#ssl_spinner').addClass('hidden');
         $('#ssl_icon').removeClass('hidden');
-        $('#ssl_status').text("Let's Encrypt");
+        $('#ssl_status').text("申请证书");
         $('#enableSSL').attr("disabled", false);
-        $("#message").html("证书请求失败，请检查网络连接或查看日志");
-        $("#alert").show();
+        $("#message").text("证书请求失败，请检查网络连接或查看日志");
+        $("#alert").removeClass('hidden');
     });
 });
 

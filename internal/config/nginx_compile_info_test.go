@@ -158,3 +158,13 @@ func TestNginxBinaryFallsBackToKnownLocations(t *testing.T) {
 		t.Fatalf("nginx on PATH should win, got %q", got)
 	}
 }
+
+// Splitting "configure arguments" on "--" used to leave an empty first entry,
+// shown as a bare "--" on the Nginx page.
+func TestParseNginxInfoParams(t *testing.T) {
+	info := parseNginxInfo("nginx version: nginx/1.26.2\nbuilt by gcc 12\nconfigure arguments: --prefix=/etc/nginx --with-http_ssl_module\n")
+	want := []string{"prefix=/etc/nginx", "with-http_ssl_module"}
+	if strings.Join(info.Params, "|") != strings.Join(want, "|") {
+		t.Fatalf("Params = %q, want %q", info.Params, want)
+	}
+}

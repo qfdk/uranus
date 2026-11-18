@@ -2,33 +2,184 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    body {
+        @apply bg-slate-50 text-slate-900 antialiased;
+    }
+}
+
 @layer components {
-    .btn {
-        @apply inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors;
+    /* 图标：svgIcon 输出的 SVG 由外层元素控制尺寸 */
+    .icon {
+        @apply inline-flex shrink-0 items-center justify-center;
     }
-    .btn-blue {
-        @apply bg-blue-600 text-white hover:bg-blue-700;
+    .icon > svg {
+        @apply h-4 w-4;
     }
-    .btn-red {
-        @apply bg-red-600 text-white hover:bg-red-700;
-    }
-    .btn-amber {
-        @apply bg-amber-600 text-white hover:bg-amber-700;
-    }
-    .btn-gray {
-        @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
-    }
-    .btn-indigo {
-        @apply bg-indigo-600 text-white hover:bg-indigo-700;
-    }
-    .btn-disabled {
-        @apply bg-gray-300 text-gray-500 cursor-not-allowed;
+    .icon-lg > svg {
+        @apply h-5 w-5;
     }
 
-    .sidebar-item {
-        @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 mb-2;
+    /* 按钮 */
+    .btn {
+        @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-colors
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-1
+        disabled:pointer-events-none disabled:opacity-40;
     }
-    .sidebar-item.active {
-        @apply bg-indigo-50 text-indigo-600;
+    .btn svg {
+        @apply h-4 w-4 shrink-0;
+    }
+    .btn-primary {
+        @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-700;
+    }
+    .btn-secondary {
+        @apply border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50;
+    }
+    .btn-danger {
+        @apply border border-rose-200 bg-white text-rose-600 shadow-sm hover:border-rose-300 hover:bg-rose-50;
+    }
+    .btn-ghost {
+        @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+    }
+    .btn-sm {
+        @apply h-8 px-2.5 text-[13px];
+    }
+    .btn-icon {
+        @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900;
+    }
+    .btn-icon svg {
+        @apply h-5 w-5;
+    }
+
+    /* 卡片 */
+    .card {
+        @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    }
+    .card-header {
+        @apply flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5;
+    }
+    .card-title {
+        @apply flex items-center gap-2 text-[15px] font-semibold text-slate-900;
+    }
+    .card-title svg {
+        @apply h-4 w-4 text-slate-400;
+    }
+
+    /* 页面标题 */
+    .page-header {
+        @apply mb-6 flex flex-wrap items-end justify-between gap-4;
+    }
+    .page-title {
+        @apply text-[22px] font-semibold tracking-tight text-slate-900;
+    }
+    .page-desc {
+        @apply mt-1 text-sm text-slate-500;
+    }
+    .back-link {
+        @apply mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900;
+    }
+    .back-link svg {
+        @apply h-4 w-4;
+    }
+
+    /* 侧边导航 */
+    .nav-link {
+        @apply relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100;
+    }
+    .nav-link svg {
+        @apply h-[18px] w-[18px] shrink-0;
+    }
+    .nav-link.active {
+        @apply bg-white/10 text-white;
+    }
+    .nav-link.active::before {
+        content: "";
+        @apply absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-400;
+    }
+
+    /* 表单 */
+    .label {
+        @apply mb-1.5 block text-sm font-medium text-slate-700;
+    }
+    .input {
+        @apply block h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400
+        focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+        read-only:bg-slate-50 read-only:text-slate-500;
+    }
+    .hint {
+        @apply mt-1.5 text-xs text-slate-500;
+    }
+
+    /* 提示 */
+    .alert {
+        @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm;
+    }
+    .alert svg {
+        @apply mt-0.5 h-4 w-4 shrink-0;
+    }
+    .alert-error {
+        @apply border-rose-200 bg-rose-50 text-rose-700;
+    }
+    .alert-success {
+        @apply border-emerald-200 bg-emerald-50 text-emerald-800;
+    }
+    .alert-info {
+        @apply border-sky-200 bg-sky-50 text-sky-800;
+    }
+
+    /* 状态标签 */
+    .badge {
+        @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
+    }
+    .badge-green {
+        @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20;
+    }
+    .badge-amber {
+        @apply bg-amber-50 text-amber-700 ring-amber-600/20;
+    }
+    .badge-red {
+        @apply bg-rose-50 text-rose-700 ring-rose-600/20;
+    }
+    .badge-gray {
+        @apply bg-slate-50 text-slate-600 ring-slate-500/20;
+    }
+    .dot {
+        @apply inline-block h-1.5 w-1.5 rounded-full bg-current;
+    }
+
+    /* 键值列表 */
+    .kv {
+        @apply divide-y divide-slate-100 px-5;
+    }
+    .kv > div {
+        @apply flex items-center justify-between gap-6 py-3 text-sm;
+    }
+    .kv dt {
+        @apply shrink-0 text-slate-500;
+    }
+    .kv dd {
+        @apply min-w-0 truncate text-right font-medium text-slate-800;
+    }
+
+    /* 表格 */
+    .table {
+        @apply w-full text-left text-sm;
+    }
+    .table thead th {
+        @apply whitespace-nowrap border-b border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs font-medium text-slate-500 sm:px-5;
+    }
+    .table tbody td {
+        @apply border-b border-slate-100 px-4 py-3.5 align-middle sm:px-5;
+    }
+    .table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+    .table tbody tr {
+        @apply transition-colors hover:bg-slate-50/70;
+    }
+
+    /* 代码编辑器容器 */
+    .editor-frame {
+        @apply overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e];
     }
 }

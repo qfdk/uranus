@@ -1,52 +1,57 @@
 {{template "header.html" .}}
-<div class="space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">配置文件</h1>
 
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">配置文件列表</p>
-            </div>
-        </div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Nginx 配置</h1>
+        <p class="page-desc">编译信息、文件路径和主配置文件</p>
     </div>
+    <a href="/admin/nginx/config" class="btn btn-primary">{{ svgIcon "file-code" }}编辑 nginx.conf</a>
+</div>
 
-    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div class="px-4 py-5 sm:px-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">
-                Nginx 配置详情
-            </h3>
-        </div>
-        <div class="border-t border-gray-200">
-            <dl>
-                <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt class="text-sm font-medium text-gray-500">Nginx 版本</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.Version}}</dd>
-                </div>
-                <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt class="text-sm font-medium text-gray-500">编译器</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.CompilerVersion}}</dd>
-                </div>
-                <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt class="text-sm font-medium text-gray-500">SSL 版本</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.SSLVersion}}</dd>
-                </div>
-                <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt class="text-sm font-medium text-gray-500">TLS 支持</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{.nginxCompileInfo.TLSSupport}}</dd>
-                </div>
-                {{range $index, $value :=.nginxCompileInfo.Params}}
-                <div class="{{if isEven $index}}bg-gray-50{{else}}bg-white{{end}} px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt class="text-sm font-medium text-gray-500">配置参数 {{$index}}</dt>
-                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">--{{$value}}</dd>
-                </div>
-                {{end}}
-            </dl>
-        </div>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="card p-5">
+        <p class="text-sm text-slate-500">版本</p>
+        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.Version }}">{{ .nginxCompileInfo.Version }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-slate-500">编译器</p>
+        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.CompilerVersion }}">{{ .nginxCompileInfo.CompilerVersion }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-slate-500">OpenSSL</p>
+        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.SSLVersion }}">{{ .nginxCompileInfo.SSLVersion }}</p>
+    </div>
+    <div class="card p-5">
+        <p class="text-sm text-slate-500">TLS</p>
+        <p class="mt-2 truncate text-base font-semibold text-slate-900" title="{{ .nginxCompileInfo.TLSSupport }}">{{ or .nginxCompileInfo.TLSSupport "—" }}</p>
     </div>
 </div>
+
+<section class="card mt-6">
+    <div class="card-header">
+        <h3 class="card-title">{{ svgIcon "file-cog" }}文件路径</h3>
+    </div>
+    <dl class="kv">
+        <div><dt>主配置文件</dt><dd title="{{ .nginxCompileInfo.NginxConfPath }}">{{ or .nginxCompileInfo.NginxConfPath "—" }}</dd></div>
+        <div><dt>PID 文件</dt><dd title="{{ .nginxCompileInfo.NginxPidPath }}">{{ or .nginxCompileInfo.NginxPidPath "—" }}</dd></div>
+        <div><dt>可执行文件</dt><dd title="{{ .nginxCompileInfo.NginxExec }}">{{ or .nginxCompileInfo.NginxExec "—" }}</dd></div>
+    </dl>
+</section>
+
+<section class="card mt-6">
+    <div class="card-header">
+        <h3 class="card-title">{{ svgIcon "list" }}编译参数</h3>
+        <span class="text-xs text-slate-500">{{ len .nginxCompileInfo.Params }} 项</span>
+    </div>
+    {{ if .nginxCompileInfo.Params }}
+    <ul class="divide-y divide-slate-100">
+        {{ range .nginxCompileInfo.Params }}
+        <li class="break-all px-5 py-2.5 font-mono text-[13px] text-slate-700">--{{ . }}</li>
+        {{ end }}
+    </ul>
+    {{ else }}
+    <p class="px-5 py-8 text-center text-sm text-slate-500">没有读取到编译参数</p>
+    {{ end }}
+</section>
+
 {{template "footer.html" .}}

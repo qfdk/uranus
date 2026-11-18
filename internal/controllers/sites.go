@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	. "uranus/internal/config"
 	"uranus/internal/models"
 	"uranus/internal/services"
@@ -31,6 +32,7 @@ var (
 // NewSite 创建新站点的页面处理
 func NewSite(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+		"activePage":     "sites",
 		"configFileName": "",
 		"content":        "",
 		"isNewSite":      true,
@@ -81,30 +83,42 @@ func GetTemplate(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
+// siteFile 是网站列表中的一个配置文件
+type siteFile struct {
+	Name    string
+	Size    string
+	ModTime time.Time
+}
+
 // GetSites 获取所有站点配置
 func GetSites(ctx *gin.Context) {
 	vhostPath := GetAppConfig().VhostPath
-	allFiles, err := os.ReadDir(vhostPath)
+	entries, err := os.ReadDir(vhostPath)
 	if err != nil {
 		log.Println(err)
-		ctx.HTML(http.StatusOK, "sites.html", gin.H{
-			"activePage": "sites",
-			"files":      []string{}})
-		return
 	}
 
-	// 只过滤显示.conf文件
-	var confFiles []os.DirEntry
-	for _, file := range allFiles {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".conf") {
-			confFiles = append(confFiles, file)
+	// 只显示 .conf 文件。模板需要大小和修改时间，os.DirEntry 本身没有这些字段
+	files := []siteFile{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			continue
 		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, siteFile{
+			Name:    entry.Name(),
+			Size:    humanize.Bytes(uint64(info.Size())),
+			ModTime: info.ModTime(),
+		})
 	}
 
 	ctx.HTML(http.StatusOK, "sites.html", gin.H{
-		"files":         confFiles,
-		"humanizeBytes": humanize.Bytes,
-		"activePage":    "sites",
+		"activePage": "sites",
+		"files":      files,
+		"vhostPath":  vhostPath,
 	})
 }
 
@@ -147,6 +161,7 @@ func EditSiteConf(ctx *gin.Context) {
 		// 从数据库获取证书信息
 		cert := models.GetCertByFilename(configName)
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+			"activePage":     "sites",
 			"configFileName": configName,
 			"domains":        cert.Domains,
 			"content":        string(content),
@@ -156,6 +171,7 @@ func EditSiteConf(ctx *gin.Context) {
 		})
 	} else {
 		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
+			"activePage":     "sites",
 			"configFileName": configName,
 			"content":        string(content),
 			"infoPlus":       false,

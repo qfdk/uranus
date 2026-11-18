@@ -1,175 +1,69 @@
 {{ define "header.html" }}
 <!DOCTYPE html>
-<html lang="zh" class="h-full">
+<html lang="zh-CN" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" href="/public/icon/favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="/public/icon/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/public/icon/favicon-32x32.png">
-
-    <!-- 预加载CSS -->
-    <link rel="preload" href="/public/css/tailwind.min.css" as="style">
     <link rel="stylesheet" href="/public/css/tailwind.min.css">
-
-    <title>Οὐρανός - A simple Nginx manager</title>
-
-    <script>
-        // 用户菜单切换
-        function toggleUserMenu() {
-            var menu = document.getElementById('userMenu');
-            menu.classList.toggle('hidden');
-        }
-
-        // 移动端侧边栏切换
-        function toggleSidebar() {
-            var sidebar = document.getElementById('mobileSidebar');
-            sidebar.classList.toggle('hidden');
-        }
-    </script>
+    <title>Uranus · Nginx 管理面板</title>
 </head>
-<body class="h-full bg-gray-50">
-<!-- 顶部导航栏 -->
-<header class="bg-white border-b border-gray-200 fixed top-0 inset-x-0 z-30">
-    <div class="px-4 sm:px-6 lg:px-8">
-        <div class="flex h-16 items-center justify-between">
-            <!-- 移动端菜单按钮 -->
-            <button
-                    type="button"
-                    class="md:hidden text-gray-500 hover:text-gray-600"
-                    onclick="toggleSidebar()"
-            >
-                <span class="sr-only">打开菜单</span>
-                {{ svgIcon "menu" }}
-            </button>
+<body class="h-full">
 
-            <!-- Logo -->
-            <div class="flex items-center">
-                <img src="/public/icon/nginx.png" alt="Uranus" class="h-8 w-8">
-                <span class="ml-2 text-xl font-bold text-gray-900">Uranus</span>
-            </div>
-
-            <!-- 用户下拉菜单 -->
-            <div class="relative">
-                <button
-                        type="button"
-                        class="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900"
-                        onclick="toggleUserMenu()"
-                >
-                    <span class="hidden md:inline-block">管理员</span>
-                    <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        {{ svgIcon "user" }}
-                    </div>
-                    {{ svgIcon "chevron-down" }}
-                </button>
-
-                <!-- 下拉菜单 -->
-                <div id="userMenu" class="absolute right-0 mt-2 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 hidden">
-                    <a href="/logout" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        {{ svgIcon "log-out" }}
-                        <span class="ml-2">退出登录</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 移动端顶栏 -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white/90 px-3 backdrop-blur md:hidden">
+    <button type="button" class="btn-icon" onclick="toggleSidebar()" aria-label="打开菜单">{{ svgIcon "menu" }}</button>
+    <a href="/admin/dashboard" class="flex items-center gap-2">
+        <img src="/public/icon/nginx.png" alt="" class="h-7 w-7">
+        <span class="text-[15px] font-semibold text-slate-900">Uranus</span>
+    </a>
 </header>
 
-<!-- 移动端侧边菜单 -->
-<div id="mobileSidebar" class="fixed inset-0 z-40 flex md:hidden hidden">
-    <!-- 背景遮罩 -->
-    <div
-            class="fixed inset-0 bg-gray-600 bg-opacity-75"
-            onclick="toggleSidebar()"
-    ></div>
-
-    <!-- 侧边栏 -->
-    <div class="relative flex w-full max-w-xs flex-col bg-white pb-4 pt-5">
-        <div class="absolute top-0 right-0 pt-2 pr-2">
-            <button
-                    type="button"
-                    class="ml-1 flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-500"
-                    onclick="toggleSidebar()"
-            >
-                <span class="sr-only">关闭菜单</span>
-                {{ svgIcon "x" }}
-            </button>
+<!-- 侧边栏：桌面端常驻，移动端为抽屉 -->
+<div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/60 md:hidden" onclick="toggleSidebar()"></div>
+<aside id="sidebar"
+       class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col bg-slate-900 transition-transform duration-200 md:translate-x-0">
+    <div class="flex h-16 shrink-0 items-center gap-3 px-5">
+        <img src="/public/icon/nginx.png" alt="" class="h-8 w-8">
+        <div class="leading-tight">
+            <div class="text-[15px] font-semibold text-white">Uranus</div>
+            <div class="text-xs text-slate-400">Nginx 管理面板</div>
         </div>
-
-        <div class="flex-1 px-3 mt-5">
-            <nav>
-                <a href="/admin/dashboard" class="sidebar-item {{ if eq .activePage "dashboard" }}active{{ end }}">
-                {{ svgIcon "server" }}
-                <span>服务器状态</span>
-                </a>
-                <a href="/admin/nginx/config-info" class="sidebar-item {{ if eq .activePage "config" }}active{{ end }}">
-                {{ svgIcon "file-text" }}
-                <span>Nginx 配置</span>
-                </a>
-                <a href="/admin/sites" class="sidebar-item {{ if eq .activePage "sites" }}active{{ end }}">
-                {{ svgIcon "globe" }}
-                <span>网站管理</span>
-                </a>
-                <a href="/admin/ssl" class="sidebar-item {{ if eq .activePage "ssl" }}active{{ end }}">
-                {{ svgIcon "shield" }}
-                <span>SSL证书管理</span>
-                </a>
-                <a href="/admin/config/edit" class="sidebar-item {{ if eq .activePage "app-config" }}active{{ end }}">
-                {{ svgIcon "settings" }}
-                <span>Uranus 配置</span>
-                </a>
-            </nav>
-        </div>
-
-        <!-- Terminal按钮放在底部 -->
-        <div class="px-3 mt-auto mb-4">
-            <a href="/admin/terminal" target="_blank" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
-            {{ svgIcon "terminal" }}
-            <span>Terminal</span>
-            </a>
-        </div>
+        <button type="button" class="btn-icon ml-auto text-slate-400 hover:bg-white/10 hover:text-white md:hidden"
+                onclick="toggleSidebar()" aria-label="关闭菜单">{{ svgIcon "x" }}</button>
     </div>
-</div>
 
-<!-- 桌面端侧边栏 -->
-<div class="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-    <div class="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
-        <div class="flex flex-1 flex-col overflow-y-auto pt-20 pb-4">
-            <nav class="mt-2 px-3 flex-1">
-                <a href="/admin/dashboard" class="sidebar-item {{ if eq .activePage "dashboard" }}active{{ end }}">
-                {{ svgIcon "server" }}
-                <span>服务器状态</span>
-                </a>
-                <a href="/admin/nginx/config-info" class="sidebar-item {{ if eq .activePage "config" }}active{{ end }}">
-                {{ svgIcon "file-text" }}
-                <span>Nginx 配置</span>
-                </a>
-                <a href="/admin/sites" class="sidebar-item {{ if eq .activePage "sites" }}active{{ end }}">
-                {{ svgIcon "globe" }}
-                <span>网站管理</span>
-                </a>
-                <a href="/admin/ssl" class="sidebar-item {{ if eq .activePage "ssl" }}active{{ end }}">
-                {{ svgIcon "shield" }}
-                <span>SSL证书管理</span>
-                </a>
-                <a href="/admin/config/edit" class="sidebar-item {{ if eq .activePage "app-config" }}active{{ end }}">
-                {{ svgIcon "settings" }}
-                <span>Uranus 配置</span>
-                </a>
-            </nav>
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <a href="/admin/dashboard" class="nav-link {{ if eq .activePage "dashboard" }}active{{ end }}">
+            {{ svgIcon "layout-dashboard" }}<span>概览</span>
+        </a>
+        <a href="/admin/sites" class="nav-link {{ if eq .activePage "sites" }}active{{ end }}">
+            {{ svgIcon "globe" }}<span>网站</span>
+        </a>
+        <a href="/admin/ssl" class="nav-link {{ if eq .activePage "ssl" }}active{{ end }}">
+            {{ svgIcon "shield-check" }}<span>SSL 证书</span>
+        </a>
+        <a href="/admin/nginx/config-info" class="nav-link {{ if eq .activePage "config" }}active{{ end }}">
+            {{ svgIcon "file-cog" }}<span>Nginx 配置</span>
+        </a>
+        <a href="/admin/config/edit" class="nav-link {{ if eq .activePage "app-config" }}active{{ end }}">
+            {{ svgIcon "settings" }}<span>Uranus 设置</span>
+        </a>
+    </nav>
 
-            <!-- Terminal按钮放在底部 -->
-            <div class="px-3 mt-auto">
-                <a href="/admin/terminal" target="_blank" class="sidebar-item {{ if eq .activePage "terminal" }}active{{ end }}">
-                {{ svgIcon "terminal" }}
-                <span>Terminal</span>
-                </a>
-            </div>
-        </div>
+    <div class="space-y-1 border-t border-white/10 p-3">
+        <a href="/admin/terminal" target="_blank" class="nav-link">
+            {{ svgIcon "terminal" }}<span>终端</span>
+            <span class="ml-auto opacity-60 [&>svg]:h-3.5 [&>svg]:w-3.5">{{ svgIcon "external-link" }}</span>
+        </a>
+        <a href="/logout" class="nav-link">
+            {{ svgIcon "log-out" }}<span>退出登录</span>
+        </a>
     </div>
-</div>
+</aside>
 
-<!-- 主内容区 -->
-<main class="md:pl-64 pt-16">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-        {{ end }}
+<main class="md:pl-64">
+    <div class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+{{ end }}

@@ -1,47 +1,24 @@
 {{ define "footer.html" }}
-</div>
+    </div>
 </main>
-</div>
-
-<style>
-    .btn-disabled {
-        background-color: #f3f4f6;
-        color: #9ca3af;
-        cursor: not-allowed;
-        opacity: 0.6;
-        pointer-events: none;
-    }
-
-    .btn:disabled {
-        background-color: #f3f4f6;
-        color: #9ca3af;
-        cursor: not-allowed;
-        opacity: 0.6;
-        pointer-events: none;
-    }
-</style>
 
 <script>
-    function toggleUserMenu() {
-        document.getElementById('userMenu').classList.toggle('hidden');
-    }
-
+    // 移动端侧边栏
     function toggleSidebar() {
-        document.getElementById('mobileSidebar').classList.toggle('hidden');
+        document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        document.getElementById('sidebarBackdrop').classList.toggle('hidden');
     }
 
-    // 禁用IOS双指缩放和双击缩放, 安卓则不需要下面这个段代码
+    // 禁用 iOS 双指缩放和双击缩放，安卓不需要这段代码
     (function () {
         var agent = navigator.userAgent.toLowerCase();
         if (agent.indexOf('iphone') >= 0 || agent.indexOf('ipad') >= 0) {
-            // 禁用双指缩放
             document.documentElement.addEventListener('touchstart', function (event) {
                 if (event.touches.length > 1) {
                     event.preventDefault();
                 }
             }, false);
 
-            // 禁用双击缩放
             var lastTouchEnd = 0;
             document.addEventListener('touchend', function (event) {
                 var now = (new Date()).getTime();
@@ -49,10 +26,10 @@
                     event.preventDefault();
                 }
                 lastTouchEnd = now;
-            }, false)
+            }, false);
         }
     })();
 </script>
 </body>
 </html>
-{{end}}
+{{ end }}

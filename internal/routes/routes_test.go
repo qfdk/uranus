@@ -122,7 +122,7 @@ func TestLoginSessionCookie(t *testing.T) {
 	form := url.Values{"username": {testUser}, "password": {"wrong"}}
 	req = httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if w := serve(engine, req); w.Header().Get("Location") != "/" {
+	if w := serve(engine, req); w.Header().Get("Location") != "/?error=1" {
 		t.Fatalf("wrong password accepted: %d %q", w.Code, w.Header().Get("Location"))
 	}
 }

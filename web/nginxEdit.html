@@ -1,78 +1,28 @@
 {{template "header.html" .}}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/dev/vs/editor/editor.main.css">
 
-<div class="space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-900">Nginx 默认配置编辑</h1>
-
-    <div id="alert" class="hidden bg-red-50 border-l-4 border-red-400 p-4 rounded">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <p id="message" class="text-sm text-red-700"></p>
-            </div>
-        </div>
+<div class="page-header">
+    <div>
+        <a href="/admin/nginx/config-info" class="back-link">{{ svgIcon "arrow-left" }}Nginx 配置</a>
+        <h1 class="page-title">编辑 nginx.conf</h1>
+        <p class="page-desc">保存后写入磁盘并自动重新加载 Nginx</p>
     </div>
-
-    <div id="alertSuccess" class="hidden bg-green-50 border-l-4 border-green-400 p-4 rounded">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <p id="successMessage" class="text-sm text-green-700"></p>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white shadow sm:rounded-lg">
-        <div class="px-4 py-5 sm:p-6">
-            <div class="sm:flex sm:items-center mb-4">
-                <div class="sm:flex-grow">
-                    <div class="mt-1 flex rounded-md shadow-sm">
-                        <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                            文件名：
-                        </span>
-                        <input type="text" id="filename" value="{{.configFileName}}" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" readonly>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2 mb-4">
-                <button type="button" id="btnFormatterNginxConf" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500" title="Shift+Alt+F 快捷格式化">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="21" x2="3" y1="6" y2="6"></line>
-                        <line x1="15" x2="3" y1="12" y2="12"></line>
-                        <line x1="17" x2="3" y1="18" y2="18"></line>
-                    </svg>
-                    格式化
-                </button>
-
-                <button type="button" id="saveNginxConf" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                        <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    保存Nginx配置
-                </button>
-            </div>
-
-            <div>
-                <div id="editor" data-lang="nginx" style="min-height: 600px; border: 1px solid #e5e7eb; border-radius: 0.375rem;"></div>
-            </div>
-        </div>
+    <div class="flex flex-wrap gap-2">
+        <button type="button" id="btnFormatterNginxConf" class="btn btn-secondary" title="快捷键 Shift+Alt+F">{{ svgIcon "align-left" }}格式化</button>
+        <button type="button" id="saveNginxConf" class="btn btn-primary">{{ svgIcon "save" }}保存并重载</button>
     </div>
 </div>
 
+<div id="alert" class="alert alert-error mb-4 hidden">{{ svgIcon "circle-alert" }}<span id="message" class="whitespace-pre-wrap break-all"></span></div>
+<div id="alertSuccess" class="alert alert-success mb-4 hidden">{{ svgIcon "circle-check" }}<span id="successMessage"></span></div>
+
+<input type="hidden" id="filename" value="{{ .configFileName }}">
+<div class="editor-frame">
+    <div id="editor" data-lang="nginx" style="height: 600px;"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-<script src='https://cdn.jsdelivr.net/npm/monaco-editor@0.32.1/min/vs/loader.js'></script>
-<script src='https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.1/min/vs/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nginxbeautifier@1.0.19/nginxbeautifier.min.js"></script>
 <script src="/public/js/editor.js"></script>
 <script>
     require(['vs/editor/editor.main'], function () {
@@ -88,38 +38,39 @@
         });
         monaco.languages.setMonarchTokensProvider(defaultLang, tokenConf);
         monaco.editor.defineTheme(themeConfig.base, themeConfig);
-        var codeContent = {{.content}};
-        editor = monaco.editor.create(document.getElementById('editor'),
-            {
-                value: codeContent,
-                language: defaultLang,
-                theme: defaultTheme,
-                fontSize: 14,
-                automaticLayout: true,
-                scrollbar: {
-                    verticalScrollbarSize: 13,
-                    horizontalScrollbarSize: 13
-                },
-                minimap: {
-                    enabled: true
-                }
-            });
-
-        //格式化
+        editor = monaco.editor.create(document.getElementById('editor'), {
+            value: {{ .content }},
+            language: defaultLang,
+            theme: defaultTheme,
+            fontSize: 14,
+            automaticLayout: true,
+            padding: {top: 12},
+            scrollbar: {
+                verticalScrollbarSize: 12,
+                horizontalScrollbarSize: 12
+            },
+            minimap: {
+                enabled: true
+            }
+        });
+        // 格式化
         monaco.languages.registerDocumentFormattingEditProvider(defaultLang, {
-            provideDocumentFormattingEdits: function (model, _options, _token) {
+            provideDocumentFormattingEdits: function (model) {
                 return [{
                     text: nginxFormatter(model.getValue()),
                     range: model.getFullModelRange()
                 }];
             }
         });
-
-        $(window).on("load resize", function () {
-            let ch = $(window).height() - $('#editor').offset().top - 40;
-            $('#editor').css('min-height', Math.max(500, ch) + "px");
-        });
+        // 编辑器占满窗口剩余高度
+        $(window).on("resize", fitEditor);
+        fitEditor();
     });
+
+    function fitEditor() {
+        var height = $(window).height() - $('#editor').offset().top - 32;
+        $('#editor').css('height', Math.max(420, height) + 'px');
+    }
 </script>
 
 {{template "footer.html" .}}
