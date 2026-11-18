@@ -204,6 +204,12 @@ func handleMessage(client mqtt.Client, msg mqtt.Message, topicPrefix string, man
 		return
 	}
 
+	// 安全：这些主题同样能创建终端并输入命令，必须和命令主题一样校验 token
+	if !authorizeCommand(msg.Payload()) {
+		log.Printf("[MQTTY] 拒绝未授权的终端消息: %s", topic)
+		return
+	}
+
 	var message Message
 	if err := json.Unmarshal(msg.Payload(), &message); err != nil {
 		log.Printf("[MQTTY] 解析消息失败: %v", err)
@@ -275,13 +281,8 @@ func handleControlMessage(sessionID string, msg *Message, manager *SessionManage
 
 	switch msgType {
 	case "create":
-		// 获取要使用的shell
-		var shell string
-		if shellData, ok := msg.Data.(string); ok && shellData != "" {
-			shell = shellData
-		} else {
-			shell = getDefaultShell()
-		}
+		// 要使用的 shell，为空时使用默认 shell
+		shell, _ := msg.Data.(string)
 
 		// 检查会话是否已经存在并且活跃
 		session, err := manager.GetSession(sessionID)
@@ -410,13 +411,8 @@ func handleTerminalCommand(client mqtt.Client, command struct {
 		// 创建终端会话
 		log.Printf("[MQTTY] 创建终端会话: %s", command.SessionId)
 
-		// 获取Shell命令（如果有）
-		var shell string
-		if shellData, ok := command.Data.(string); ok && shellData != "" {
-			shell = shellData
-		} else {
-			shell = getDefaultShell()
-		}
+		// 要使用的 shell，为空时使用默认 shell
+		shell, _ := command.Data.(string)
 
 		// 创建会话（如果已存在会先关闭旧会话）
 		err := manager.CreateSession(command.SessionId, shell)
@@ -1177,7 +1173,6 @@ func handleRefreshIPCommand(client mqtt.Client, command struct {
 	respPayload, _ := json.Marshal(response)
 	client.Publish(responseTopic, 1, false, respPayload)
 }
-
 
 // authorizeCommand 校验命令消息中的 token 是否与本 agent 配置的 token 一致（常量时间比较）
 func authorizeCommand(payload []byte) bool {

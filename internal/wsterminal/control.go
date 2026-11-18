@@ -52,21 +52,14 @@ func handleControlMessage(t *Terminal, message []byte) {
 			"data": "pong",
 		}
 		responseBytes, _ := json.Marshal(response)
-		err := t.WsConn.WriteMessage(1, responseBytes)
-		if err != nil {
+		if err := t.write(websocket.TextMessage, responseBytes); err != nil {
 			log.Printf("[WS Terminal] Failed to send pong: %v", err)
 		}
 
 	case "interrupt":
-		log.Printf("[WS Terminal] Received interrupt command, sending interrupts")
-		// 处理中断信号，注意这里的SendInterrupt会尝试多种信号
-		err := t.SendInterrupt()
-		if err != nil {
+		// 等同于在终端里按 Ctrl+C：由终端驱动把 SIGINT 发给前台进程，不影响会话外的进程
+		if _, err := t.shell.PTY().Write([]byte{3}); err != nil {
 			log.Printf("[WS Terminal] Failed to send interrupt: %v", err)
-		} else {
-			if t.Pty != nil {
-				t.Pty.Write([]byte{3})
-			}
 		}
 
 	case "terminate":
@@ -76,7 +69,7 @@ func handleControlMessage(t *Terminal, message []byte) {
 			"data": "Terminal session closed by client",
 		}
 		responseBytes, _ := json.Marshal(response)
-		t.WsConn.WriteMessage(websocket.TextMessage, responseBytes)
+		_ = t.write(websocket.TextMessage, responseBytes)
 		go func() {
 			time.Sleep(100 * time.Millisecond)
 			t.Close()

@@ -2,105 +2,59 @@ package wsterminal
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"runtime"
 	"sync"
-	"syscall"
 	"time"
 
-	"github.com/creack/pty"
+	"uranus/internal/ptyshell"
+
 	"github.com/gorilla/websocket"
 )
 
+// writeWait bounds how long a write may block on a slow or stalled client.
+const writeWait = 10 * time.Second
+
 // Terminal represents a terminal session with WebSocket connectivity
 type Terminal struct {
-	ID        string
-	Cmd       *exec.Cmd
-	Pty       *os.File
-	WsConn    *websocket.Conn
-	Done      chan struct{}
+	ID     string
+	WsConn *websocket.Conn
+	Done   chan struct{}
+	shell  *ptyshell.Shell
+	// gorilla/websocket allows only one writer at a time; concurrent writes panic.
+	writeMu   sync.Mutex
 	closeOnce sync.Once
-	rows      uint16
-	cols      uint16
 }
 
 // NewTerminal creates a new terminal session
 func NewTerminal(id string, conn *websocket.Conn, shell string) (*Terminal, error) {
 	log.Printf("[WS Terminal] Creating new terminal with ID: %s", id)
 
-	if shell == "" {
-		shell = getDefaultShell()
-		log.Printf("[WS Terminal] Using default shell: %s", shell)
-	}
-
-	_, err := os.Stat(shell)
-	if err != nil {
-		log.Printf("[WS Terminal] Error with shell path %s: %v", shell, err)
-		if shell != "/bin/sh" {
-			log.Printf("[WS Terminal] Falling back to /bin/sh")
-			shell = "/bin/sh"
-			_, err = os.Stat(shell)
-			if err != nil {
-				return nil, fmt.Errorf("fallback shell /bin/sh not available: %v", err)
-			}
-		} else {
-			return nil, fmt.Errorf("shell not available: %v", err)
-		}
-	}
-
-	log.Printf("[WS Terminal] Creating command with shell: %s", shell)
-	cmd := exec.Command(shell)
-
-	cmd.Env = append(os.Environ(),
+	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"PS1=\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] ")
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-
-	log.Printf("[WS Terminal] Creating PTY...")
-	ptmx, tty, err := pty.Open()
+	sh, err := ptyshell.Start(shell, env, 24, 80)
 	if err != nil {
-		log.Printf("[WS Terminal] Failed to open PTY: %v", err)
-		return nil, fmt.Errorf("failed to open PTY: %v", err)
+		log.Printf("[WS Terminal] Failed to start shell: %v", err)
+		return nil, fmt.Errorf("failed to start shell: %v", err)
 	}
+	log.Printf("[WS Terminal] Successfully created pseudo-terminal, PID: %d", sh.Pid())
 
-	cmd.Stdin = tty
-	cmd.Stdout = tty
-	cmd.Stderr = tty
-
-	log.Printf("[WS Terminal] Creating pseudo-terminal, Shell: %s, OS: %s", shell, runtime.GOOS)
-	if err := cmd.Start(); err != nil {
-		log.Printf("[WS Terminal] Failed to start command: %v", err)
-		tty.Close()
-		ptmx.Close()
-		return nil, fmt.Errorf("failed to start command: %v", err)
-	}
-
-	tty.Close()
-
-	log.Printf("[WS Terminal] Successfully created pseudo-terminal, PID: %d", cmd.Process.Pid)
-
-	pty.Setsize(ptmx, &pty.Winsize{
-		Rows: 24,
-		Cols: 80,
-	})
-
-	terminal := &Terminal{
+	return &Terminal{
 		ID:     id,
-		Cmd:    cmd,
-		Pty:    ptmx,
 		WsConn: conn,
 		Done:   make(chan struct{}),
-		rows:   24,
-		cols:   80,
-	}
+		shell:  sh,
+	}, nil
+}
 
-	return terminal, nil
+// write sends one message to the client. Every WriteMessage must go through it.
+func (t *Terminal) write(messageType int, data []byte) error {
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+	_ = t.WsConn.SetWriteDeadline(time.Now().Add(writeWait))
+	return t.WsConn.WriteMessage(messageType, data)
 }
 
 // Start begins the I/O handling for the terminal
@@ -119,27 +73,18 @@ func (t *Terminal) Start() {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 					log.Printf("[WS Terminal] Error reading from WebSocket: %v", err)
 				}
-				break
+				return
 			}
 
-			if messageType == websocket.TextMessage {
-				if len(p) > 0 && p[0] == '{' {
-					handleControlMessage(t, p)
-					continue
-				}
+			if messageType == websocket.TextMessage && len(p) > 0 && p[0] == '{' {
+				handleControlMessage(t, p)
+				continue
 			}
 
-			if len(p) == 1 && p[0] == 3 {
-				err := t.SendInterrupt()
-				if err != nil {
-					log.Printf("[WS Terminal] Error sending interrupt: %v", err)
-				}
-
-			}
-
-			if _, err := t.Pty.Write(p); err != nil {
+			// Ctrl+C arrives as byte 0x03; the terminal turns it into SIGINT for the foreground job.
+			if _, err := t.shell.PTY().Write(p); err != nil {
 				log.Printf("[WS Terminal] Error writing to PTY: %v", err)
-				break
+				return
 			}
 		}
 	}()
@@ -151,54 +96,50 @@ func (t *Terminal) Start() {
 		}()
 
 		buf := make([]byte, 16384)
-
 		for {
-			select {
-			case <-t.Done:
-				return
-			default:
-				n, err := t.Pty.Read(buf)
-				if err != nil {
-					if err != io.EOF {
-						log.Printf("[WS Terminal] Error reading from PTY: %v", err)
-					}
+			n, err := t.shell.PTY().Read(buf)
+			if n > 0 {
+				if err := t.write(websocket.BinaryMessage, buf[:n]); err != nil {
+					log.Printf("[WS Terminal] Error writing to WebSocket: %v", err)
 					return
 				}
-
-				if n > 0 {
-					if err := t.WsConn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-						log.Printf("[WS Terminal] Error writing to WebSocket: %v", err)
-						return
-					}
-				}
+			}
+			if err != nil {
+				return
 			}
 		}
 	}()
 
-	// Wait for command to finish
+	// End the session when the shell exits, e.g. after `exit`.
 	go func() {
-		defer func() {
-			log.Printf("[WS Terminal] Command watcher exiting for session: %s", t.ID)
+		select {
+		case <-t.shell.Exited():
+			log.Printf("[WS Terminal] Shell exited for session: %s", t.ID)
 			t.Close()
-		}()
-
-		log.Printf("[WS Terminal] Waiting for command to complete")
-		err := t.Cmd.Wait()
-		log.Printf("[WS Terminal] Command exited: %v", err)
+		case <-t.Done:
+		}
 	}()
 
 	// Send initial message to client
-	welcomeMsg := []byte("\r\nWelcome to WebSocket Terminal\r\n\r\n")
-	t.WsConn.WriteMessage(websocket.BinaryMessage, welcomeMsg)
+	_ = t.write(websocket.BinaryMessage, []byte("\r\nWelcome to WebSocket Terminal\r\n\r\n"))
 
 	// 在服务器端配置 Shell 环境，这样用户就不会看到这些命令执行过程
 	time.Sleep(100 * time.Millisecond) // 确保 shell 已经准备好接收命令
 	shellInitCmd := []byte("export TERM=xterm-256color && " +
 		"PS1=\"\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] \" && " +
-		"alias ls='ls --color' && " +
+		"alias ls='" + lsWithColor() + "' && " +
 		"alias ll='ls -alF' && " +
 		"clear\n")
-	t.Pty.Write(shellInitCmd)
+	_, _ = t.shell.PTY().Write(shellInitCmd)
+}
+
+// lsWithColor returns an ls invocation with colors: BSD ls on macOS uses -G,
+// and macOS releases before Ventura reject --color.
+func lsWithColor() string {
+	if runtime.GOOS == "darwin" {
+		return "ls -G"
+	}
+	return "ls --color=auto"
 }
 
 // Close terminates the terminal session
@@ -207,229 +148,19 @@ func (t *Terminal) Close() {
 		log.Printf("[WS Terminal] Closing terminal: %s", t.ID)
 		close(t.Done)
 
-		// Close WebSocket with timeout handling
-		if t.WsConn != nil {
-			closeWSTimeout := 5 * time.Second
-			wsCloseChan := make(chan bool, 1)
+		// WriteControl is safe to call concurrently with the other writers.
+		_ = t.WsConn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Terminal closed"),
+			time.Now().Add(time.Second),
+		)
+		_ = t.WsConn.Close()
 
-			// Setup a timeout for websocket closure
-			go func() {
-				t.WsConn.WriteControl(
-					websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Terminal closed"),
-					time.Now().Add(time.Second),
-				)
-				t.WsConn.Close()
-				wsCloseChan <- true
-			}()
-
-			// Wait with timeout
-			select {
-			case <-wsCloseChan:
-				log.Printf("[WS Terminal] WebSocket closed gracefully")
-			case <-time.After(closeWSTimeout):
-				log.Printf("[WS Terminal] WebSocket close timed out")
-			}
-		}
-
-		// Terminate process first - this is important to do before closing PTY
-		// to avoid orphaned processes
-		if t.Cmd != nil && t.Cmd.Process != nil {
-			pid := t.Cmd.Process.Pid
-			log.Printf("[WS Terminal] Terminating process: %d", pid)
-
-			// Try to terminate process group
-			terminateSuccess := false
-			if pgid, err := syscall.Getpgid(pid); err == nil {
-				// First, try to terminate gracefully
-				if err := syscall.Kill(-pgid, syscall.SIGINT); err == nil {
-					log.Printf("[WS Terminal] Sent SIGINT to process group: %d", -pgid)
-
-					// Give process a chance to terminate gracefully
-					terminateSuccess = waitForProcessExit(pid, 500*time.Millisecond)
-					if terminateSuccess {
-						log.Printf("[WS Terminal] Process terminated with SIGINT")
-					}
-				}
-
-				// If still running, try SIGTERM
-				if !terminateSuccess {
-					if err := syscall.Kill(-pgid, syscall.SIGTERM); err == nil {
-						log.Printf("[WS Terminal] Sent SIGTERM to process group: %d", -pgid)
-						terminateSuccess = waitForProcessExit(pid, 500*time.Millisecond)
-						if terminateSuccess {
-							log.Printf("[WS Terminal] Process terminated with SIGTERM")
-						}
-					}
-				}
-
-				// Finally, if all else fails, use SIGKILL
-				if !terminateSuccess {
-					if err := syscall.Kill(-pgid, syscall.SIGKILL); err == nil {
-						log.Printf("[WS Terminal] Sent SIGKILL to process group: %d", -pgid)
-						waitForProcessExit(pid, 500*time.Millisecond)
-					}
-				}
-			} else {
-				// If we can't get process group ID, send signals directly to process
-				log.Printf("[WS Terminal] Failed to get process group ID: %v, sending signals directly to process", err)
-				t.Cmd.Process.Signal(syscall.SIGINT)
-				if !waitForProcessExit(pid, 300*time.Millisecond) {
-					t.Cmd.Process.Signal(syscall.SIGTERM)
-					if !waitForProcessExit(pid, 300*time.Millisecond) {
-						t.Cmd.Process.Kill()
-					}
-				}
-			}
-		}
-
-		// Close PTY after process termination
-		if t.Pty != nil {
-			err := t.Pty.Close()
-			if err != nil {
-				log.Printf("[WS Terminal] Error closing PTY: %v", err)
-			} else {
-				log.Printf("[WS Terminal] PTY closed successfully")
-			}
-		}
+		t.shell.Close()
 	})
-}
-
-// waitForProcessExit checks if a process has exited within the given timeout
-func waitForProcessExit(pid int, timeout time.Duration) bool {
-	exitChan := make(chan bool, 1)
-
-	// Check process in goroutine
-	go func() {
-		for {
-			// Use Signal(0) to check if process exists without sending a signal
-			process, err := os.FindProcess(pid)
-			if err != nil || process.Signal(syscall.Signal(0)) != nil {
-				exitChan <- true
-				return
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-	}()
-
-	// Wait with timeout
-	select {
-	case <-exitChan:
-		return true
-	case <-time.After(timeout):
-		return false
-	}
 }
 
 // Resize resizes the terminal
 func (t *Terminal) Resize(rows, cols uint16) error {
-	if t.Pty == nil {
-		return fmt.Errorf("PTY not initialized")
-	}
-
-	t.rows = rows
-	t.cols = cols
-
-	return pty.Setsize(t.Pty, &pty.Winsize{
-		Rows: rows,
-		Cols: cols,
-	})
-}
-
-// getDefaultShell returns the default shell
-func getDefaultShell() string {
-	// Prefer bash
-	shells := []string{"/bin/bash", "/bin/sh", "/bin/zsh"}
-
-	if runtime.GOOS == "darwin" {
-		// On macOS, prefer bash over zsh for stability
-		shells = []string{"/bin/bash", "/bin/sh", "/bin/zsh"}
-
-		// Check executable permissions
-		for _, shell := range shells {
-			if info, err := os.Stat(shell); err == nil {
-				// Ensure file exists and is executable
-				if info.Mode()&0111 != 0 {
-					log.Printf("[WS Terminal] Using shell: %s", shell)
-					return shell
-				}
-			}
-		}
-
-		// If all shells are unavailable, try /bin/sh
-		log.Printf("[WS Terminal] Warning: All preferred shells unavailable, using /bin/sh")
-		return "/bin/sh"
-	}
-
-	// Other systems
-	for _, shell := range shells {
-		if _, err := os.Stat(shell); err == nil {
-			log.Printf("[WS Terminal] Using shell: %s", shell)
-			return shell
-		}
-	}
-
-	// Fallback shell
-	log.Printf("[WS Terminal] Warning: All shells unavailable, using /bin/sh")
-	return "/bin/sh"
-}
-
-// SendInterrupt sends interrupt signals to the process group
-func (t *Terminal) SendInterrupt() error {
-	if t.Cmd == nil || t.Cmd.Process == nil {
-		return fmt.Errorf("process not running")
-	}
-
-	pgid, err := syscall.Getpgid(t.Cmd.Process.Pid)
-	if err != nil {
-		return fmt.Errorf("failed to get process group ID: %v", err)
-	}
-
-	// 1. 首先尝试向进程组发送SIGINT
-	log.Printf("[WS Terminal] Sending SIGINT to process group: %d", -pgid)
-	err = syscall.Kill(-pgid, syscall.SIGINT)
-	if err != nil {
-		log.Printf("[WS Terminal] Failed to send SIGINT: %v", err)
-	}
-
-	// 2. 使用goroutine在短暂延迟后发送SIGTERM，如果进程仍在运行
-	go func() {
-		// 等待一小段时间看SIGINT是否生效
-		time.Sleep(100 * time.Millisecond)
-
-		// 再次检查进程是否仍在运行
-		if processIsRunning(t.Cmd.Process.Pid) {
-			log.Printf("[WS Terminal] Process still running after SIGINT, sending SIGTERM to group: %d", -pgid)
-			if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
-				log.Printf("[WS Terminal] Failed to send SIGTERM: %v", err)
-			}
-
-			// 为ping和一些常见的顽固进程执行killall
-			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-				for _, procName := range []string{"ping", "dd", "nc", "cat"} {
-					killCmd := exec.Command("killall", "-TERM", procName)
-					_ = killCmd.Run()
-				}
-			}
-		}
-	}()
-
-	return nil
-}
-
-// 检查进程是否仍在运行
-func processIsRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// 在Unix-like系统上，os.FindProcess总是成功的，需要发送信号0来检查进程是否存在
-	if runtime.GOOS != "windows" {
-		err = process.Signal(syscall.Signal(0))
-		return err == nil
-	}
-
-	// Windows平台，进程存在则返回nil
-	return true
+	return t.shell.Resize(rows, cols)
 }

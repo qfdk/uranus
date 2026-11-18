@@ -36,8 +36,14 @@ func (m *Manager) CreateTerminal(conn *websocket.Conn, shell string) (*Terminal,
 		return nil, fmt.Errorf("failed to create terminal: %v", err)
 	}
 
-	// Store terminal
+	// Store terminal, and forget it once it closes
 	m.terminals[sessionID] = terminal
+	go func() {
+		<-terminal.Done
+		m.mu.Lock()
+		delete(m.terminals, sessionID)
+		m.mu.Unlock()
+	}()
 	log.Printf("[WS Terminal Manager] Terminal created: %s", sessionID)
 
 	return terminal, nil
