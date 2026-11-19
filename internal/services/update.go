@@ -19,11 +19,10 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"uranus/internal/config"
 	"uranus/internal/tools"
-
-	"github.com/cheggaaa/pb/v3"
 )
 
 // ReleaseBaseURL 是发布文件所在的地址：各架构的程序 uranus-<arch>（amd64、arm64）、
@@ -182,6 +181,8 @@ func ToUpdateProgram() error {
 		return fmt.Errorf("替换程序失败: %v", err)
 	}
 
+	ensureRestartPolicy()
+
 	// 触发文件让运行中的进程重启服务
 	if f, err := os.Create(path.Join(installPath, upgradeTrigger)); err != nil {
 		log.Printf("[WARN] 无法创建升级触发文件: %v", err)
@@ -282,6 +283,13 @@ var upgradeConfirmed atomic.Bool
 // exit ends the process; tests replace it.
 var exit = os.Exit
 
+// reexec replaces this process with the program now at the install path, so
+// the service keeps running under the same PID: systemd does not restart
+// services installed by old versions of install.sh (Restart=no). Tests replace it.
+var reexec = func() error {
+	return syscall.Exec(path.Join(installPath, binaryName), os.Args, os.Environ())
+}
+
 // CheckPendingUpgrade runs first at startup. Right after an upgrade the new
 // program is on probation: when it failed to start three times, the previous
 // program is put back and the process exits, so that systemd starts that one.
@@ -305,8 +313,7 @@ func CheckPendingUpgrade() {
 	go func() {
 		time.Sleep(upgradeProbation)
 		if !upgradeConfirmed.Load() {
-			log.Printf("[升级] 新版本 %v 内没有就绪，退出重试", upgradeProbation)
-			exit(1)
+			rollbackUpgrade(fmt.Sprintf("新版本 %s 启动 %v 后仍没有就绪", short(p.Commit), upgradeProbation))
 		}
 	}()
 }
@@ -330,8 +337,38 @@ func rollbackUpgrade(reason string) {
 		log.Printf("[升级] %s，换回上一版失败: %v", reason, err)
 		return
 	}
-	log.Printf("[升级] %s，已换回上一版，退出后由 systemd 重新启动", reason)
-	exit(1)
+	log.Printf("[升级] %s，已换回上一版并重新启动", reason)
+	if err := reexec(); err != nil {
+		log.Printf("[升级] 启动上一版失败: %v，退出", err)
+		exit(1)
+	}
+}
+
+// systemdDropIn is where ensureRestartPolicy writes; tests replace it.
+var systemdDropIn = "/etc/systemd/system/uranus.service.d/restart.conf"
+
+// ensureRestartPolicy makes systemd restart Uranus when it exits with an error.
+// Services installed by old versions of install.sh have Restart=no: a new
+// version that crashed would stay down instead of being started again, counted
+// and rolled back.
+func ensureRestartPolicy() {
+	out, err := exec.Command("systemctl", "show", "-p", "Restart", "--value", "uranus.service").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "no" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(systemdDropIn), 0755); err != nil {
+		log.Printf("[升级] 设置服务重启策略失败: %v", err)
+		return
+	}
+	if err := os.WriteFile(systemdDropIn, []byte("[Service]\nRestart=on-failure\nRestartSec=5s\n"), 0644); err != nil {
+		log.Printf("[升级] 设置服务重启策略失败: %v", err)
+		return
+	}
+	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+		log.Printf("[升级] systemctl daemon-reload 失败: %v", err)
+		return
+	}
+	log.Printf("[升级] 服务原来异常退出后不会重启，已加上 Restart=on-failure")
 }
 
 // DeleteAllBackups 删除所有备份文件
@@ -384,72 +421,33 @@ func DeleteAllBackups() {
 	}
 }
 
-// downloadFile 从指定URL下载文件到目标路径，带进度条
+// downloadFile 从指定URL下载文件到目标路径
 func downloadFile(url, targetPath string) error {
-	// 创建HTTP客户端，设置超时
-	client := &http.Client{
-		Timeout: time.Second * downloadTimeout,
-	}
-
-	// 发送请求
+	client := &http.Client{Timeout: time.Second * downloadTimeout}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %v", err)
 	}
-
-	// 添加User-Agent以避免某些服务器拒绝请求
 	req.Header.Set("User-Agent", "Uranus-Updater/1.0")
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("下载失败: %v", err)
 	}
 	defer resp.Body.Close()
-
-	// 检查状态码
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("服务器返回错误状态码: %d", resp.StatusCode)
 	}
 
-	// 获取文件大小
-	contentLength := int64(0)
-	contentLengthStr := resp.Header.Get("Content-Length")
-	if contentLengthStr != "" {
-		if length, err := strconv.ParseInt(contentLengthStr, 10, 64); err == nil {
-			contentLength = length
-		}
-	}
-
-	log.Printf("[INFO] 下载到临时位置: %s", targetPath)
-
-	// 创建下载文件
 	downFile, err := os.Create(targetPath)
 	if err != nil {
 		return fmt.Errorf("无法创建文件: %v", err)
 	}
 	defer downFile.Close()
-
-	// 设置下载进度条
-	var bar *pb.ProgressBar
-	if contentLength > 0 {
-		bar = pb.Full.Start64(contentLength)
-		bar.SetMaxWidth(100)
-		bar.Set(pb.Bytes, true)
-		barReader := bar.NewProxyReader(resp.Body)
-
-		// 下载文件
-		if _, err := io.Copy(downFile, barReader); err != nil {
-			return fmt.Errorf("下载过程中出错: %v", err)
-		}
-		bar.Finish()
-	} else {
-		// 如果无法获取文件大小，无进度条下载
-		log.Printf("[INFO] 无法获取文件大小，下载开始...")
-		if _, err := io.Copy(downFile, resp.Body); err != nil {
-			return fmt.Errorf("下载过程中出错: %v", err)
-		}
-		log.Printf("[INFO] 下载完成")
+	begin := time.Now()
+	size, err := io.Copy(downFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("下载过程中出错: %v", err)
 	}
-
+	log.Printf("[升级] 下载完成：%.1f MB，用时 %v", float64(size)/(1<<20), time.Since(begin).Round(100*time.Millisecond))
 	return nil
 }

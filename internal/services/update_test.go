@@ -142,13 +142,14 @@ func TestToUpdateProgramRefusesBadPrograms(t *testing.T) {
 	}
 }
 
-// A new program that keeps failing to start is replaced by the previous one.
+// A new program that keeps failing to start is replaced by the previous one,
+// which then runs in its place.
 func TestRollbackAfterFailedStarts(t *testing.T) {
-	saved := installPath
+	saved, savedReexec := installPath, reexec
 	installPath = t.TempDir()
-	t.Cleanup(func() { installPath = saved; exit = os.Exit; upgradeConfirmed.Store(false) })
-	exited := -1
-	exit = func(code int) { exited = code }
+	t.Cleanup(func() { installPath, reexec = saved, savedReexec; upgradeConfirmed.Store(false) })
+	exited := -1 // 换成上一版重新运行时记为 0
+	reexec = func() error { exited = 0; return nil }
 	os.WriteFile(filepath.Join(installPath, binaryName), []byte("broken new"), 0o755)
 	os.WriteFile(filepath.Join(installPath, binaryName+".previous"), []byte("working old"), 0o755)
 
@@ -160,7 +161,7 @@ func TestRollbackAfterFailedStarts(t *testing.T) {
 		}
 	}
 	CheckPendingUpgrade()
-	if exited != 1 || installed(t, binaryName) != "working old" {
+	if exited != 0 || installed(t, binaryName) != "working old" {
 		t.Fatalf("not rolled back: exit %d, program %q", exited, installed(t, binaryName))
 	}
 	if _, err := os.Stat(filepath.Join(installPath, pendingUpgradeFile)); err == nil {

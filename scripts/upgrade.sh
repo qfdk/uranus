@@ -42,6 +42,13 @@ mv ${CUR_FILE} ${OLD_FILE}
 # Replace current version with new version
 mv ${TEMP_FILE} ${CUR_FILE}
 
+# 老版本的安装脚本没有设置 Restart：程序异常退出后不会被重启，也就没有机会换回上一版
+if [ "$(systemctl show -p Restart --value uranus 2>/dev/null)" = "no" ]; then
+  mkdir -p /etc/systemd/system/uranus.service.d
+  printf '[Service]\nRestart=on-failure\nRestartSec=5s\n' > /etc/systemd/system/uranus.service.d/restart.conf
+  systemctl daemon-reload
+fi
+
 # Start the service again
 echo "Starting Uranus service..."
 service uranus start

@@ -231,7 +231,8 @@ func Graceful() {
 		}
 
 		log.Printf("[进程][%d]: 执行systemctl restart %s", os.Getpid(), "uranus.service")
-		restartCmd := exec.Command("systemctl", "restart", "uranus.service")
+		// --no-block：这个进程本身会被重启结束，不等重启完成，免得报「重启命令失败: signal: terminated」
+		restartCmd := exec.Command("systemctl", "restart", "--no-block", "uranus.service")
 		output, err := restartCmd.CombinedOutput()
 
 		if err != nil {
