@@ -78,8 +78,8 @@
                 <a href="/admin/sites/edit?path={{ .Path }}" class="flex min-w-0 items-center gap-3 font-medium text-fg">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-muted [&>svg]:h-4 [&>svg]:w-4">{{ svgIcon "globe" }}</span>
                     <span class="min-w-0">
-                        <span class="block truncate">{{ .Name }}</span>
-                        <span class="block truncate text-xs font-normal text-muted">{{ .Dir }}{{ if .Link }} → {{ .Link }}{{ end }}</span>
+                        <span class="block [overflow-wrap:anywhere]">{{ .Name }}</span>
+                        <span class="block text-xs font-normal text-muted [overflow-wrap:anywhere]">{{ .Dir }}{{ if .Link }} → {{ .Link }}{{ end }}</span>
                     </span>
                 </a>
             </td>

@@ -41,7 +41,7 @@
                 <div class="flex min-w-0 flex-col gap-0.5">
                     {{ range $i, $domain := .domains }}
                     <a href="https://{{ $domain }}" target="_blank" rel="noopener"
-                       class="truncate hover:text-fg {{ if eq $i 0 }}font-medium text-fg{{ else }}text-xs text-muted{{ end }}">{{ $domain }}</a>
+                       class="[overflow-wrap:anywhere] hover:text-fg {{ if eq $i 0 }}font-medium text-fg{{ else }}text-xs text-muted{{ end }}">{{ $domain }}</a>
                     {{ end }}
                 </div>
             </td>

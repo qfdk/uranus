@@ -53,7 +53,7 @@
                     <span class="badge badge-gray"><span class="dot"></span>已停止</span>
                     {{ end }}
                 </div>
-                <p class="mt-1 truncate text-sm text-muted">
+                <p class="mt-1 break-words text-sm text-muted">
                     {{ .nginxCompileInfo.Version }}{{ if $running }} · 主进程 PID {{ .nginxStatus }}{{ end }}
                 </p>
             </div>
@@ -138,9 +138,9 @@
             <h3 class="card-title">{{ svgIcon "monitor" }}系统</h3>
         </div>
         <dl class="kv">
-            <div><dt>主机名</dt><dd title="{{ .hostname }}">{{ or .hostname "—" }}</dd></div>
+            <div><dt>主机名</dt><dd>{{ or .hostname "—" }}</dd></div>
             <div><dt>操作系统</dt><dd>{{ or .osName "—" }}</dd></div>
-            <div><dt>CPU</dt><dd title="{{ .cpuModel }}">{{ .cpuCount }} 核{{ if .cpuModel }} · {{ .cpuModel }}{{ end }}</dd></div>
+            <div><dt>CPU</dt><dd>{{ .cpuCount }} 核{{ if .cpuModel }} · {{ .cpuModel }}{{ end }}</dd></div>
             <div><dt>负载</dt><dd>{{ with .load }}{{ index . 0 }} / {{ index . 1 }} / {{ index . 2 }}{{ else }}—{{ end }}</dd></div>
             <div><dt>运行时长</dt><dd>{{ or .uptime "—" }}</dd></div>
         </dl>
@@ -153,9 +153,9 @@
         </div>
         <dl class="kv">
             <div><dt>版本</dt><dd>{{ .nginxCompileInfo.Version }}</dd></div>
-            <div><dt>编译器</dt><dd title="{{ .nginxCompileInfo.CompilerVersion }}">{{ .nginxCompileInfo.CompilerVersion }}</dd></div>
-            <div><dt>OpenSSL</dt><dd title="{{ .nginxCompileInfo.SSLVersion }}">{{ .nginxCompileInfo.SSLVersion }}</dd></div>
-            <div><dt>主配置</dt><dd title="{{ .nginxCompileInfo.NginxConfPath }}">{{ or .nginxCompileInfo.NginxConfPath "—" }}</dd></div>
+            <div><dt>编译器</dt><dd>{{ .nginxCompileInfo.CompilerVersion }}</dd></div>
+            <div><dt>OpenSSL</dt><dd>{{ .nginxCompileInfo.SSLVersion }}</dd></div>
+            <div><dt>主配置</dt><dd>{{ or .nginxCompileInfo.NginxConfPath "—" }}</dd></div>
         </dl>
     </section>
 
