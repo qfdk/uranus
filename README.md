@@ -31,7 +31,7 @@ mqttBroker = "mqtts://your-mqtt-server:8883"
 * SQLite : [SQLite](https://github.com/go-gorm/sqlite)
 * Terminal : [ttyd](https://github.com/tsl0922/ttyd)
 * VSCode : [vscode](https://github.com/microsoft/vscode)
-* 一键升级
+* 在线升级：只装签名过的版本，新版本起不来时自动换回上一版
 
 ### 一键脚本
 
