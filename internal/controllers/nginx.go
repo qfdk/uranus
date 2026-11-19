@@ -63,12 +63,20 @@ func SaveNginxConf(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": result})
 }
 
+// GetNginxCompileInfo shows how nginx is installed: its build and where
+// Uranus found its files.
 func GetNginxCompileInfo(ctx *gin.Context) {
-	// Get compile info from the shared cache in config package
-	nginxCompileInfo := config.ReadNginxCompileInfo()
-
-	ctx.HTML(http.StatusOK, "config.html", gin.H{
+	info := config.ReadNginxCompileInfo()
+	data := gin.H{
 		"activePage":       "config",
-		"nginxCompileInfo": nginxCompileInfo,
-	})
+		"nginxCompileInfo": info,
+		"installed":        info.NginxConfPath != "",
+	}
+	if info.NginxConfPath != "" {
+		data["pidFile"] = config.NginxPidFile()
+		data["sites"] = config.Sites()
+		data["sslDir"] = config.SSLDir()
+		data["manager"] = services.NginxManager()
+	}
+	ctx.HTML(http.StatusOK, "config.html", data)
 }

@@ -44,6 +44,20 @@ wget -qO- https://de.qfdk.me/uranus/upgrade.sh|bash
 kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 ```
 
+### Nginx 的安装位置
+
+不同系统的 nginx 装在不同的地方，Uranus 不按发行版猜路径，而是以 nginx 自己的说法为准：
+
+- 可执行文件：优先用 systemd 服务（`nginx.service`，OpenResty 是 `openresty.service`）实际启动的那个，其次是 PATH 里的 `nginx`，最后查各系统的常见位置（Homebrew、源码编译的 `/usr/local/nginx`、OpenResty 等）
+- 主配置和 PID 文件：取 `nginx -V` 的编译参数；systemd 服务用 `-c` 指定的主配置、nginx.conf 里的 `pid` 指令优先
+- 网站目录：nginx.conf 的 http 块里 include 的目录。Debian、Ubuntu、CentOS 系是 `conf.d`，Alpine 是 `http.d`，Homebrew 是 `servers`。源码编译、OpenResty 和 Arch 默认没有引用任何目录，「网站」页面会提示，并可以一键在 nginx.conf 里加上 include
+- 证书目录：nginx 配置目录下的 `ssl`
+- 启停：nginx 由 systemd 服务运行时用 `systemctl`，否则直接用 `nginx -s`
+
+需要时可以在 `config.toml` 里用 `vhostpath`、`sslpath` 指定网站目录和证书目录。「Nginx 配置」页面列出了检测到的所有位置。
+
+`scripts/test-nginx-layouts.sh` 会在 Docker 里依次安装各发行版的 nginx，检查检测结果，以及保存在网站目录里的网站能否通过 `nginx -t`。
+
 ### 截图预览
 
 ![login.png](./docs/login.png)

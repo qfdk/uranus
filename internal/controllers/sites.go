@@ -73,7 +73,7 @@ func GetTemplate(ctx *gin.Context) {
 	inputTemplate := templateConf
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains, " "))
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", GetAppConfig().SSLPath)
+	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", SSLDir())
 	inputTemplate = strings.ReplaceAll(inputTemplate, "{{proxy}}", proxy)
 
 	// 更新缓存
@@ -93,8 +93,8 @@ type siteFile struct {
 
 // GetSites 获取所有站点配置
 func GetSites(ctx *gin.Context) {
-	vhostPath := GetAppConfig().VhostPath
-	entries, err := os.ReadDir(vhostPath)
+	sites := Sites()
+	entries, err := os.ReadDir(sites.Dir)
 	if err != nil {
 		log.Println(err)
 	}
@@ -119,11 +119,21 @@ func GetSites(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "sites.html", gin.H{
 		"activePage": "sites",
 		"files":      files,
-		"vhostPath":  vhostPath,
-		// 删除网站后带回来的结果
-		"deleted": ctx.Query("deleted"),
-		"message": ctx.Query("message"),
+		"sitesDir":   sites.Dir,
+		// nginx 主配置没有引用网站目录时，这里的网站不会生效
+		"notIncluded": sites.Checked && !sites.Included,
+		"nginxConf":   ReadNginxCompileInfo().NginxConfPath,
+		// 删除网站、添加 include 之后带回来的结果
+		"deleted":  ctx.Query("deleted"),
+		"message":  ctx.Query("message"),
+		"included": ctx.Query("included"),
 	})
+}
+
+// IncludeSitesDir adds the sites directory to the http block of nginx.conf.
+func IncludeSitesDir(ctx *gin.Context) {
+	query := url.Values{"included": {services.IncludeSitesDir()}}
+	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
 }
 
 // EditSiteConf 编辑站点配置
@@ -143,7 +153,7 @@ func EditSiteConf(ctx *gin.Context) {
 		configName = strings.TrimSuffix(configName, ".conf")
 	}
 
-	vhostPath := GetAppConfig().VhostPath
+	vhostPath := SitesDir()
 	filePath := filepath.Join(vhostPath, fileToRead)
 
 	// 检查文件是否存在
@@ -205,14 +215,14 @@ func DeleteSiteConf(ctx *gin.Context) {
 	}
 
 	// 删除配置文件
-	vhostPath := GetAppConfig().VhostPath
+	vhostPath := SitesDir()
 	err := os.Remove(filepath.Join(vhostPath, fileToDelete))
 	if err != nil {
 		log.Printf("删除配置文件出错: %v", err)
 	}
 
 	// 如果存在，删除SSL目录
-	sslPath := GetAppConfig().SSLPath
+	sslPath := SSLDir()
 	err = os.RemoveAll(filepath.Join(sslPath, configName))
 	if err != nil {
 		log.Printf("删除SSL目录出错: %v", err)
@@ -248,7 +258,7 @@ func SaveSiteConf(ctx *gin.Context) {
 	proxy := ctx.PostForm("proxy")
 
 	// 确保vhost目录存在
-	vhostPath := GetAppConfig().VhostPath
+	vhostPath := SitesDir()
 	if err := os.MkdirAll(vhostPath, 0755); err != nil {
 		log.Printf("创建vhost目录出错: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})

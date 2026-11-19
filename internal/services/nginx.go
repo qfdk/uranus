@@ -49,7 +49,7 @@ func NginxStatus() string {
 // readNginxPid reads nginx's PID file and makes sure that process still exists:
 // a crashed or killed nginx leaves its PID file behind.
 func readNginxPid() string {
-	pidPath := config.ReadNginxCompileInfo().NginxPidPath
+	pidPath := config.NginxPidFile()
 	if pidPath == "" {
 		return "KO"
 	}
@@ -69,10 +69,10 @@ func readNginxPid() string {
 	return pidText
 }
 
-// useSystemd reports whether nginx is managed with systemctl. That is only the
-// case on Linux hosts booted with systemd; Docker containers (including the
-// provided image), OpenRC systems and macOS signal nginx directly.
-func useSystemd() bool {
+// systemdBooted reports whether this is a Linux host booted with systemd that
+// has systemctl. Docker containers (including the provided image), OpenRC
+// systems and macOS are not.
+func systemdBooted() bool {
 	if sysType != "linux" {
 		return false
 	}
@@ -83,22 +83,46 @@ func useSystemd() bool {
 	return err == nil
 }
 
-// nginxCommand builds the command that starts, reloads, stops or restarts nginx.
-// Restart only exists under systemd; RestartNginx handles the direct case.
-func nginxCommand(action string) *exec.Cmd {
-	if useSystemd() {
-		return exec.Command("systemctl", action, "nginx")
+// nginxUnit returns the systemd unit nginx is installed as on this host.
+// nginx built from source usually has none; it is then signalled directly.
+func nginxUnit() (config.SystemdUnit, bool) {
+	if !systemdBooted() {
+		return config.SystemdUnit{}, false
 	}
-	nginx := config.NginxBinary()
-	switch action {
-	case "start":
-		return exec.Command(nginx)
-	case "stop":
-		// quit 会等正在处理的请求结束再退出，nginx.service 停止时也是这样做的
-		return exec.Command(nginx, "-s", "quit")
+	return config.FindNginxUnit()
+}
+
+// managingUnit returns the systemd unit that is running nginx right now. A
+// unit that exists but is inactive while nginx runs means nginx was started
+// by hand: systemctl reload and stop would not reach it.
+func managingUnit() (string, bool) {
+	unit, ok := nginxUnit()
+	if !ok || !unit.Active {
+		return "", false
+	}
+	return unit.Name, true
+}
+
+// NginxManager describes how Uranus starts and stops nginx on this host.
+func NginxManager() string {
+	unit, ok := nginxUnit()
+	switch {
+	case !ok:
+		return "直接控制 nginx 进程（nginx -s）"
+	case unit.Active:
+		return "systemd（" + unit.Name + "）"
 	default:
-		return exec.Command(nginx, "-s", action)
+		return "systemd（" + unit.Name + "，当前没有通过它运行）"
 	}
+}
+
+// nginxCommand runs nginx with args for the main configuration file Uranus
+// shows and edits, which is also the one the systemd unit starts nginx with.
+func nginxCommand(args ...string) *exec.Cmd {
+	if conf := config.ReadNginxCompileInfo().NginxConfPath; conf != "" {
+		args = append([]string{"-c", conf}, args...)
+	}
+	return exec.Command(config.NginxBinary(), args...)
 }
 
 func invalidateNginxStatus() {
@@ -122,43 +146,34 @@ func waitNginxRunning(running bool, timeout time.Duration) bool {
 	}
 }
 
-// runNginxAction runs action and returns "OK" or why it failed.
-func runNginxAction(action string) string {
-	out, err := nginxCommand(action).CombinedOutput()
-	defer invalidateNginxStatus()
+// run runs cmd and returns "OK" or why it failed: the output of nginx or
+// systemctl and, for a systemd unit, the last lines of its journal.
+func run(cmd *exec.Cmd, unit string) string {
+	out, err := cmd.CombinedOutput()
+	invalidateNginxStatus()
+	command := strings.Join(cmd.Args, " ")
 
 	if err != nil {
 		reason := strings.TrimSpace(string(out))
 		if reason == "" {
 			reason = err.Error()
 		}
-		if useSystemd() {
+		if unit != "" {
 			// systemctl 只说失败了，真正的原因在 nginx 的日志里
-			if detail := journalTail(); detail != "" {
+			if detail := journalTail(unit); detail != "" {
 				reason += "\n" + detail
 			}
 		}
-		log.Printf("[PID][%d]: [NGINX] %s failed: %s", syscall.Getpid(), action, reason)
+		log.Printf("[PID][%d]: [NGINX] %s failed: %s", syscall.Getpid(), command, reason)
 		return reason
 	}
-
-	if !useSystemd() {
-		switch action {
-		case "start":
-			waitNginxRunning(true, 5*time.Second)
-		case "stop":
-			if !waitNginxRunning(false, 15*time.Second) {
-				return "已通知 Nginx 退出，但 15 秒后仍在运行（可能还有未处理完的连接）"
-			}
-		}
-	}
-	log.Printf("[PID][%d]: [NGINX] %s successful", syscall.Getpid(), action)
+	log.Printf("[PID][%d]: [NGINX] %s successful", syscall.Getpid(), command)
 	return "OK"
 }
 
-// journalTail returns the last lines nginx.service logged, which explain a failed systemctl call.
-func journalTail() string {
-	out, err := exec.Command("journalctl", "-u", "nginx", "-n", "8", "--no-pager", "-o", "cat").Output()
+// journalTail returns the last lines a unit logged, which explain a failed systemctl call.
+func journalTail(unit string) string {
+	out, err := exec.Command("journalctl", "-u", unit, "-n", "8", "--no-pager", "-o", "cat").Output()
 	if err != nil {
 		return ""
 	}
@@ -173,7 +188,7 @@ func nginxInstalled() bool {
 // TestNginxConfig runs `nginx -t` and returns "" when the configuration is
 // valid, otherwise nginx's explanation (which file and line is wrong).
 func TestNginxConfig() string {
-	out, err := exec.Command(config.NginxBinary(), "-t").CombinedOutput()
+	out, err := nginxCommand("-t").CombinedOutput()
 	if err == nil {
 		return ""
 	}
@@ -189,28 +204,61 @@ func configCheckFailed(detail string) string {
 
 // StartNginx checks the configuration and starts nginx.
 func StartNginx() string {
+	if readNginxPid() != "KO" {
+		return "OK"
+	}
 	if msg := TestNginxConfig(); msg != "" {
 		return configCheckFailed(msg)
 	}
-	return runNginxAction("start")
+	return startNginx()
+}
+
+// startNginx starts a stopped nginx, through systemd when nginx is installed
+// as a service so that systemd keeps managing it.
+func startNginx() string {
+	if unit, ok := nginxUnit(); ok {
+		return run(exec.Command("systemctl", "start", unit.Name), unit.Name)
+	}
+	if result := run(nginxCommand(), ""); result != "OK" {
+		return result
+	}
+	waitNginxRunning(true, 5*time.Second)
+	return "OK"
 }
 
 // ReloadNginx checks the configuration and reloads it. A stopped nginx has
 // nothing to reload: the configuration applies when it starts.
 func ReloadNginx() string {
-	if NginxStatus() == "KO" {
+	unit, managed := managingUnit()
+	if !managed && NginxStatus() == "KO" {
 		log.Println("[NGINX] Not running, no need to reload configuration!")
 		return "OK"
 	}
 	if msg := TestNginxConfig(); msg != "" {
 		return configCheckFailed(msg)
 	}
-	return runNginxAction("reload")
+	if managed {
+		return run(exec.Command("systemctl", "reload", unit), unit)
+	}
+	return run(nginxCommand("-s", "reload"), "")
 }
 
 // StopNginx stops nginx gracefully, letting it finish the requests in flight.
 func StopNginx() string {
-	return runNginxAction("stop")
+	if unit, managed := managingUnit(); managed {
+		return run(exec.Command("systemctl", "stop", unit), unit)
+	}
+	if readNginxPid() == "KO" {
+		return "OK"
+	}
+	// quit 会等正在处理的请求结束再退出，nginx.service 停止时也是这样做的
+	if result := run(nginxCommand("-s", "quit"), ""); result != "OK" {
+		return result
+	}
+	if !waitNginxRunning(false, 15*time.Second) {
+		return "已通知 Nginx 退出，但 15 秒后仍在运行（可能还有未处理完的连接）"
+	}
+	return "OK"
 }
 
 // RestartNginx checks the configuration, then stops nginx and starts it again.
@@ -218,16 +266,14 @@ func RestartNginx() string {
 	if msg := TestNginxConfig(); msg != "" {
 		return configCheckFailed(msg)
 	}
-	if useSystemd() {
-		return runNginxAction("restart")
+	if unit, managed := managingUnit(); managed {
+		return run(exec.Command("systemctl", "restart", unit), unit)
 	}
 	// 直接管理时要等旧进程完全退出再启动，否则端口还被占着
-	if readNginxPid() != "KO" {
-		if result := runNginxAction("stop"); result != "OK" {
-			return result
-		}
+	if result := StopNginx(); result != "OK" {
+		return result
 	}
-	return runNginxAction("start")
+	return startNginx()
 }
 
 // WriteConfigChecked writes an nginx configuration file and checks the whole
@@ -267,4 +313,31 @@ func SaveNginxConf(content string) string {
 		return "未找到 nginx 主配置文件，请确认 nginx 已安装"
 	}
 	return WriteConfigChecked(confPath, []byte(content))
+}
+
+// IncludeSitesDir adds the sites directory to the http block of the main
+// configuration. The default configuration of nginx built from source, of
+// OpenResty and of Arch Linux includes no directory, so the sites saved by
+// Uranus would not be loaded.
+func IncludeSitesDir() string {
+	sites := config.Sites()
+	if !sites.Checked {
+		return "无法读取或解析 nginx 主配置文件"
+	}
+	if sites.Included {
+		return "OK"
+	}
+	confPath := config.ReadNginxCompileInfo().NginxConfPath
+	src, err := os.ReadFile(confPath)
+	if err != nil {
+		return "读取 nginx 主配置文件失败：" + err.Error()
+	}
+	updated, err := config.AddSitesInclude(string(src), sites.Dir)
+	if err != nil {
+		return err.Error()
+	}
+	if err := os.MkdirAll(sites.Dir, 0o755); err != nil {
+		return "创建网站目录失败：" + err.Error()
+	}
+	return WriteConfigChecked(confPath, []byte(updated))
 }

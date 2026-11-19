@@ -3,10 +3,35 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">网站</h1>
-        <p class="page-desc">{{ len .files }} 个站点配置，保存后自动重新加载 Nginx</p>
+        <p class="page-desc">{{ len .files }} 个站点配置，保存在 {{ .sitesDir }}，保存后自动重新加载 Nginx</p>
     </div>
     <a href="/admin/sites/new" class="btn btn-primary">{{ svgIcon "plus" }}新建网站</a>
 </div>
+
+{{ if .included }}
+{{ if eq .included "OK" }}
+<div class="alert alert-success mb-6">{{ svgIcon "circle-check" }}<span>已在 {{ .nginxConf }} 中引用 {{ .sitesDir }}，这里的网站现在会生效</span></div>
+{{ else }}
+<div class="alert alert-error mb-6">
+    {{ svgIcon "circle-alert" }}
+    <div class="min-w-0">
+        <p class="font-medium">没有修改 nginx.conf</p>
+        <p class="mt-1 whitespace-pre-wrap break-all opacity-90">{{ .included }}</p>
+    </div>
+</div>
+{{ end }}
+{{ else if .notIncluded }}
+<div class="alert alert-warning mb-6">
+    {{ svgIcon "circle-alert" }}
+    <div class="min-w-0">
+        <p class="font-medium">Nginx 没有加载这个目录里的网站</p>
+        <p class="mt-1 break-all opacity-90">{{ .nginxConf }} 的 http 块里没有 include {{ .sitesDir }}。源码编译、OpenResty 和 Arch Linux 的默认配置都是这样。</p>
+        <form action="/admin/sites/include" method="post" class="mt-3">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ svgIcon "file-cog" }}在 nginx.conf 中引用这个目录</button>
+        </form>
+    </div>
+</div>
+{{ end }}
 
 {{ if .deleted }}
 {{ if eq .message "OK" }}
@@ -65,7 +90,7 @@
     <div class="flex flex-col items-center px-6 py-16 text-center">
         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-hover text-subtle [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "globe" }}</div>
         <h3 class="mt-4 text-sm font-semibold text-fg">还没有网站</h3>
-        <p class="mt-1 text-sm text-muted">新建的配置文件会保存在 {{ .vhostPath }}</p>
+        <p class="mt-1 text-sm text-muted">新建的配置文件会保存在 {{ .sitesDir }}</p>
         <a href="/admin/sites/new" class="btn btn-primary mt-5">{{ svgIcon "plus" }}新建网站</a>
     </div>
     {{ end }}

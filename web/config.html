@@ -29,13 +29,29 @@
 
 <section class="card mt-6">
     <div class="card-header">
-        <h3 class="card-title">{{ svgIcon "file-cog" }}文件路径</h3>
+        <h3 class="card-title">{{ svgIcon "file-cog" }}安装位置</h3>
+        <span class="text-xs text-muted">根据 nginx -V 和主配置检测</span>
     </div>
+    {{ if .installed }}
     <dl class="kv">
-        <div><dt>主配置文件</dt><dd title="{{ .nginxCompileInfo.NginxConfPath }}">{{ or .nginxCompileInfo.NginxConfPath "—" }}</dd></div>
-        <div><dt>PID 文件</dt><dd title="{{ .nginxCompileInfo.NginxPidPath }}">{{ or .nginxCompileInfo.NginxPidPath "—" }}</dd></div>
-        <div><dt>可执行文件</dt><dd title="{{ .nginxCompileInfo.NginxExec }}">{{ or .nginxCompileInfo.NginxExec "—" }}</dd></div>
+        <div><dt>可执行文件</dt><dd title="{{ .nginxCompileInfo.NginxExec }}">{{ .nginxCompileInfo.NginxExec }}</dd></div>
+        <div><dt>主配置文件</dt><dd title="{{ .nginxCompileInfo.NginxConfPath }}">{{ .nginxCompileInfo.NginxConfPath }}</dd></div>
+        <div><dt>PID 文件</dt><dd title="{{ .pidFile }}">{{ or .pidFile "—" }}</dd></div>
+        <div>
+            <dt>网站目录</dt>
+            <dd class="flex items-center justify-end gap-2" title="{{ .sites.Dir }}">
+                {{ if not .sites.Checked }}<span class="badge badge-gray">无法读取主配置</span>
+                {{ else if .sites.Included }}<span class="badge badge-green">已被主配置引用</span>
+                {{ else }}<a href="/admin/sites" class="badge badge-amber">未被主配置引用</a>{{ end }}
+                <span class="truncate">{{ .sites.Dir }}</span>
+            </dd>
+        </div>
+        <div><dt>证书目录</dt><dd title="{{ .sslDir }}">{{ .sslDir }}</dd></div>
+        <div><dt>启停方式</dt><dd>{{ .manager }}</dd></div>
     </dl>
+    {{ else }}
+    <p class="px-5 py-8 text-center text-sm text-muted">没有找到 Nginx</p>
+    {{ end }}
 </section>
 
 <section class="card mt-6">

@@ -46,7 +46,7 @@ func IssueCert(domains []string, configName string) error {
 	// 如果没有传入域名的话，默认是点击续签
 	// 需要读取保存的domains 列表
 	if len(domains) == 0 {
-		data, err := os.ReadFile(path.Join(GetAppConfig().SSLPath, configName, "domains"))
+		data, err := os.ReadFile(path.Join(SSLDir(), configName, "domains"))
 		if err != nil {
 			log.Printf("[SSL] Failed to read domains file: %v", err)
 			return err
@@ -103,7 +103,7 @@ func IssueCert(domains []string, configName string) error {
 	}
 
 	// nginx 证书目录
-	if err := saveCertificate(filepath.Join(GetAppConfig().SSLPath, configName),
+	if err := saveCertificate(filepath.Join(SSLDir(), configName),
 		certificates.Certificate, certificates.PrivateKey, domains); err != nil {
 		return err
 	}

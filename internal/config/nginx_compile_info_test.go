@@ -138,23 +138,30 @@ func TestNginxInstalledLaterIsDetected(t *testing.T) {
 	}
 }
 
-// Under launchd (macOS) or a minimal service PATH, nginx is not on PATH.
-func TestNginxBinaryFallsBackToKnownLocations(t *testing.T) {
+// Under launchd (macOS) or a minimal service PATH, nginx is not on PATH, and
+// OpenResty only puts "openresty" there.
+func TestLookupNginx(t *testing.T) {
 	resetNginxDetection(t)
 	t.Setenv("PATH", t.TempDir())
 	dir := t.TempDir()
 	installed := filepath.Join(dir, "homebrew", "bin", "nginx")
 	writeExecutable(t, installed, "#!/bin/sh\n")
 	nginxSearchPaths = []string{filepath.Join(dir, "missing", "nginx"), installed}
+	if got := lookupNginx(); got != installed {
+		t.Fatalf("lookupNginx() = %q, want %q", got, installed)
+	}
 
-	if got := NginxBinary(); got != installed {
-		t.Fatalf("NginxBinary() = %q, want %q", got, installed)
+	openresty := t.TempDir()
+	writeExecutable(t, filepath.Join(openresty, "openresty"), "#!/bin/sh\n")
+	t.Setenv("PATH", openresty)
+	if got := lookupNginx(); got != filepath.Join(openresty, "openresty") {
+		t.Fatalf("openresty on PATH should be found, got %q", got)
 	}
 
 	onPath := t.TempDir()
 	writeExecutable(t, filepath.Join(onPath, "nginx"), "#!/bin/sh\n")
-	t.Setenv("PATH", onPath)
-	if got := NginxBinary(); got != filepath.Join(onPath, "nginx") {
+	t.Setenv("PATH", onPath+string(os.PathListSeparator)+openresty)
+	if got := lookupNginx(); got != filepath.Join(onPath, "nginx") {
 		t.Fatalf("nginx on PATH should win, got %q", got)
 	}
 }

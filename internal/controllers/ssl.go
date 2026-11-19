@@ -80,8 +80,8 @@ func DeleteSSL(ctx *gin.Context) {
 	}
 
 	// 安全地删除文件
-	sslPath := filepath.Clean(filepath.Join(config.GetAppConfig().SSLPath, configName))
-	baseSSLPath := filepath.Clean(config.GetAppConfig().SSLPath)
+	baseSSLPath := filepath.Clean(config.SSLDir())
+	sslPath := filepath.Clean(filepath.Join(baseSSLPath, configName))
 
 	// 确保目标路径在 SSL 目录内
 	if !strings.HasPrefix(sslPath, baseSSLPath) {

@@ -13,4 +13,5 @@ func sitesRoute(engine *gin.RouterGroup) {
 	// 删除用 POST：会话 cookie 是 SameSite=Lax，别的网站发起的跳转（GET）仍会带上它
 	engine.POST("/sites/delete/:filename", controllers.DeleteSiteConf)
 	engine.POST("/sites/save", controllers.SaveSiteConf)
+	engine.POST("/sites/include", controllers.IncludeSitesDir)
 }

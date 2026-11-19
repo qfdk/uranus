@@ -170,6 +170,9 @@
     .alert-success {
         @apply border-green-600/20 bg-green-500/10 text-green-800 dark:border-green-400/20 dark:text-green-300;
     }
+    .alert-warning {
+        @apply border-amber-600/20 bg-amber-500/10 text-amber-800 dark:border-amber-400/20 dark:text-amber-300;
+    }
     .alert-info {
         @apply border-line bg-surface text-muted;
     }

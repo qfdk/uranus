@@ -101,7 +101,7 @@ func Index(ctx *gin.Context) {
 
 	// 网站和证书概况
 	sites := 0
-	if entries, err := os.ReadDir(config2.GetAppConfig().VhostPath); err == nil {
+	if entries, err := os.ReadDir(config2.SitesDir()); err == nil {
 		for _, entry := range entries {
 			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".conf") {
 				sites++

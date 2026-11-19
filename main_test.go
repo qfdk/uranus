@@ -128,3 +128,56 @@ func TestDashboardTemplate(t *testing.T) {
 		})
 	}
 }
+
+func render(t *testing.T, page string, data map[string]any) string {
+	t.Helper()
+	tmpl, err := parseTemplates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&out, page, data); err != nil {
+		t.Fatal(err)
+	}
+	return out.String()
+}
+
+// The sites page warns when nginx does not load its directory, and offers to
+// add the include.
+func TestSitesTemplate(t *testing.T) {
+	data := map[string]any{"activePage": "sites", "files": []any{}, "sitesDir": "/usr/local/nginx/conf/conf.d",
+		"nginxConf": "/usr/local/nginx/conf/nginx.conf", "notIncluded": true}
+	if page := render(t, "sites.html", data); !strings.Contains(page, `action="/admin/sites/include"`) ||
+		!strings.Contains(page, "/usr/local/nginx/conf/conf.d") {
+		t.Fatal("no warning about the sites directory")
+	}
+	data["notIncluded"] = false
+	if page := render(t, "sites.html", data); strings.Contains(page, `action="/admin/sites/include"`) {
+		t.Fatal("warning shown for an included directory")
+	}
+	data["included"] = "OK"
+	if page := render(t, "sites.html", data); !strings.Contains(page, "这里的网站现在会生效") {
+		t.Fatal("include result not shown")
+	}
+}
+
+func TestNginxConfigTemplate(t *testing.T) {
+	info := &config.NginxCompileInfo{Version: "openresty/1.25.3.1", NginxExec: "/usr/local/openresty/nginx/sbin/nginx",
+		NginxConfPath: "/usr/local/openresty/nginx/conf/nginx.conf"}
+	page := render(t, "config.html", map[string]any{
+		"activePage": "config", "nginxCompileInfo": info, "installed": true,
+		"pidFile": "/usr/local/openresty/nginx/logs/nginx.pid",
+		"sites":   config.SitesLocation{Dir: "/usr/local/openresty/nginx/conf/conf.d", Checked: true},
+		"sslDir":  "/usr/local/openresty/nginx/conf/ssl", "manager": "systemd（openresty.service）",
+	})
+	for _, want := range []string{"/usr/local/openresty/nginx/sbin/nginx", "/usr/local/openresty/nginx/logs/nginx.pid",
+		"未被主配置引用", "/usr/local/openresty/nginx/conf/ssl", "systemd（openresty.service）"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if page := render(t, "config.html", map[string]any{"activePage": "config",
+		"nginxCompileInfo": &config.NginxCompileInfo{}}); !strings.Contains(page, "没有找到 Nginx") {
+		t.Error("missing nginx not shown")
+	}
+}

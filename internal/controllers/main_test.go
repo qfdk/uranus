@@ -19,7 +19,8 @@ var (
 )
 
 // TestMain puts a fake nginx on PATH whose `nginx -V` points the main
-// configuration file into a temporary directory.
+// configuration file into a temporary directory, and a systemctl that knows no
+// nginx unit, so that detection never picks the nginx of the machine.
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 	dir, err := os.MkdirTemp("", "uranus-controllers-test")
@@ -43,6 +44,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	if err := os.WriteFile(filepath.Join(bin, "nginx"), []byte(script), 0o755); err != nil {
+		panic(err)
+	}
+	systemctl := "#!/bin/sh\necho LoadState=not-found\necho ActiveState=inactive\n"
+	if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte(systemctl), 0o755); err != nil {
 		panic(err)
 	}
 	os.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))

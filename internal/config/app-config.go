@@ -156,13 +156,12 @@ func initAppConfig() {
 		initialPassword := generateInitialPassword()
 		log.Printf("[安全] 已生成初始管理员密码: %s （请登录后立即修改，或编辑 config.toml）", initialPassword)
 
-		// 默认配置
+		// 默认配置。不写 vhostPath 和 sslpath：网站目录取 nginx 主配置在 http 块里引用的目录，
+		// 证书放在 nginx 配置目录下的 ssl，需要时可以在 config.toml 里指定这两项
 		defaultConfig := map[string]interface{}{
 			"url":           "http://" + getIP() + ":7777",
 			"uuid":          uuid.New().String(),
 			"token":         GenerateSecureToken(), // 使用我们的安全令牌生成器
-			"vhostPath":     "/etc/nginx/conf.d",
-			"sslpath":       "/etc/nginx/ssl",
 			"email":         "hello@world.com",
 			"username":      "admin",
 			"password":      initialPassword,

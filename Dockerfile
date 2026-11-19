@@ -14,9 +14,7 @@ FROM alpine
 WORKDIR /app
 # 安装必要的运行时依赖：nginx、bash、ca-certificates
 RUN apk update && apk add nginx bash ca-certificates
-RUN mkdir -p /etc/nginx/sites-enabled
-RUN mkdir -p /etc/nginx/conf.d
-RUN mkdir -p /etc/nginx/ssl
+# 网站配置放在 Alpine 的 nginx 在 http 块里引用的 /etc/nginx/http.d，证书目录在首次签发时创建
 RUN mkdir -p /var/log/nginx
 RUN mkdir -p /var/lib/nginx/tmp
 # 不在构建时启动nginx，改为运行时启动

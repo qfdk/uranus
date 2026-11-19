@@ -16,10 +16,15 @@ type NginxCompileInfo struct {
 	CompilerVersion string
 	SSLVersion      string
 	TLSSupport      string
-	NginxExec       string
-	NginxConfPath   string
-	NginxPidPath    string
-	Params          []string
+	// NginxExec is the executable Uranus runs, NginxConfPath the main
+	// configuration file it runs with (the -c of the systemd unit, otherwise
+	// the compiled-in path) and NginxPidPath the compiled-in pid file; the pid
+	// directive of nginx.conf overrides it, see NginxPidFile.
+	NginxExec     string
+	NginxConfPath string
+	NginxPidPath  string
+	Prefix        string
+	Params        []string
 }
 
 var (
@@ -29,29 +34,78 @@ var (
 	autoInstallOnce sync.Once
 
 	// nginxSearchPaths 是 PATH 中找不到 nginx 时依次尝试的位置。
-	// 例如 macOS 上由 launchd 启动时 PATH 不包含 Homebrew 目录。
-	nginxSearchPaths = []string{
-		"/opt/homebrew/bin/nginx", // Homebrew (Apple Silicon)
-		"/usr/local/bin/nginx",    // Homebrew (Intel)
-		"/usr/sbin/nginx",
-		"/usr/local/sbin/nginx",
-		"/usr/local/nginx/sbin/nginx", // 源码编译的默认位置
-		"/usr/local/openresty/nginx/sbin/nginx",
-	}
+	// 例如 macOS 上由 launchd 启动时 PATH 不包含 Homebrew 目录，OpenResty 不把 nginx 放进 PATH。
+	nginxSearchPaths = searchPathsFor(runtime.GOOS)
 )
 
-// NginxBinary returns the nginx executable: the one on PATH, otherwise the
-// first one found in the usual install locations.
+func searchPathsFor(goos string) []string {
+	if goos == "darwin" {
+		return []string{
+			"/opt/homebrew/bin/nginx", // Homebrew（Apple Silicon）
+			"/usr/local/bin/nginx",    // Homebrew（Intel）
+			"/opt/local/sbin/nginx",   // MacPorts
+			"/opt/homebrew/opt/openresty/nginx/sbin/nginx",
+			"/usr/local/opt/openresty/nginx/sbin/nginx",
+			"/usr/local/nginx/sbin/nginx", // 源码编译的默认位置
+			"/usr/local/openresty/nginx/sbin/nginx",
+		}
+	}
+	return []string{
+		"/usr/sbin/nginx", // 发行版和 nginx.org 的软件包
+		"/usr/bin/nginx",  // Arch
+		"/usr/local/sbin/nginx",
+		"/usr/local/nginx/sbin/nginx",           // 源码编译的默认位置
+		"/usr/local/openresty/nginx/sbin/nginx", // OpenResty
+		"/opt/nginx/sbin/nginx",                 // Passenger
+		"/home/linuxbrew/.linuxbrew/bin/nginx",  // Homebrew on Linux
+	}
+}
+
+// NginxBinary returns the nginx executable Uranus runs.
 func NginxBinary() string {
-	if p, err := exec.LookPath("nginx"); err == nil {
-		return p
+	if exe := ReadNginxCompileInfo().NginxExec; exe != "" {
+		return exe
+	}
+	return "nginx"
+}
+
+// findNginx returns the nginx executable and, on Linux hosts where nginx is a
+// systemd service, that unit. The program the unit starts is the nginx that
+// serves the sites, whatever else is installed or comes first on PATH.
+func findNginx() (string, SystemdUnit) {
+	if hostOS == "linux" {
+		if unit, ok := FindNginxUnit(); ok && isNginxProgram(unit.ExecPath) && isExecutable(unit.ExecPath) {
+			return unit.ExecPath, unit
+		}
+	}
+	return lookupNginx(), SystemdUnit{}
+}
+
+// lookupNginx finds nginx (or OpenResty) on PATH, otherwise in the usual
+// install locations of this system.
+func lookupNginx() string {
+	for _, name := range []string{"nginx", "openresty"} {
+		if p, err := exec.LookPath(name); err == nil {
+			return p
+		}
 	}
 	for _, p := range nginxSearchPaths {
-		if info, err := os.Stat(p); err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+		if isExecutable(p) {
 			return p
 		}
 	}
 	return "nginx"
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular() && info.Mode()&0o111 != 0
+}
+
+// isNginxProgram tells nginx itself from a wrapper script a unit may start.
+func isNginxProgram(path string) bool {
+	name := filepath.Base(path)
+	return name == "nginx" || name == "openresty"
 }
 
 // ReadNginxCompileInfo returns the parsed `nginx -V` output. Once nginx is found
@@ -68,7 +122,8 @@ func ReadNginxCompileInfo() *NginxCompileInfo {
 }
 
 func detectNginx() (*NginxCompileInfo, bool) {
-	out, err := exec.Command(NginxBinary(), "-V").CombinedOutput()
+	binary, unit := findNginx()
+	out, err := exec.Command(binary, "-V").CombinedOutput()
 	if err != nil {
 		installed := false
 		// 只在第一次发现缺少 nginx 时提示安装或尝试自动安装
@@ -76,12 +131,25 @@ func detectNginx() (*NginxCompileInfo, bool) {
 		if !installed {
 			return notInstalledInfo(), false
 		}
-		if out, err = exec.Command(NginxBinary(), "-V").CombinedOutput(); err != nil {
+		binary, unit = findNginx()
+		if out, err = exec.Command(binary, "-V").CombinedOutput(); err != nil {
 			return notInstalledInfo(), false
 		}
 		log.Printf("[+] Nginx installation verified, continuing with initialization...")
 	}
-	return parseNginxInfo(string(out)), true
+
+	info := parseNginxInfo(string(out))
+	info.NginxExec = binary
+	// systemd 服务用 -c 指定了主配置时，nginx 实际读的是那个文件
+	if unit.ConfArg != "" {
+		info.NginxConfPath = underPrefix(info.Prefix, unit.ConfArg, "")
+	}
+	service := "无"
+	if unit.Name != "" {
+		service = unit.Name
+	}
+	log.Printf("[+] Nginx: %s, main config: %s, systemd unit: %s", info.NginxExec, info.NginxConfPath, service)
+	return info, true
 }
 
 func notInstalledInfo() *NginxCompileInfo {
@@ -203,6 +271,7 @@ func parseNginxInfo(output string) *NginxCompileInfo {
 	if prefix == "" {
 		prefix = "/usr/local/nginx"
 	}
+	nci.Prefix = prefix
 	nci.NginxExec = underPrefix(prefix, nci.NginxExec, "sbin/nginx")
 	nci.NginxConfPath = underPrefix(prefix, nci.NginxConfPath, "conf/nginx.conf")
 	nci.NginxPidPath = underPrefix(prefix, nci.NginxPidPath, "logs/nginx.pid")

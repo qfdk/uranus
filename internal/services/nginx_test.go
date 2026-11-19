@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uranus/internal/config"
 )
 
 // fakeDir holds fake nginx and systemctl executables that record their calls
@@ -16,6 +17,9 @@ import (
 // The fake nginx behaves like the real one where it matters: `-t` fails when
 // FAKE_NGINX_TEST_FAIL is set, `-s quit` lets the master exit a second later,
 // and starting while the old master still holds the port fails.
+//
+// The fake `systemctl show` reports the units listed in FAKE_SYSTEMD_UNITS as
+// installed, and those in FAKE_SYSTEMD_ACTIVE as running.
 var fakeDir string
 
 func TestMain(m *testing.M) {
@@ -34,6 +38,7 @@ func TestMain(m *testing.M) {
 		"  exit 0\n" +
 		"fi\n" +
 		"echo nginx \"$@\" >> \"$DIR/calls.log\"\n" +
+		"if [ \"$1\" = \"-c\" ]; then shift 2; fi\n" +
 		"PID=\"$DIR/nginx.pid\"\n" +
 		"if [ \"$1\" = \"-t\" ]; then\n" +
 		"  if [ -n \"$FAKE_NGINX_TEST_FAIL\" ]; then echo \"$FAKE_NGINX_TEST_FAIL\" >&2; exit 1; fi\n" +
@@ -47,7 +52,20 @@ func TestMain(m *testing.M) {
 		"      fi\n" +
 		"      echo $PPID > \"$PID\" ;;\n" +
 		"esac\n"
-	systemctl := "#!/bin/sh\necho systemctl \"$@\" >> '" + fakeDir + "/calls.log'\n"
+	systemctl := "#!/bin/sh\n" +
+		"DIR='" + fakeDir + "'\n" +
+		"if [ \"$1\" = show ]; then\n" +
+		"  for unit; do :; done\n" +
+		"  case \" $FAKE_SYSTEMD_UNITS \" in\n" +
+		"  *\" $unit \"*)\n" +
+		"    echo LoadState=loaded\n" +
+		"    case \" $FAKE_SYSTEMD_ACTIVE \" in *\" $unit \"*) echo ActiveState=active ;; *) echo ActiveState=inactive ;; esac\n" +
+		"    echo \"ExecStart={ path=$DIR/nginx ; argv[]=$DIR/nginx -g daemon on; master_process on; ; ignore_errors=no ; pid=0 ; code=(null) ; status=0/0 }\" ;;\n" +
+		"  *) echo LoadState=not-found; echo ActiveState=inactive ;;\n" +
+		"  esac\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"echo systemctl \"$@\" >> \"$DIR/calls.log\"\n"
 	for name, script := range map[string]string{"nginx": nginx, "systemctl": systemctl} {
 		if err := os.WriteFile(filepath.Join(fakeDir, name), []byte(script), 0o755); err != nil {
 			panic(err)
@@ -70,8 +88,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// takeCalls returns the commands run since the last call.
-func takeCalls(t *testing.T) []string {
+// takeRawCalls returns the commands run since the last call.
+func takeRawCalls(t *testing.T) []string {
 	t.Helper()
 	path := filepath.Join(fakeDir, "calls.log")
 	data, err := os.ReadFile(path)
@@ -83,6 +101,18 @@ func takeCalls(t *testing.T) []string {
 	}
 	os.Remove(path)
 	return strings.Split(strings.TrimSpace(string(data)), "\n")
+}
+
+// takeCalls returns the commands run since the last call, without the -c
+// argument every nginx command gets (TestNginxCommandsUseTheMainConfig checks it).
+func takeCalls(t *testing.T) []string {
+	t.Helper()
+	conf := " -c " + filepath.Join(fakeDir, "custom-main.conf")
+	calls := takeRawCalls(t)
+	for i, c := range calls {
+		calls[i] = strings.Replace(c, conf, "", 1)
+	}
+	return calls
 }
 
 // simulateHost pretends to run on goos, booted with systemd or not.
@@ -163,8 +193,148 @@ func TestNginxControlOnLinuxWithoutSystemd(t *testing.T) {
 
 func TestNginxControlOnLinuxWithSystemd(t *testing.T) {
 	simulateHost(t, "linux", true)
+	t.Setenv("FAKE_SYSTEMD_UNITS", "nginx.service")
+	writePidFile(t, 0)
+	if got := StartNginx(); got != "OK" {
+		t.Fatalf("start: %q", got)
+	}
+	// systemd runs nginx from now on
+	t.Setenv("FAKE_SYSTEMD_ACTIVE", "nginx.service")
+	writePidFile(t, os.Getpid())
+	if got := ReloadNginx(); got != "OK" {
+		t.Fatalf("reload: %q", got)
+	}
+	if got := StopNginx(); got != "OK" {
+		t.Fatalf("stop: %q", got)
+	}
+	assertCalls(t, "nginx -t", "systemctl start nginx.service", "nginx -t",
+		"systemctl reload nginx.service", "systemctl stop nginx.service")
+}
+
+// nginx built from source on a systemd host usually has no unit: systemctl
+// start nginx used to fail with "Unit nginx.service not found".
+func TestNginxControlOnSystemdHostWithoutUnit(t *testing.T) {
+	simulateHost(t, "linux", true)
 	runAllActions(t)
-	assertCalls(t, "nginx -t", "systemctl start nginx", "nginx -t", "systemctl reload nginx", "systemctl stop nginx")
+	assertCalls(t, "nginx -t", "nginx", "nginx -t", "nginx -s reload", "nginx -s quit")
+	if got := NginxManager(); got != "直接控制 nginx 进程（nginx -s）" {
+		t.Fatalf("NginxManager() = %q", got)
+	}
+}
+
+// nginx started by hand while nginx.service exists: systemctl reload refused
+// ("nginx.service is not active"), systemctl stop did nothing and left nginx
+// running, and systemctl restart started a second master on a busy port.
+func TestNginxStartedByHandIsSignalledDirectly(t *testing.T) {
+	simulateHost(t, "linux", true)
+	t.Setenv("FAKE_SYSTEMD_UNITS", "nginx.service")
+	writePidFile(t, os.Getpid())
+
+	if got := ReloadNginx(); got != "OK" {
+		t.Fatalf("reload: %q", got)
+	}
+	assertCalls(t, "nginx -t", "nginx -s reload")
+
+	// Afterwards systemd manages it.
+	if got := RestartNginx(); got != "OK" {
+		t.Fatalf("restart: %q", got)
+	}
+	assertCalls(t, "nginx -t", "nginx -s quit", "systemctl start nginx.service")
+}
+
+// OpenResty's packages install openresty.service.
+func TestOpenRestyUnit(t *testing.T) {
+	simulateHost(t, "linux", true)
+	t.Setenv("FAKE_SYSTEMD_UNITS", "openresty.service")
+	t.Setenv("FAKE_SYSTEMD_ACTIVE", "openresty.service")
+	writePidFile(t, os.Getpid())
+
+	if got := ReloadNginx(); got != "OK" {
+		t.Fatalf("reload: %q", got)
+	}
+	assertCalls(t, "nginx -t", "systemctl reload openresty.service")
+	if got := NginxManager(); got != "systemd（openresty.service）" {
+		t.Fatalf("NginxManager() = %q", got)
+	}
+}
+
+// Every nginx command names the main configuration file: the one shown in the
+// editor, and the one a systemd unit may start nginx with instead of the
+// compiled-in path.
+func TestNginxCommandsUseTheMainConfig(t *testing.T) {
+	simulateHost(t, "linux", false)
+	runAllActions(t)
+	conf := filepath.Join(fakeDir, "custom-main.conf")
+	calls := takeRawCalls(t)
+	if len(calls) != 5 {
+		t.Fatalf("calls: %q", calls)
+	}
+	for _, c := range calls {
+		if !strings.HasPrefix(c, "nginx -c "+conf) {
+			t.Errorf("%q does not name %s", c, conf)
+		}
+	}
+}
+
+// The pid directive of nginx.conf overrides the compiled-in pid file.
+func TestNginxStatusFollowsThePidDirective(t *testing.T) {
+	conf := filepath.Join(fakeDir, "custom-main.conf")
+	pidFile := filepath.Join(fakeDir, "elsewhere.pid")
+	if err := os.WriteFile(conf, []byte("pid "+pidFile+";\nevents {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(conf); os.Remove(pidFile) })
+	writePidFile(t, 0)
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	resetStatusCache()
+	if got := NginxStatus(); got != strconv.Itoa(os.Getpid()) {
+		t.Fatalf("NginxStatus() = %q", got)
+	}
+}
+
+// Without an include of the sites directory nginx never loads the sites:
+// source builds, OpenResty and Arch Linux ship such a nginx.conf.
+func TestIncludeSitesDir(t *testing.T) {
+	simulateHost(t, "linux", false)
+	writePidFile(t, 0)
+	conf := filepath.Join(fakeDir, "custom-main.conf")
+	sitesDir := filepath.Join(fakeDir, "conf.d")
+	original := "events {}\nhttp {\n    server { listen 80; }\n}\n"
+	if err := os.WriteFile(conf, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(conf); os.RemoveAll(sitesDir) })
+	if sites := config.Sites(); sites.Included || sites.Dir != sitesDir {
+		t.Fatalf("before: %+v", sites)
+	}
+
+	t.Setenv("FAKE_NGINX_TEST_FAIL", "nginx: [emerg] something else is broken")
+	if got := IncludeSitesDir(); !strings.Contains(got, "something else is broken") {
+		t.Fatalf("failed check not reported: %q", got)
+	}
+	if content, _ := os.ReadFile(conf); string(content) != original {
+		t.Fatalf("nginx.conf not restored:\n%s", content)
+	}
+
+	t.Setenv("FAKE_NGINX_TEST_FAIL", "")
+	if got := IncludeSitesDir(); got != "OK" {
+		t.Fatalf("IncludeSitesDir() = %q", got)
+	}
+	if sites := config.Sites(); !sites.Included || sites.Dir != sitesDir {
+		t.Fatalf("after: %+v", sites)
+	}
+	if info, err := os.Stat(sitesDir); err != nil || !info.IsDir() {
+		t.Fatalf("sites directory not created: %v", err)
+	}
+	content, _ := os.ReadFile(conf)
+	if got := IncludeSitesDir(); got != "OK" {
+		t.Fatalf("second call: %q", got)
+	}
+	if again, _ := os.ReadFile(conf); string(again) != string(content) {
+		t.Fatalf("include added twice:\n%s", again)
+	}
 }
 
 func TestNginxControlOnMacOS(t *testing.T) {
@@ -258,11 +428,13 @@ func TestRestartNginxWaitsForTheOldMaster(t *testing.T) {
 
 func TestRestartNginxWithSystemd(t *testing.T) {
 	simulateHost(t, "linux", true)
+	t.Setenv("FAKE_SYSTEMD_UNITS", "nginx.service")
+	t.Setenv("FAKE_SYSTEMD_ACTIVE", "nginx.service")
 	writePidFile(t, os.Getpid())
 	if got := RestartNginx(); got != "OK" {
 		t.Fatalf("restart: %q", got)
 	}
-	assertCalls(t, "nginx -t", "systemctl restart nginx")
+	assertCalls(t, "nginx -t", "systemctl restart nginx.service")
 }
 
 // A configuration that nginx rejects must not stay on disk, where the next
