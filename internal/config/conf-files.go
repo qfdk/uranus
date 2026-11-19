@@ -95,3 +95,46 @@ func ListConfDir(rel string) ([]ConfFile, error) {
 	})
 	return files, nil
 }
+
+// LogFiles returns the log files nginx writes: those its configuration names
+// with access_log and error_log (dump is the output of nginx -T), then the
+// compiled-in ones. Relative paths are relative to the prefix, as in nginx.
+// syslog, stderr, buffers in memory and paths with variables are not files
+// that can be read here, and missing files are left out.
+func LogFiles(dump string, info NginxCompileInfo) []string {
+	var files []string
+	seen := map[string]bool{}
+	add := func(p string) {
+		if p == "" || p == "off" || p == "stderr" || strings.Contains(p, "$") ||
+			strings.HasPrefix(p, "syslog:") || strings.HasPrefix(p, "memory:") {
+			return
+		}
+		p = filepath.Clean(underPrefix(info.Prefix, p, ""))
+		if seen[p] {
+			return
+		}
+		if fi, err := os.Stat(p); err != nil || !fi.Mode().IsRegular() {
+			return
+		}
+		seen[p] = true
+		files = append(files, p)
+	}
+
+	tokens, _ := tokenizeConf(dump)
+	statementStart := true
+	for i, t := range tokens {
+		if statementStart && !t.quoted && (t.text == "access_log" || t.text == "error_log") && i+1 < len(tokens) {
+			add(tokens[i+1].text)
+		}
+		// the next word starts a directive after ; { or }
+		statementStart = !t.quoted && (t.text == ";" || t.text == "{" || t.text == "}")
+	}
+	// Params are the configure arguments without their leading --
+	for _, param := range info.Params {
+		name, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+		if ok && (name == "error-log-path" || name == "http-log-path") {
+			add(strings.TrimSpace(value))
+		}
+	}
+	return files
+}

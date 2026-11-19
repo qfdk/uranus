@@ -1,0 +1,152 @@
+{{template "header.html" .}}
+
+<div class="page-header">
+    <div class="min-w-0">
+        <h1 class="page-title">日志</h1>
+        <p class="page-desc">Nginx 配置里 access_log 和 error_log 写到的文件，显示最后的部分</p>
+    </div>
+</div>
+
+{{ if .files }}
+<section class="card mb-4 p-4">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-0 flex-1 basis-72">
+            <label for="logFile" class="label">日志文件</label>
+            <select id="logFile" class="input">
+                {{ range .files }}<option value="{{ . }}" {{ if eq . $.selected }}selected{{ end }}>{{ . }}</option>{{ end }}
+            </select>
+        </div>
+        <div class="w-28">
+            <label for="logLines" class="label">行数</label>
+            <select id="logLines" class="input">
+                <option value="100">100</option>
+                <option value="200" selected>200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="2000">2000</option>
+            </select>
+        </div>
+        <div class="min-w-0 flex-1 basis-56">
+            <label for="logFilter" class="label">过滤</label>
+            <input type="search" id="logFilter" class="input" placeholder="例如 404、IP 地址、error" autocomplete="off">
+        </div>
+        <label class="flex h-10 cursor-pointer items-center gap-2 text-sm text-fg">
+            <input type="checkbox" id="logFollow" class="h-4 w-4 accent-current">自动刷新
+        </label>
+        <button type="button" id="logRefresh" class="btn btn-secondary">{{ svgIcon "refresh-cw" }}刷新</button>
+    </div>
+</section>
+
+<div class="overflow-hidden rounded-xl border border-line bg-[#1d1d1d]">
+    <pre id="logView" class="h-[calc(100dvh-21rem)] min-h-[320px] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-[#e4e4e5] [overflow-wrap:anywhere]"></pre>
+</div>
+<p id="logStatus" class="mt-2 text-xs text-muted"></p>
+
+<script>
+    (() => {
+        const fileSelect = document.getElementById('logFile');
+        const linesSelect = document.getElementById('logLines');
+        const filterInput = document.getElementById('logFilter');
+        const follow = document.getElementById('logFollow');
+        const view = document.getElementById('logView');
+        const status = document.getElementById('logStatus');
+        let lines = [];
+        let meta = {};
+        let timer = null;
+        let scrollToEnd = true;
+
+        // 错误日志看级别，访问日志看状态码
+        const lineClass = (line) => {
+            if (/\[(emerg|alert|crit|error)\]/.test(line)) return 'text-[#f16da6]';
+            if (/\[warn\]/.test(line)) return 'text-[#f2c14e]';
+            const code = line.match(/" (\d{3}) /);
+            if (code && code[1][0] === '5') return 'text-[#f16da6]';
+            if (code && code[1][0] === '4') return 'text-[#f2c14e]';
+            return '';
+        };
+
+        const render = () => {
+            const filter = filterInput.value.trim().toLowerCase();
+            const shown = filter ? lines.filter((l) => l.toLowerCase().includes(filter)) : lines;
+            // 看到底部时跟着新内容走，往上翻着看时不打扰
+            const atEnd = view.scrollHeight - view.scrollTop - view.clientHeight < 40;
+            const frag = document.createDocumentFragment();
+            for (const line of shown) {
+                const div = document.createElement('div');
+                div.textContent = line || ' ';
+                div.className = lineClass(line);
+                frag.appendChild(div);
+            }
+            if (!shown.length) {
+                const div = document.createElement('div');
+                div.className = 'text-[#a8a8a8]';
+                div.textContent = lines.length ? '没有符合过滤条件的行' : '日志是空的';
+                frag.appendChild(div);
+            }
+            view.replaceChildren(frag);
+            if (atEnd || scrollToEnd) view.scrollTop = view.scrollHeight;
+            scrollToEnd = false;
+            const parts = [];
+            if (meta.size) parts.push(meta.size);
+            if (meta.time) parts.push('修改于 ' + meta.time);
+            parts.push('最后 ' + lines.length + ' 行' + (filter ? '，符合过滤的 ' + shown.length + ' 行' : ''));
+            status.textContent = parts.join(' · ');
+        };
+
+        const load = async () => {
+            const query = new URLSearchParams({file: fileSelect.value, lines: linesSelect.value});
+            try {
+                const res = await fetch('/admin/nginx/logs/tail?' + query);
+                const data = await res.json();
+                if (!res.ok) {
+                    status.textContent = data.message || '读取日志失败';
+                    return;
+                }
+                lines = data.lines;
+                meta = data;
+                render();
+            } catch {
+                status.textContent = '读取日志失败，请确认 Uranus 还在运行';
+            }
+        };
+
+        const setFollow = (on) => {
+            clearInterval(timer);
+            timer = on ? setInterval(load, 3000) : null;
+            try {
+                localStorage.setItem('uranus.logs.follow', on ? '1' : '');
+            } catch {
+                // 浏览器不让存时只在这次生效
+            }
+        };
+
+        fileSelect.addEventListener('change', () => {
+            history.replaceState(null, '', '?' + new URLSearchParams({file: fileSelect.value}));
+            scrollToEnd = true;
+            load();
+        });
+        linesSelect.addEventListener('change', () => {
+            scrollToEnd = true;
+            load();
+        });
+        filterInput.addEventListener('input', render);
+        document.getElementById('logRefresh').addEventListener('click', load);
+        follow.addEventListener('change', () => setFollow(follow.checked));
+        try {
+            follow.checked = localStorage.getItem('uranus.logs.follow') === '1';
+        } catch {
+            follow.checked = false;
+        }
+        setFollow(follow.checked);
+        load();
+    })();
+</script>
+{{ else }}
+<div class="card flex flex-col items-center px-6 py-16 text-center">
+    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-hover text-subtle [&>svg]:h-6 [&>svg]:w-6">{{ svgIcon "scroll-text" }}</div>
+    <h3 class="mt-4 text-sm font-semibold text-fg">没有找到日志文件</h3>
+    <p class="mt-1 max-w-md text-sm text-muted">Nginx 配置里没有 access_log 或 error_log 指向的文件，或者这些文件还不存在</p>
+</div>
+{{ end }}
+
+{{template "footer.html" .}}

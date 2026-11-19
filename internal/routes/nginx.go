@@ -13,6 +13,9 @@ func nginxRoute(engine *gin.RouterGroup) {
 	engine.GET("/nginx/file", controllers.EditConfFile)
 	engine.POST("/nginx/file/save", controllers.SaveConfFile)
 	engine.POST("/nginx/test", controllers.CheckNginxConf)
+	// Nginx 的日志
+	engine.GET("/nginx/logs", controllers.NginxLogs)
+	engine.GET("/nginx/logs/tail", controllers.TailNginxLog)
 	engine.GET("/nginx/config-info", controllers.GetNginxCompileInfo)
 	// 配置文件保存之前的版本
 	engine.GET("/nginx/history", controllers.ConfigHistory)

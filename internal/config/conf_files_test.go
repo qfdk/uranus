@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -72,5 +73,44 @@ func TestConfDirPath(t *testing.T) {
 	enabled, _ := ListConfDir("sites-enabled")
 	if len(enabled) != 2 || enabled[0].Link != "../sites-available/default" || enabled[0].Rel != "sites-enabled/default" {
 		t.Fatalf("sites-enabled: %+v", enabled)
+	}
+}
+
+func TestLogFiles(t *testing.T) {
+	prefix := t.TempDir()
+	for _, f := range []string{"logs/error.log", "logs/access.log", "var/blog.access.log", "var/quoted log.log", "var/compiled-http.log"} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(prefix, f)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(prefix, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dump := "# configuration file " + prefix + "/nginx.conf:\n" +
+		"error_log logs/error.log warn;\n" +
+		"http {\n" +
+		"    # access_log " + prefix + "/var/commented.log;\n" +
+		"    access_log logs/access.log main;\n" +
+		"    access_log syslog:server=127.0.0.1 combined;\n" +
+		"    server {\n" +
+		"        access_log " + prefix + "/var/blog.access.log;\n" +
+		"        access_log \"" + prefix + "/var/quoted log.log\";\n" +
+		"        access_log /var/log/nginx/$host.log;\n" +
+		"        error_log " + prefix + "/var/missing.log;\n" +
+		"        add_header X-Note access_log;\n" +
+		"        access_log off;\n" +
+		"    }\n" +
+		"}\n"
+	info := NginxCompileInfo{Prefix: prefix, Params: []string{
+		"error-log-path=logs/error.log", "http-log-path=" + prefix + "/var/compiled-http.log",
+	}}
+	got := LogFiles(dump, info)
+	want := []string{
+		filepath.Join(prefix, "logs/error.log"), filepath.Join(prefix, "logs/access.log"),
+		filepath.Join(prefix, "var/blog.access.log"), filepath.Join(prefix, "var/quoted log.log"),
+		filepath.Join(prefix, "var/compiled-http.log"),
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("log files:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

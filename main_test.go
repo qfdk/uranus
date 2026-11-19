@@ -295,3 +295,16 @@ func TestConfigFilePages(t *testing.T) {
 		}
 	}
 }
+
+func TestLogsTemplate(t *testing.T) {
+	page := render(t, "logs.html", map[string]any{"activePage": "logs",
+		"files": []string{"/var/log/nginx/error.log", "/var/log/nginx/access.log"}, "selected": "/var/log/nginx/access.log"})
+	for _, want := range []string{`<option value="/var/log/nginx/access.log" selected>`, `id="logView"`, `href="/admin/nginx/logs" class="nav-link active"`} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("log page misses %q", want)
+		}
+	}
+	if page := render(t, "logs.html", map[string]any{"activePage": "logs"}); !strings.Contains(page, "没有找到日志文件") || strings.Contains(page, `id="logView"`) {
+		t.Fatal("empty state not shown")
+	}
+}
