@@ -10,7 +10,10 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
+	"regexp"
 	"runtime"
+	"slices"
+	"strings"
 	"time"
 	config2 "uranus/internal/config"
 	"uranus/internal/models"
@@ -54,6 +57,36 @@ func shortCommit(id string) string {
 	return id
 }
 
+// cpuNoise 是 CPU 名称里不影响辨认的部分：商标、主频、核显
+var cpuNoise = regexp.MustCompile(`\((R|TM|tm)\)| @ .*$| with .* Graphics$| Processor$`)
+
+// shortCPUModel 把 CPU 名称缩短到能和标签放在一行，例如
+// "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz" 写成 "Intel Xeon E5-2680 v4"
+func shortCPUModel(model string) string {
+	short := cpuNoise.ReplaceAllString(model, "")
+	fields := strings.Fields(short)
+	// Intel 的名称里多一个 CPU；"QEMU Virtual CPU" 这种名字里它有意义，留着
+	if len(fields) > 0 && fields[0] == "Intel" {
+		fields = slices.DeleteFunc(fields, func(f string) bool { return f == "CPU" })
+	}
+	return strings.Join(fields, " ")
+}
+
+// shortCompiler 只留编译器和版本，括号里的发行版打包信息在编译参数页上看
+func shortCompiler(version string) string {
+	short, _, _ := strings.Cut(version, " (")
+	return short
+}
+
+// shortSSL 去掉 OpenSSL 版本后面的发布日期："OpenSSL 3.0.2 15 Mar 2022" 写成 "OpenSSL 3.0.2"
+func shortSSL(version string) string {
+	fields := strings.Fields(version)
+	if len(fields) > 2 && fields[1] != "" && fields[1][0] >= '0' && fields[1][0] <= '9' {
+		return fields[0] + " " + fields[1]
+	}
+	return version
+}
+
 func Index(ctx *gin.Context) {
 	nginxInfo := config2.ReadNginxCompileInfo()
 	data := gin.H{
@@ -64,6 +97,8 @@ func Index(ctx *gin.Context) {
 		"nginxAction":        ctx.Query("action"),
 		"nginxActionMessage": ctx.Query("message"),
 		"nginxCompileInfo":   nginxInfo,
+		"compiler":           shortCompiler(nginxInfo.CompilerVersion),
+		"ssl":                shortSSL(nginxInfo.SSLVersion),
 		"buildTime":          config2.BuildTime,
 		"buildVersion":       config2.BuildVersion,
 		"commitID":           config2.CommitID,
@@ -83,7 +118,8 @@ func Index(ctx *gin.Context) {
 		data["uptime"] = formatUptime(hostInfo.Uptime)
 	}
 	if cpuInfo, err := cpu.Info(); err == nil && len(cpuInfo) > 0 {
-		data["cpuModel"] = cpuInfo[0].ModelName
+		data["cpuModel"] = shortCPUModel(cpuInfo[0].ModelName)
+		data["cpuModelFull"] = cpuInfo[0].ModelName
 	}
 	if avg, err := load.Avg(); err == nil && avg != nil {
 		data["load"] = []string{

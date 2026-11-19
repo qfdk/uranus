@@ -132,7 +132,7 @@
 </div>
 
 <!-- 详细信息 -->
-<div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+<div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
     <section class="card">
         <div class="card-header">
             <h3 class="card-title">{{ svgIcon "monitor" }}系统</h3>
@@ -140,7 +140,7 @@
         <dl class="kv">
             <div><dt>主机名</dt><dd>{{ or .hostname "—" }}</dd></div>
             <div><dt>操作系统</dt><dd>{{ or .osName "—" }}</dd></div>
-            <div><dt>CPU</dt><dd>{{ .cpuCount }} 核{{ if .cpuModel }} · {{ .cpuModel }}{{ end }}</dd></div>
+            <div><dt>CPU</dt><dd{{ with .cpuModelFull }} title="{{ . }}"{{ end }}>{{ .cpuCount }} 核{{ if .cpuModel }} · {{ .cpuModel }}{{ end }}</dd></div>
             <div><dt>负载</dt><dd>{{ with .load }}{{ index . 0 }} / {{ index . 1 }} / {{ index . 2 }}{{ else }}—{{ end }}</dd></div>
             <div><dt>运行时长</dt><dd>{{ or .uptime "—" }}</dd></div>
         </dl>
@@ -153,8 +153,8 @@
         </div>
         <dl class="kv">
             <div><dt>版本</dt><dd>{{ .nginxCompileInfo.Version }}</dd></div>
-            <div><dt>编译器</dt><dd>{{ .nginxCompileInfo.CompilerVersion }}</dd></div>
-            <div><dt>OpenSSL</dt><dd>{{ .nginxCompileInfo.SSLVersion }}</dd></div>
+            <div><dt>编译器</dt><dd title="{{ .nginxCompileInfo.CompilerVersion }}">{{ .compiler }}</dd></div>
+            <div><dt>OpenSSL</dt><dd title="{{ .nginxCompileInfo.SSLVersion }}">{{ .ssl }}</dd></div>
             <div><dt>主配置</dt><dd>{{ or .nginxCompileInfo.NginxConfPath "—" }}</dd></div>
         </dl>
     </section>

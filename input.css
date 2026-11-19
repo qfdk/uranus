@@ -202,13 +202,13 @@
         @apply divide-y divide-line-soft px-5;
     }
     .kv > div {
-        @apply flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3 text-sm;
+        @apply flex items-baseline justify-between gap-4 py-3 text-sm;
     }
     .kv dt {
         @apply shrink-0 text-muted;
     }
     .kv dd {
-        @apply ml-auto min-w-0 break-words text-right font-medium text-fg;
+        @apply min-w-0 break-words text-right font-medium text-fg;
     }
 
     /* 指标 */
