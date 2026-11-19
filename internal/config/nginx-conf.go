@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 )
 
 // 网站目录和证书目录不再按发行版猜测，而是读 nginx 自己的主配置：
@@ -198,22 +199,38 @@ func pidDirective(directives []confDirective) string {
 	return ""
 }
 
-// includedSiteDirs returns the directories whose *.conf files nginx loads in
-// its http block, in the order nginx reads them. Relative include paths are
-// relative to the directory of the main file, as in nginx.
-func includedSiteDirs(src, confDir string) ([]string, error) {
+// includedSitePatterns returns the include patterns of the http block that
+// load sites, such as /etc/nginx/conf.d/*.conf and /etc/nginx/sites-enabled/*,
+// in the order nginx reads them. Relative include paths are relative to the
+// directory of the main file, as in nginx.
+func includedSitePatterns(src, confDir string) ([]string, error) {
 	directives, err := parseConf(src)
 	if err != nil {
 		return nil, err
 	}
-	var dirs []string
+	var patterns []string
 	if http := httpBlock(directives); http != nil {
-		collectSiteDirs(http.block, confDir, 0, &dirs)
+		collectSitePatterns(http.block, confDir, 0, &patterns)
+	}
+	return patterns, nil
+}
+
+// includedSiteDirs returns the directories of includedSitePatterns.
+func includedSiteDirs(src, confDir string) ([]string, error) {
+	patterns, err := includedSitePatterns(src, confDir)
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for _, pattern := range patterns {
+		if dir := filepath.Dir(pattern); !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
 	}
 	return dirs, nil
 }
 
-func collectSiteDirs(block []confDirective, confDir string, depth int, dirs *[]string) {
+func collectSitePatterns(block []confDirective, confDir string, depth int, patterns *[]string) {
 	for _, d := range block {
 		if d.name != "include" || d.isBlock || len(d.args) != 1 {
 			continue
@@ -222,8 +239,8 @@ func collectSiteDirs(block []confDirective, confDir string, depth int, dirs *[]s
 		if !filepath.IsAbs(pattern) {
 			pattern = filepath.Join(confDir, pattern)
 		}
+		pattern = filepath.Clean(pattern)
 		dir, glob := filepath.Split(pattern)
-		dir = filepath.Clean(dir)
 		if strings.ContainsAny(dir, "*?[") {
 			continue
 		}
@@ -232,17 +249,93 @@ func collectSiteDirs(block []confDirective, confDir string, depth int, dirs *[]s
 			if depth < 3 {
 				if src, err := os.ReadFile(pattern); err == nil {
 					if nested, err := parseConf(string(src)); err == nil {
-						collectSiteDirs(nested, confDir, depth+1, dirs)
+						collectSitePatterns(nested, confDir, depth+1, patterns)
 					}
 				}
 			}
 			continue
 		}
 		// 只认 conf.d/*.conf、sites-enabled/*、servers/* 这种能匹配到 example.com.conf 的通配符
-		if ok, _ := filepath.Match(glob, "example.com.conf"); ok && !slices.Contains(*dirs, dir) {
-			*dirs = append(*dirs, dir)
+		if ok, _ := filepath.Match(glob, "example.com.conf"); ok && !slices.Contains(*patterns, pattern) {
+			*patterns = append(*patterns, pattern)
 		}
 	}
+}
+
+// SiteFile is the configuration file of a site.
+type SiteFile struct {
+	// Name is the file name: blog.example.com.conf, or default in Debian's sites-enabled.
+	Name string
+	// Path is the absolute path; the site pages identify a site by it.
+	Path string
+	// Link is the target when Path is a symbolic link, as in Debian's
+	// sites-enabled, whose files usually link into sites-available.
+	Link    string
+	Size    int64
+	ModTime time.Time
+}
+
+// ConfigName is the name of the site in Uranus and of its certificate
+// directory: the file name without .conf.
+func (f SiteFile) ConfigName() string {
+	return strings.TrimSuffix(f.Name, ".conf")
+}
+
+// SiteFiles lists the sites: the files nginx loads through the include
+// patterns of its http block (Debian and Ubuntu load both conf.d/*.conf and
+// sites-enabled/*), then the *.conf files of the sites directory, where new
+// sites go, in case nginx does not include it yet. Like nginx, it skips
+// hidden files.
+func SiteFiles() []SiteFile {
+	var patterns []string
+	if confPath := ReadNginxCompileInfo().NginxConfPath; confPath != "" {
+		if src, err := os.ReadFile(confPath); err == nil {
+			patterns, _ = includedSitePatterns(string(src), NginxConfDir())
+		}
+	}
+	patterns = append(patterns, filepath.Join(SitesDir(), "*.conf"))
+
+	var files []SiteFile
+	seen := map[string]bool{}
+	for _, pattern := range patterns {
+		matches, _ := filepath.Glob(pattern)
+		for _, path := range matches {
+			name := filepath.Base(path)
+			if strings.HasPrefix(name, ".") || seen[path] {
+				continue
+			}
+			info, err := os.Stat(path)
+			if err != nil || !info.Mode().IsRegular() {
+				continue
+			}
+			seen[path] = true
+			site := SiteFile{Name: name, Path: path, Size: info.Size(), ModTime: info.ModTime()}
+			if target, err := os.Readlink(path); err == nil {
+				if !filepath.IsAbs(target) {
+					target = filepath.Join(filepath.Dir(path), target)
+				}
+				site.Link = filepath.Clean(target)
+			}
+			files = append(files, site)
+		}
+	}
+	return files
+}
+
+// FindSiteFile returns the site whose configuration file is path. Only the
+// files SiteFiles lists can be found, so a path from a request cannot reach
+// any other file.
+func FindSiteFile(path string) (SiteFile, bool) {
+	if path == "" || !filepath.IsAbs(path) {
+		return SiteFile{}, false
+	}
+	path = filepath.Clean(path)
+	for _, site := range SiteFiles() {
+		if site.Path == path {
+			return site, true
+		}
+	}
+	return SiteFile{}, false
 }
 
 // AddSitesInclude returns the main configuration with `include <dir>/*.conf;`
@@ -392,4 +485,53 @@ func ignoreLegacyDefault(configured, legacy, confDir string) string {
 		return ""
 	}
 	return configured
+}
+
+// dumpMarker starts each file in the output of `nginx -T`.
+const dumpMarker = "# configuration file "
+
+// ConfigFilesUsing returns the files in dump, the output of `nginx -T`, that
+// name a path inside dir, such as a site whose ssl_certificate lies in a
+// certificate directory. Relative paths resolve against confDir as nginx
+// resolves them; comments do not count. A file that does not parse is
+// searched as plain text.
+func ConfigFilesUsing(dump, dir, confDir string) []string {
+	dir = filepath.Clean(dir)
+	inside := func(path string) bool {
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(confDir, path)
+		}
+		path = filepath.Clean(path)
+		return path == dir || strings.HasPrefix(path, dir+string(filepath.Separator))
+	}
+
+	var files []string
+	file, content := "", strings.Builder{}
+	flush := func() {
+		if file == "" {
+			return
+		}
+		tokens, err := tokenizeConf(content.String())
+		used := err != nil && strings.Contains(content.String(), dir+string(filepath.Separator))
+		for _, t := range tokens {
+			if t.quoted || (t.text != "{" && t.text != "}" && t.text != ";") {
+				used = used || inside(t.text)
+			}
+		}
+		if used {
+			files = append(files, file)
+		}
+	}
+	for _, line := range strings.SplitAfter(dump, "\n") {
+		trimmed := strings.TrimRight(line, "\r\n")
+		if strings.HasPrefix(trimmed, dumpMarker) && strings.HasSuffix(trimmed, ":") {
+			flush()
+			file = strings.TrimSuffix(strings.TrimPrefix(trimmed, dumpMarker), ":")
+			content.Reset()
+			continue
+		}
+		content.WriteString(line)
+	}
+	flush()
+	return files
 }

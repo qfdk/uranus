@@ -200,6 +200,8 @@ $('#getTemplate').click(() => {
 $('#saveSitesConf').click(() => {
     let json = {
         filename: $("#filename").val(),
+        // 已有网站带上它的文件路径，保存回原文件（可能在 sites-enabled 里）
+        path: $("#sitePath").val() || "",
         content: editor.getValue()
     };
 

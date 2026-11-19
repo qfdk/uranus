@@ -181,3 +181,21 @@ func TestNginxConfigTemplate(t *testing.T) {
 		t.Error("missing nginx not shown")
 	}
 }
+
+// Deleting a certificate a site uses is refused with the list of files; a
+// deleted site whose certificate another site uses keeps the certificate.
+func TestCertificateDeletionResults(t *testing.T) {
+	page := render(t, "ssl.html", map[string]any{"activePage": "ssl", "deleteError": "证书 blog.example.com 还在被下面的配置使用，先修改或删除这些网站：\n/etc/nginx/conf.d/www.example.com.conf"})
+	if !strings.Contains(page, "没有删除证书") || !strings.Contains(page, "/etc/nginx/conf.d/www.example.com.conf") {
+		t.Fatal("refusal not shown")
+	}
+	if page := render(t, "ssl.html", map[string]any{"activePage": "ssl", "deleted": "blog.example.com"}); !strings.Contains(page, "已删除证书 blog.example.com") {
+		t.Fatal("deletion not shown")
+	}
+	page = render(t, "sites.html", map[string]any{"activePage": "sites", "files": []any{},
+		"deleted": "blog.example.com.conf", "message": "OK", "certKept": "/etc/nginx/conf.d/www.example.com.conf"})
+	if !strings.Contains(page, "已删除 blog.example.com.conf") || !strings.Contains(page, "已保留并继续续签") ||
+		!strings.Contains(page, "/etc/nginx/conf.d/www.example.com.conf") {
+		t.Fatal("kept certificate not shown")
+	}
+}

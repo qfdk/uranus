@@ -244,7 +244,8 @@ func TestDeleteSiteRequiresPost(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Remove("victim.conf") })
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/sites/delete/victim.conf", nil)
+	victim, _ := filepath.Abs("victim.conf")
+	req := httptest.NewRequest(http.MethodGet, "/admin/sites/delete?path="+url.QueryEscape(victim), nil)
 	req.AddCookie(login(t, engine))
 	serve(engine, req)
 	if _, err := os.Stat("victim.conf"); err != nil {

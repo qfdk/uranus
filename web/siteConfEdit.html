@@ -5,7 +5,7 @@
         <a href="/admin/sites" class="back-link">{{ svgIcon "arrow-left" }}网站</a>
         <h1 class="page-title">{{ if .isNewSite }}新建网站{{ else }}{{ .configFileName }}{{ end }}</h1>
         <p class="page-desc">
-            {{ if .isNewSite }}填写名称、域名和反向代理地址，生成配置后保存{{ else }}编辑网站的 Nginx 配置，保存后自动重新加载{{ end }}
+            {{ if .isNewSite }}填写名称、域名和反向代理地址，生成配置后保存{{ else }}{{ .sitePath }}{{ if .siteLink }} → {{ .siteLink }}{{ end }}，保存后自动重新加载{{ end }}
         </p>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -33,7 +33,8 @@
             <label for="filename" class="label">配置名称</label>
             <input type="text" id="filename" class="input" value="{{ .configFileName }}" placeholder="example.com"
                    {{ if not .isNewSite }}readonly{{ end }}>
-            <p class="hint">保存为同名的 .conf 文件</p>
+            <input type="hidden" id="sitePath" value="{{ .sitePath }}">
+            <p class="hint">{{ if .isNewSite }}保存为同名的 .conf 文件{{ else }}保存回原来的文件{{ end }}</p>
         </div>
         {{ if .infoPlus }}
         <div>

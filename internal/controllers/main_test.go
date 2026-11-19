@@ -36,7 +36,15 @@ func TestMain(m *testing.M) {
 		"installpath = \"" + dir + "\"\nvhostpath = \"" + sitesDir + "\"\nsslpath = \"" + sslDir + "\"\n"
 
 	bin := filepath.Join(dir, "bin")
+	// nginx -T dumps the files of the sites directory, the way nginx lists the files it loads.
 	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"-c\" ]; then shift 2; fi\n" +
+		"if [ \"$1\" = \"-T\" ]; then\n" +
+		"  for f in '" + sitesDir + "'/*; do\n" +
+		"    if [ -f \"$f\" ]; then printf '# configuration file %s:\\n' \"$f\"; cat \"$f\"; echo; fi\n" +
+		"  done\n" +
+		"  exit 0\n" +
+		"fi\n" +
 		"echo 'nginx version: nginx/1.27.0' >&2\n" +
 		"echo 'built by gcc 12' >&2\n" +
 		"echo 'configure arguments: --conf-path=" + nginxConfPath + " --pid-path=" + dir + "/nginx.pid' >&2\n"

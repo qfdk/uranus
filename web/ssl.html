@@ -7,6 +7,18 @@
     </div>
 </div>
 
+{{ if .deleted }}
+<div class="alert alert-success mb-6">{{ svgIcon "circle-check" }}<span>已删除证书 {{ .deleted }}</span></div>
+{{ end }}
+{{ if .deleteError }}
+<div class="alert alert-error mb-6">
+    {{ svgIcon "circle-alert" }}
+    <div class="min-w-0">
+        <p class="font-medium">没有删除证书</p>
+        <p class="mt-1 whitespace-pre-wrap break-words opacity-90">{{ .deleteError }}</p>
+    </div>
+</div>
+{{ end }}
 <div id="alertSuccess" class="alert alert-success mb-6 hidden">{{ svgIcon "circle-check" }}<span id="successMessage"></span></div>
 <div id="alertError" class="alert alert-error mb-6 hidden">{{ svgIcon "circle-alert" }}<span id="errorMessage"></span></div>
 

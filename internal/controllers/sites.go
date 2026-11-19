@@ -84,41 +84,34 @@ func GetTemplate(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
 }
 
-// siteFile 是网站列表中的一个配置文件
-type siteFile struct {
+// siteRow 是网站列表中的一行
+type siteRow struct {
 	Name    string
+	Path    string
+	Dir     string
+	Link    string
 	Size    string
 	ModTime time.Time
 }
 
-// GetSites 获取所有站点配置
+// GetSites 列出 nginx 加载的所有网站：Debian、Ubuntu 同时加载 conf.d/*.conf 和 sites-enabled/*
 func GetSites(ctx *gin.Context) {
 	sites := Sites()
-	entries, err := os.ReadDir(sites.Dir)
-	if err != nil {
-		log.Println(err)
-	}
-
-	// 只显示 .conf 文件。模板需要大小和修改时间，os.DirEntry 本身没有这些字段
-	files := []siteFile{}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		files = append(files, siteFile{
-			Name:    entry.Name(),
-			Size:    humanize.Bytes(uint64(info.Size())),
-			ModTime: info.ModTime(),
+	rows := []siteRow{}
+	for _, site := range SiteFiles() {
+		rows = append(rows, siteRow{
+			Name:    site.Name,
+			Path:    site.Path,
+			Dir:     filepath.Dir(site.Path),
+			Link:    site.Link,
+			Size:    humanize.Bytes(uint64(site.Size)),
+			ModTime: site.ModTime,
 		})
 	}
 
 	ctx.HTML(http.StatusOK, "sites.html", gin.H{
 		"activePage": "sites",
-		"files":      files,
+		"files":      rows,
 		"sitesDir":   sites.Dir,
 		// nginx 主配置没有引用网站目录时，这里的网站不会生效
 		"notIncluded": sites.Checked && !sites.Included,
@@ -126,6 +119,8 @@ func GetSites(ctx *gin.Context) {
 		// 删除网站、添加 include 之后带回来的结果
 		"deleted":  ctx.Query("deleted"),
 		"message":  ctx.Query("message"),
+		"certKept": ctx.Query("certKept"),
+		"linkKept": ctx.Query("linkKept"),
 		"included": ctx.Query("included"),
 	})
 }
@@ -136,62 +131,42 @@ func IncludeSitesDir(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
 }
 
-// EditSiteConf 编辑站点配置
+// managedSite reports whether Uranus created the site: name.conf, with its
+// domains and proxy in the database. Files like Debian's sites-enabled/default
+// are only edited as text.
+func managedSite(site SiteFile) bool {
+	return strings.HasSuffix(site.Name, ".conf") && site.ConfigName() != "default"
+}
+
+// EditSiteConf 编辑站点配置。路径必须是网站列表里的文件
 func EditSiteConf(ctx *gin.Context) {
-	// 从URL参数获取文件名
-	filename := ctx.Param("filename")
-
-	// 确保文件名具有.conf扩展名用于文件读取
-	fileToRead := filename
-	if !strings.HasSuffix(fileToRead, ".conf") && filename != "default" {
-		fileToRead = filename + ".conf"
-	}
-
-	// 提取不带扩展名的配置名称
-	configName := filename
-	if strings.HasSuffix(configName, ".conf") {
-		configName = strings.TrimSuffix(configName, ".conf")
-	}
-
-	vhostPath := SitesDir()
-	filePath := filepath.Join(vhostPath, fileToRead)
-
-	// 检查文件是否存在
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Printf("未找到配置文件: %v", filePath)
-		ctx.String(http.StatusNotFound, "未找到配置文件")
+	site, ok := FindSiteFile(ctx.Query("path"))
+	if !ok {
+		ctx.String(http.StatusNotFound, "没有这个网站")
 		return
 	}
-
-	// 读取默认配置
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(site.Path)
 	if err != nil {
-		log.Printf("读取默认配置出错: %v", err)
+		log.Printf("读取网站配置出错: %v", err)
 		ctx.String(http.StatusInternalServerError, "读取配置出错")
 		return
 	}
 
-	if filename != "default" {
-		// 从数据库获取证书信息
-		cert := models.GetCertByFilename(configName)
-		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
-			"activePage":     "sites",
-			"configFileName": configName,
-			"domains":        cert.Domains,
-			"content":        string(content),
-			"proxy":          cert.Proxy,
-			"infoPlus":       true,
-			"isDefaultConf":  false,
-		})
-	} else {
-		ctx.HTML(http.StatusOK, "siteConfEdit.html", gin.H{
-			"activePage":     "sites",
-			"configFileName": configName,
-			"content":        string(content),
-			"infoPlus":       false,
-			"isDefaultConf":  true,
-		})
+	data := gin.H{
+		"activePage":     "sites",
+		"configFileName": site.ConfigName(),
+		"sitePath":       site.Path,
+		"siteLink":       site.Link,
+		"content":        string(content),
+		"infoPlus":       false,
+		"isDefaultConf":  true,
 	}
+	if managedSite(site) {
+		cert := models.GetCertByFilename(site.ConfigName())
+		data["domains"], data["proxy"] = cert.Domains, cert.Proxy
+		data["infoPlus"], data["isDefaultConf"] = true, false
+	}
+	ctx.HTML(http.StatusOK, "siteConfEdit.html", data)
 }
 
 // validSiteName 检查网站配置名称：它会成为网站目录里的文件名和证书目录里的目录名，不能带路径
@@ -199,40 +174,38 @@ func validSiteName(name string) bool {
 	return name != "" && name == filepath.Base(name) && !strings.HasPrefix(name, ".")
 }
 
-// DeleteSiteConf 删除网站配置和它的证书，然后重新加载 Nginx
+// DeleteSiteConf 删除网站配置和它的证书，然后重新加载 Nginx。路径必须是网站列表里的文件
 func DeleteSiteConf(ctx *gin.Context) {
-	filename := ctx.Param("filename")
-	configName := strings.TrimSuffix(filename, ".conf")
-	if !validSiteName(configName) {
-		ctx.String(http.StatusBadRequest, "配置名称不正确")
+	site, ok := FindSiteFile(ctx.PostForm("path"))
+	if !ok {
+		ctx.String(http.StatusBadRequest, "没有这个网站")
 		return
 	}
 
-	// 确保文件名具有.conf扩展名用于文件删除
-	fileToDelete := configName + ".conf"
-	if filename == "default" {
-		fileToDelete = filename
-	}
-
-	// 删除配置文件
-	vhostPath := SitesDir()
-	err := os.Remove(filepath.Join(vhostPath, fileToDelete))
-	if err != nil {
+	// sites-enabled 里多是指向 sites-available 的链接：只删链接，相当于停用网站，原文件保留
+	if err := os.Remove(site.Path); err != nil {
 		log.Printf("删除配置文件出错: %v", err)
+		query := url.Values{"deleted": {site.Name}, "message": {"删除配置文件失败：" + err.Error()}}
+		ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
+		return
 	}
 
-	// 如果存在，删除SSL目录
-	sslPath := SSLDir()
-	err = os.RemoveAll(filepath.Join(sslPath, configName))
-	if err != nil {
-		log.Printf("删除SSL目录出错: %v", err)
-	}
-
-	// 从数据库中删除
-	cert := models.GetCertByFilename(configName)
-	err = cert.Remove()
-	if err != nil {
-		log.Println(err)
+	// 证书只在没有别的配置使用时才一起删除：文件没了下一次重载会失败，记录没了就不再续签
+	configName := site.ConfigName()
+	var certKept []string
+	if validSiteName(configName) {
+		certKept = services.CertificateUsers(configName)
+		if len(certKept) == 0 {
+			if err := os.RemoveAll(filepath.Join(SSLDir(), configName)); err != nil {
+				log.Printf("删除SSL目录出错: %v", err)
+			}
+			cert := models.GetCertByFilename(configName)
+			if err := cert.Remove(); err != nil {
+				log.Println(err)
+			}
+		} else {
+			log.Printf("证书 %s 还在被 %s 使用，已保留", configName, strings.Join(certKept, ", "))
+		}
 	}
 
 	// 清除所有缓存以确保数据刷新
@@ -241,39 +214,61 @@ func DeleteSiteConf(ctx *gin.Context) {
 	templateCacheLock.Unlock()
 
 	// 重新加载失败时 Nginx 还在用旧配置提供这个网站，要告诉用户
-	query := url.Values{"deleted": {fileToDelete}, "message": {services.ReloadNginx()}}
+	query := url.Values{"deleted": {site.Name}, "message": {services.ReloadNginx()}}
+	if len(certKept) > 0 {
+		query.Set("certKept", strings.Join(certKept, "\n"))
+	}
+	if site.Link != "" {
+		query.Set("linkKept", site.Link)
+	}
 	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
 }
 
-// SaveSiteConf 保存站点配置：写入后用 nginx -t 检查，不通过就撤销这次修改
+// SaveSiteConf 保存站点配置：写入后用 nginx -t 检查，不通过就撤销这次修改。
+// 已有的网站写回它自己的文件（可能在 sites-enabled），新网站保存到网站目录
 func SaveSiteConf(ctx *gin.Context) {
-	// 配置名称就是文件名（不含 .conf），不能带路径
-	fileName := strings.TrimSuffix(strings.TrimSpace(ctx.PostForm("filename")), ".conf")
-	if !validSiteName(fileName) {
-		ctx.JSON(http.StatusOK, gin.H{"message": "配置名称不能为空，也不能包含路径，例如 example.com"})
-		return
-	}
-	domains := ctx.PostFormArray("domains[]")
 	content := ctx.PostForm("content")
-	proxy := ctx.PostForm("proxy")
-
-	// 确保vhost目录存在
-	vhostPath := SitesDir()
-	if err := os.MkdirAll(vhostPath, 0755); err != nil {
-		log.Printf("创建vhost目录出错: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})
-		return
+	var target, configName string
+	managed := true
+	if path := ctx.PostForm("path"); path != "" {
+		site, ok := FindSiteFile(path)
+		if !ok {
+			ctx.JSON(http.StatusOK, gin.H{"message": "没有这个网站，可能已经被删除"})
+			return
+		}
+		target, configName, managed = site.Path, site.ConfigName(), managedSite(site)
+	} else {
+		// 配置名称就是文件名（不含 .conf），不能带路径
+		configName = strings.TrimSuffix(strings.TrimSpace(ctx.PostForm("filename")), ".conf")
+		if !validSiteName(configName) {
+			ctx.JSON(http.StatusOK, gin.H{"message": "配置名称不能为空，也不能包含路径，例如 example.com"})
+			return
+		}
+		// 同名网站已经存在时不覆盖：可能在另一个目录，两份 server 会冲突
+		for _, site := range SiteFiles() {
+			if site.ConfigName() == configName {
+				ctx.JSON(http.StatusOK, gin.H{"message": "已经有同名网站 " + site.Path + "，请在网站列表里编辑它"})
+				return
+			}
+		}
+		if err := os.MkdirAll(SitesDir(), 0755); err != nil {
+			log.Printf("创建网站目录出错: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "创建目录出错"})
+			return
+		}
+		target = filepath.Join(SitesDir(), configName+".conf")
+		managed = configName != "default"
 	}
 
-	result := services.WriteConfigChecked(filepath.Join(vhostPath, fileName+".conf"), []byte(content))
+	result := services.WriteConfigChecked(target, []byte(content))
 
 	// 配置确实保存下来之后才更新数据库里的网站信息
-	if result == "OK" && fileName != "default" {
-		cert := models.GetCertByFilename(fileName)
+	if result == "OK" && managed {
+		cert := models.GetCertByFilename(configName)
 		cert.Content = content
-		cert.Domains = strings.Join(domains, ",")
-		cert.FileName = fileName
-		cert.Proxy = proxy
+		cert.Domains = strings.Join(ctx.PostFormArray("domains[]"), ",")
+		cert.FileName = configName
+		cert.Proxy = ctx.PostForm("proxy")
 		models.GetDbClient().Save(&cert)
 	}
 

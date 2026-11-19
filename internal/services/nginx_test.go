@@ -15,8 +15,9 @@ import (
 // fakeDir holds fake nginx and systemctl executables that record their calls
 // in calls.log; nginx -V points the conf and pid files into the same directory.
 //
-// The fake nginx behaves like the real one where it matters: `-t` fails when
-// FAKE_NGINX_TEST_FAIL is set, `-s quit` lets the master exit a second later,
+// The fake nginx behaves like the real one where it matters: `-t` and `-T`
+// fail when FAKE_NGINX_TEST_FAIL is set (`-T` dumps the .conf files of the
+// directory and of conf.d), `-s quit` lets the master exit a second later,
 // and starting while the old master still holds the port fails. When started
 // with FAKE_NGINX_LOG_TO_STDERR set, the master keeps stdout and stderr open
 // as nginx logging to stderr does; with FAKE_NGINX_NO_PID it never writes its
@@ -47,6 +48,13 @@ func TestMain(m *testing.M) {
 		"if [ \"$1\" = \"-t\" ]; then\n" +
 		"  if [ -n \"$FAKE_NGINX_TEST_FAIL\" ]; then echo \"$FAKE_NGINX_TEST_FAIL\" >&2; exit 1; fi\n" +
 		"  echo 'nginx: configuration file test is successful' >&2; exit 0\n" +
+		"fi\n" +
+		"if [ \"$1\" = \"-T\" ]; then\n" +
+		"  if [ -n \"$FAKE_NGINX_TEST_FAIL\" ]; then echo \"$FAKE_NGINX_TEST_FAIL\" >&2; exit 1; fi\n" +
+		"  for f in \"$DIR\"/*.conf \"$DIR\"/conf.d/*; do\n" +
+		"    if [ -f \"$f\" ]; then printf '# configuration file %s:\\n' \"$f\"; cat \"$f\"; echo; fi\n" +
+		"  done\n" +
+		"  exit 0\n" +
 		"fi\n" +
 		"if [ -n \"$FAKE_NGINX_FAIL\" ]; then echo \"$FAKE_NGINX_FAIL\" >&2; exit 1; fi\n" +
 		"case \"$*\" in\n" +

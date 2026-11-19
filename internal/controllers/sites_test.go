@@ -12,11 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func postDelete(target string) *httptest.ResponseRecorder {
+func postDelete(path string) *httptest.ResponseRecorder {
 	engine := gin.New()
-	engine.POST("/sites/delete/:filename", DeleteSiteConf)
+	engine.POST("/sites/delete", DeleteSiteConf)
+	req := httptest.NewRequest(http.MethodPost, "/sites/delete", strings.NewReader(url.Values{"path": {path}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, target, nil))
+	engine.ServeHTTP(w, req)
 	return w
 }
 
@@ -40,7 +42,7 @@ func TestDeleteSiteConf(t *testing.T) {
 	mustWrite(t, cert, "cert")
 	mustWrite(t, other, "cert")
 
-	w := postDelete("/sites/delete/blog.example.com.conf")
+	w := postDelete(conf)
 	if w.Code != http.StatusFound {
 		t.Fatalf("delete: %d %s", w.Code, w.Body.String())
 	}
@@ -59,19 +61,19 @@ func TestDeleteSiteConf(t *testing.T) {
 	}
 }
 
-// The name becomes a path under the certificate directory: "." or ".." used to
-// remove every certificate, or the directory above them.
-func TestDeleteSiteConfRejectsPathsInName(t *testing.T) {
+// Only a site listed on the sites page can be deleted: a path from the request
+// must not reach any other file.
+func TestDeleteSiteConfRejectsOtherFiles(t *testing.T) {
 	cert := filepath.Join(sslDir, "keep.example.com", "cert.pem")
 	mustWrite(t, cert, "cert")
 
-	for _, target := range []string{"/sites/delete/%2e%2e", "/sites/delete/.", "/sites/delete/.hidden.conf"} {
-		if w := postDelete(target); w.Code != http.StatusBadRequest {
-			t.Fatalf("%s: %d %s", target, w.Code, w.Body.String())
+	for _, path := range []string{"", cert, filepath.Join(sitesDir, "..", "config.toml"), "blog.example.com.conf", nginxConfPath} {
+		if w := postDelete(path); w.Code != http.StatusBadRequest {
+			t.Fatalf("%q: %d %s", path, w.Code, w.Body.String())
 		}
 	}
 	if _, err := os.Stat(cert); err != nil {
-		t.Fatalf("certificates removed: %v", err)
+		t.Fatalf("certificate removed: %v", err)
 	}
 }
 

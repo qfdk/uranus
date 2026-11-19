@@ -45,6 +45,18 @@
     </div>
 </div>
 {{ end }}
+{{ if .linkKept }}
+<div class="alert alert-success mb-6">{{ svgIcon "circle-check" }}<span class="min-w-0 break-words">删除的是链接，原文件 {{ .linkKept }} 还在，需要时可以重新链接回来</span></div>
+{{ end }}
+{{ if .certKept }}
+<div class="alert alert-warning mb-6">
+    {{ svgIcon "circle-alert" }}
+    <div class="min-w-0">
+        <p class="font-medium">它的证书还在被下面的配置使用，已保留并继续续签</p>
+        <p class="mt-1 whitespace-pre-wrap break-words opacity-90">{{ .certKept }}</p>
+    </div>
+</div>
+{{ end }}
 {{ end }}
 
 <div class="card overflow-hidden">
@@ -63,20 +75,24 @@
         {{ range .files }}
         <tr>
             <td>
-                <a href="/admin/sites/edit/{{ .Name }}" class="flex min-w-0 items-center gap-3 font-medium text-fg">
+                <a href="/admin/sites/edit?path={{ .Path }}" class="flex min-w-0 items-center gap-3 font-medium text-fg">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-muted [&>svg]:h-4 [&>svg]:w-4">{{ svgIcon "globe" }}</span>
-                    <span class="truncate">{{ .Name }}</span>
+                    <span class="min-w-0">
+                        <span class="block truncate">{{ .Name }}</span>
+                        <span class="block truncate text-xs font-normal text-muted">{{ .Dir }}{{ if .Link }} → {{ .Link }}{{ end }}</span>
+                    </span>
                 </a>
             </td>
             <td class="hidden text-muted sm:table-cell">{{ .Size }}</td>
             <td class="hidden text-muted md:table-cell">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
             <td>
                 <div class="flex justify-end gap-1">
-                    <a href="/admin/sites/edit/{{ .Name }}" class="btn btn-ghost btn-sm">{{ svgIcon "pencil" }}<span class="hidden sm:inline">编辑</span></a>
-                    <form action="/admin/sites/delete/{{ .Name }}" method="post"
-                          onsubmit="return confirm('确定要删除 {{ .Name }} 吗？对应的 SSL 证书也会一起删除。')">
+                    <a href="/admin/sites/edit?path={{ .Path }}" class="btn btn-ghost btn-sm">{{ svgIcon "pencil" }}<span class="hidden sm:inline">编辑</span></a>
+                    <form action="/admin/sites/delete" method="post"
+                          onsubmit="return confirm({{ if .Link }}'确定要停用 {{ .Name }} 吗？只删除这个链接，{{ .Link }} 保留。'{{ else }}'确定要删除 {{ .Name }} 吗？没有其他网站使用时，它的 SSL 证书也会一起删除。'{{ end }})">
+                        <input type="hidden" name="path" value="{{ .Path }}">
                         <button type="submit" class="btn btn-ghost-danger btn-sm">
-                            {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
+                            {{ svgIcon "trash" }}<span class="hidden sm:inline">{{ if .Link }}停用{{ else }}删除{{ end }}</span>
                         </button>
                     </form>
                 </div>

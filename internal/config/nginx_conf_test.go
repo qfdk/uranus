@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -485,5 +486,114 @@ func TestSitesReadsTheMainConfig(t *testing.T) {
 	}
 	if got := SSLDir(); got != filepath.Join(dir, "ssl") {
 		t.Fatalf("ssl dir = %q", got)
+	}
+}
+
+// A certificate must not be deleted while nginx loads a file that uses it: the
+// next reload would fail. The dump is the output of `nginx -T`.
+func TestConfigFilesUsing(t *testing.T) {
+	dump := "# configuration file /etc/nginx/nginx.conf:\n" +
+		"http {\n    include /etc/nginx/conf.d/*.conf;\n    include sites-enabled/*;\n}\n\n" +
+		"# configuration file /etc/nginx/conf.d/blog.conf:\n" +
+		"server {\n    listen 443 ssl;\n    ssl_certificate /etc/nginx/ssl/blog/fullchain.cer;\n" +
+		"    ssl_certificate_key /etc/nginx/ssl/blog/private.key;\n}\n\n" +
+		"# configuration file /etc/nginx/conf.d/blog2.conf:\n" +
+		"server {\n    ssl_certificate /etc/nginx/ssl/blog2/fullchain.cer;\n}\n\n" +
+		"# configuration file /etc/nginx/conf.d/old.conf:\n" +
+		"server {\n    listen 80;\n    # ssl_certificate /etc/nginx/ssl/blog/fullchain.cer;\n}\n\n" +
+		"# configuration file /etc/nginx/sites-enabled/default:\n" +
+		"server {\n    ssl_certificate_key \"ssl/blog/private.key\";\n}\n\n"
+
+	got := ConfigFilesUsing(dump, "/etc/nginx/ssl/blog/", "/etc/nginx")
+	want := []string{"/etc/nginx/conf.d/blog.conf", "/etc/nginx/sites-enabled/default"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("files using the certificate: %q, want %q", got, want)
+	}
+	if got := ConfigFilesUsing(dump, "/etc/nginx/ssl/shop", "/etc/nginx"); len(got) != 0 {
+		t.Fatalf("unused certificate reported as used by %q", got)
+	}
+	// A file that does not parse is searched as text, so a broken site still counts.
+	broken := "# configuration file /etc/nginx/conf.d/broken.conf:\n" +
+		"server {\n    ssl_certificate \"/etc/nginx/ssl/blog/fullchain.cer;\n"
+	if got := ConfigFilesUsing(broken, "/etc/nginx/ssl/blog", "/etc/nginx"); !slices.Equal(got, []string{"/etc/nginx/conf.d/broken.conf"}) {
+		t.Fatalf("broken file: %q", got)
+	}
+}
+
+// Debian and Ubuntu load sites from conf.d/*.conf and from sites-enabled/*,
+// where files often have no .conf and are links into sites-available. A site
+// in a directory Uranus did not list could not be seen, edited or deleted,
+// and deleting its certificate left nginx unable to reload.
+func TestSiteFiles(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "nginx.conf")
+	useFakeNginx(t, dir, conf)
+	write := func(name, content string) string {
+		t.Helper()
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	write("nginx.conf", "events {}\nhttp {\n    include "+dir+"/conf.d/*.conf;\n    include sites-enabled/*;\n}\n")
+	blog := write("conf.d/blog.example.com.conf", "server {}")
+	write("conf.d/notes.txt", "not loaded by nginx")
+	write("conf.d/.hidden.conf", "not matched by nginx's glob")
+	write("conf.d/old/archive.conf", "in a subdirectory")
+	defaultSite := write("sites-available/default", "server { listen 80 default_server; }")
+	shop := write("sites-enabled/shop.example.com.conf", "server {}")
+	enabledDefault := filepath.Join(dir, "sites-enabled", "default")
+	if err := os.Symlink("../sites-available/default", enabledDefault); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "missing"), filepath.Join(dir, "sites-enabled", "broken")); err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	for _, site := range SiteFiles() {
+		got = append(got, site.Path+" -> "+site.Link)
+	}
+	want := []string{blog + " -> ", enabledDefault + " -> " + defaultSite, shop + " -> "}
+	if !slices.Equal(got, want) {
+		t.Fatalf("SiteFiles:\n%q\nwant\n%q", got, want)
+	}
+
+	if site, ok := FindSiteFile(enabledDefault); !ok || site.Name != "default" || site.ConfigName() != "default" {
+		t.Fatalf("FindSiteFile(%s) = %+v, %v", enabledDefault, site, ok)
+	}
+	if site, ok := FindSiteFile(blog); !ok || site.ConfigName() != "blog.example.com" {
+		t.Fatalf("FindSiteFile(%s) = %+v, %v", blog, site, ok)
+	}
+	for _, path := range []string{conf, filepath.Join(dir, "conf.d", "notes.txt"),
+		filepath.Join(dir, "conf.d", "..", "nginx.conf"), defaultSite, "", "conf.d/blog.example.com.conf"} {
+		if site, ok := FindSiteFile(path); ok {
+			t.Errorf("%q is not a site, got %+v", path, site)
+		}
+	}
+}
+
+// Built from source, nginx includes no directory: the sites Uranus saved are
+// still listed, with the warning that nginx does not load them.
+func TestSiteFilesOfADirectoryNginxDoesNotInclude(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "nginx.conf")
+	useFakeNginx(t, dir, conf)
+	if err := os.WriteFile(conf, []byte("events {}\nhttp {\n    server { listen 80; }\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	site := filepath.Join(dir, "conf.d", "blog.example.com.conf")
+	if err := os.MkdirAll(filepath.Dir(site), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(site, []byte("server {}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if files := SiteFiles(); len(files) != 1 || files[0].Path != site {
+		t.Fatalf("SiteFiles() = %+v", files)
 	}
 }

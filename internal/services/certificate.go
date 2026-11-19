@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -145,4 +146,25 @@ func saveCertificate(dir string, chain, privateKey []byte, domains []string) err
 		}
 	}
 	return nil
+}
+
+// CertificateUsers returns the nginx configuration files that use the
+// certificate of configName. Deleting a certificate in use makes the next
+// reload fail, and a deleted record is no longer renewed. nginx -T lists every
+// file nginx loads; with a broken configuration it lists nothing, and the
+// site files are searched instead.
+func CertificateUsers(configName string) []string {
+	dir := filepath.Join(SSLDir(), configName)
+	confDir := NginxConfDir()
+	if dump, err := nginxCommand("-T").Output(); err == nil {
+		return ConfigFilesUsing(string(dump), dir, confDir)
+	}
+
+	var dump strings.Builder
+	for _, site := range SiteFiles() {
+		if content, err := os.ReadFile(site.Path); err == nil {
+			fmt.Fprintf(&dump, "# configuration file %s:\n%s\n", site.Path, content)
+		}
+	}
+	return ConfigFilesUsing(dump.String(), dir, confDir)
 }

@@ -10,9 +10,7 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"net/http"
-	"os"
 	"runtime"
-	"strings"
 	"time"
 	config2 "uranus/internal/config"
 	"uranus/internal/models"
@@ -100,14 +98,7 @@ func Index(ctx *gin.Context) {
 	}
 
 	// 网站和证书概况
-	sites := 0
-	if entries, err := os.ReadDir(config2.SitesDir()); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".conf") {
-				sites++
-			}
-		}
-	}
+	sites := len(config2.SiteFiles())
 	certs := models.IssuedCertificates()
 	expiring := 0
 	for _, cert := range certs {

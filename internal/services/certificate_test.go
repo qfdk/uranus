@@ -3,6 +3,7 @@ package services
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -44,5 +45,37 @@ func TestSaveCertificateReportsWriteErrors(t *testing.T) {
 	}
 	if err := saveCertificate(filepath.Join(notADir, "example"), []byte("chain"), []byte("key"), nil); err == nil {
 		t.Fatal("expected an error when the certificate directory can't be created")
+	}
+}
+
+// A certificate is in use while a file nginx loads names it: deleting it would
+// make the next reload fail. nginx -T lists every file nginx loads; with a
+// broken configuration it lists nothing and the sites directory is searched.
+func TestCertificateUsers(t *testing.T) {
+	simulateHost(t, "linux", false)
+	sitesDir := filepath.Join(fakeDir, "conf.d")
+	site := filepath.Join(sitesDir, "blog.example.com.conf")
+	elsewhere := filepath.Join(fakeDir, "elsewhere.conf")
+	uses := "server {\n    listen 443 ssl;\n    ssl_certificate " +
+		filepath.Join(fakeDir, "ssl", "blog.example.com", "fullchain.cer") + ";\n}\n"
+	if err := os.MkdirAll(sitesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{site, elsewhere} {
+		if err := os.WriteFile(path, []byte(uses), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { os.RemoveAll(sitesDir); os.Remove(elsewhere) })
+
+	if got := CertificateUsers("blog.example.com"); !slices.Equal(got, []string{elsewhere, site}) {
+		t.Fatalf("users: %q", got)
+	}
+	if got := CertificateUsers("shop.example.com"); len(got) != 0 {
+		t.Fatalf("unused certificate used by %q", got)
+	}
+	t.Setenv("FAKE_NGINX_TEST_FAIL", "nginx: [emerg] unexpected end of file")
+	if got := CertificateUsers("blog.example.com"); !slices.Equal(got, []string{site}) {
+		t.Fatalf("users with a broken configuration: %q", got)
 	}
 }

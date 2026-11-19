@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,8 +25,10 @@ func Certificates(ctx *gin.Context) {
 		})
 	}
 	ctx.HTML(http.StatusOK, "ssl.html", gin.H{
-		"activePage": "ssl",
-		"results":    results,
+		"activePage":  "ssl",
+		"results":     results,
+		"deleted":     ctx.Query("deleted"),
+		"deleteError": ctx.Query("error"),
 	})
 }
 
@@ -67,6 +70,13 @@ func DeleteSSL(ctx *gin.Context) {
 		return
 	}
 
+	// 还有网站在用就不删：证书文件没了，下一次重载 nginx 会失败，所有网站都受影响
+	if users := services2.CertificateUsers(configName); len(users) > 0 {
+		message := "证书 " + configName + " 还在被下面的配置使用，先修改或删除这些网站：\n" + strings.Join(users, "\n")
+		ctx.Redirect(http.StatusFound, "/admin/ssl?"+url.Values{"error": {message}}.Encode())
+		return
+	}
+
 	cert := models2.GetCertByFilename(configName)
 	if cert.ID == 0 {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "Certificate not found"})
@@ -93,5 +103,5 @@ func DeleteSSL(ctx *gin.Context) {
 		log.Printf("Failed to remove SSL files: %v", err)
 	}
 
-	ctx.Redirect(http.StatusFound, "/admin/ssl")
+	ctx.Redirect(http.StatusFound, "/admin/ssl?"+url.Values{"deleted": {configName}}.Encode())
 }
