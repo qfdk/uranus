@@ -16,6 +16,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"uranus/internal/config"
@@ -294,24 +296,35 @@ func Graceful() {
 
 	go services.RenewSSL()
 
-	// 启动控制中心心跳服务
-	go services.StartAgentHeartbeat(ctx)
-
-	// MQTT心跳服务现在已经集成到mqtty模块中
-
-	// 启动MQTT终端服务
-	mqttyOpts := mqtty.DefaultOptions()
-	if mqttyOpts.BrokerURL == "" {
-		log.Printf("[进程][%d]: 未配置 mqttBroker，MQTT 远程管理已禁用", os.Getpid())
-	} else {
-		mqttyServer := mqtty.NewTerminal(mqttyOpts)
-		if err := mqttyServer.Start(); err != nil {
-			log.Printf("[进程][%d]: MQTT终端服务启动失败: %v", os.Getpid(), err)
-		} else {
+	// 启动MQTT终端服务（远程终端、命令和心跳）。没有配置 mqttBroker 时，向控制中心注册后用它给出的地址启动，
+	// 老版本升级上来的 agent 配置里没有这一项，靠这个重新连上控制中心
+	var mqttyServer atomic.Pointer[mqtty.Terminal]
+	var mqttyOnce sync.Once
+	startMQTT := func() {
+		mqttyOnce.Do(func() {
+			server := mqtty.NewTerminal(mqtty.DefaultOptions())
+			if err := server.Start(); err != nil {
+				log.Printf("[进程][%d]: MQTT终端服务启动失败: %v", os.Getpid(), err)
+				return
+			}
+			mqttyServer.Store(server)
 			log.Printf("[进程][%d]: MQTT终端服务已启动", os.Getpid())
-		}
-		defer mqttyServer.Stop()
+		})
 	}
+	defer func() {
+		if server := mqttyServer.Load(); server != nil {
+			server.Stop()
+		}
+	}()
+	if mqtty.DefaultOptions().BrokerURL == "" {
+		log.Printf("[进程][%d]: 未配置 mqttBroker，MQTT 远程管理暂不启用，控制中心给出地址后再启动", os.Getpid())
+		services.MQTTBrokerAssigned = startMQTT
+	} else {
+		startMQTT()
+	}
+
+	// 启动控制中心心跳服务（要在设置好 MQTTBrokerAssigned 之后）
+	go services.StartAgentHeartbeat(ctx)
 
 	log.Printf("[进程][%d]: 服务器启动成功并将PID写入文件", os.Getpid())
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0755); err != nil {

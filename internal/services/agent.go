@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"time"
 	"uranus/internal/config"
 	"uranus/internal/tools"
@@ -91,8 +94,43 @@ func RegisterAgent() {
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		log.Printf("[Agent] 代理注册成功，状态码: %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		adoptMQTTBroker(body)
 	} else {
 		log.Printf("[Agent] 代理注册失败，状态码: %d", resp.StatusCode)
+	}
+}
+
+// MQTTBrokerAssigned is called once the control center gave an agent without
+// an MQTT broker the one to use; main starts MQTT then.
+var MQTTBrokerAssigned func()
+
+// adoptMQTTBroker saves the MQTT broker the control center answers a
+// registration with, when this agent has none configured: agents upgraded
+// from versions that used a built-in broker have none in config.toml, and lost
+// their connection to the control center.
+func adoptMQTTBroker(body []byte) {
+	if config.GetAppConfig().MQTTBroker != "" {
+		return
+	}
+	var answer struct {
+		MQTTBroker string `json:"mqttBroker"`
+	}
+	if json.Unmarshal(body, &answer) != nil || answer.MQTTBroker == "" {
+		return
+	}
+	broker, err := url.Parse(answer.MQTTBroker)
+	if err != nil || broker.Host == "" || !slices.Contains([]string{"mqtt", "mqtts", "tcp", "ssl", "tls", "ws", "wss"}, broker.Scheme) {
+		log.Printf("[Agent] 控制中心给出的 MQTT 地址无效: %q", answer.MQTTBroker)
+		return
+	}
+	if _, err := UpdateAgentConfig(map[string]interface{}{"mqttBroker": answer.MQTTBroker}); err != nil {
+		log.Printf("[Agent] 保存 MQTT 地址失败: %v", err)
+		return
+	}
+	log.Printf("[Agent] 使用控制中心提供的 MQTT 服务器: %s", answer.MQTTBroker)
+	if MQTTBrokerAssigned != nil {
+		MQTTBrokerAssigned()
 	}
 }
 

@@ -17,6 +17,17 @@ import (
 
 // UpdateAgentConfig 更新Agent配置文件，简单直接的方法
 func UpdateAgentConfig(configData map[string]interface{}) ([]string, error) {
+	updatedKeys, err := writeAgentConfig(configData)
+	if err != nil {
+		return nil, err
+	}
+	// 立即生效：文件监听是异步的，调用方可能马上就要用新配置（比如用新的 mqttBroker 启动 MQTT）
+	config.ReloadConfig()
+	return updatedKeys, nil
+}
+
+// writeAgentConfig writes the allowed fields of configData to config.toml.
+func writeAgentConfig(configData map[string]interface{}) ([]string, error) {
 	var updatedKeys []string
 
 	// 允许更新的配置字段
