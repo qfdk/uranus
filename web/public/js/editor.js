@@ -246,3 +246,90 @@ const nginxFormatter = (text) => {
     cleanLines = perform_indentation(cleanLines, indent);
     return cleanLines.join("\n");
 }
+// 历史版本：列出这个文件每次保存前的内容，和编辑器里现在的内容对比。
+// 载入只是放进编辑器（Ctrl+Z 可以撤回），点保存才会写回，保存时照常检查配置
+function setupHistory() {
+    const button = document.getElementById('openHistory');
+    if (!button) return;
+    const modal = document.getElementById('history-modal');
+    const list = document.getElementById('historyList');
+    const hint = document.getElementById('historyHint');
+    const restore = document.getElementById('restoreVersion');
+    let diff = null;
+    let chosen = null;
+
+    const close = () => modal.classList.add('hidden');
+    modal.querySelectorAll('[data-close-history]').forEach((el) => el.addEventListener('click', close));
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+    });
+
+    const show = async (item, version) => {
+        list.querySelectorAll('button').forEach((b) => b.classList.toggle('bg-hover', b === item));
+        restore.disabled = true;
+        const res = await fetch('/admin/nginx/history/' + version.id);
+        if (!res.ok) {
+            hint.textContent = '读取这个版本失败';
+            return;
+        }
+        chosen = await res.json();
+        const previous = diff.getModel();
+        diff.setModel({
+            original: monaco.editor.createModel(chosen.content, defaultLang),
+            modified: monaco.editor.createModel(editor.getValue(), defaultLang),
+        });
+        // 新建的对比视图里两边都还是 null
+        previous?.original?.dispose();
+        previous?.modified?.dispose();
+        hint.textContent = chosen.time + ' 保存前的内容';
+        restore.disabled = false;
+    };
+
+    button.addEventListener('click', async () => {
+        modal.classList.remove('hidden');
+        diff ??= monaco.editor.createDiffEditor(document.getElementById('historyDiff'), {
+            theme: defaultTheme,
+            readOnly: true,
+            automaticLayout: true,
+            fontSize: 13,
+            renderSideBySide: window.innerWidth >= 900,
+        });
+        list.textContent = '';
+        restore.disabled = true;
+        hint.textContent = '正在读取…';
+        const res = await fetch('/admin/nginx/history?path=' + encodeURIComponent(button.dataset.path));
+        const versions = res.ok ? (await res.json()).versions : [];
+        if (!versions.length) {
+            hint.textContent = res.ok ? '还没有历史版本：保存过之后，保存前的内容会出现在这里' : '读取历史版本失败';
+            return;
+        }
+        versions.forEach((version, i) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'flex w-full flex-col items-start px-4 py-2.5 text-left text-sm hover:bg-hover';
+            const time = document.createElement('span');
+            time.className = 'font-medium text-fg tabular-nums';
+            time.textContent = version.time;
+            const size = document.createElement('span');
+            size.className = 'text-xs text-muted';
+            size.textContent = version.size;
+            item.append(time, size);
+            item.addEventListener('click', () => show(item, version));
+            const li = document.createElement('li');
+            li.appendChild(item);
+            list.appendChild(li);
+            if (i === 0) show(item, version);
+        });
+    });
+
+    restore.addEventListener('click', () => {
+        if (!chosen) return;
+        editor.pushUndoStop();
+        editor.executeEdits('history', [{range: editor.getModel().getFullModelRange(), text: chosen.content}]);
+        editor.pushUndoStop();
+        close();
+        $("#successMessage").text('已载入 ' + chosen.time + ' 保存前的版本，点保存后才会生效');
+        $("#alertSuccess").removeClass('hidden');
+        $("#alert").addClass('hidden');
+    });
+}

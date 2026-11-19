@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 	"uranus/internal/config"
+	"uranus/internal/models"
 )
 
 // fakeDir holds fake nginx and systemctl executables that record their calls
@@ -528,4 +529,43 @@ func TestWriteConfigCheckedRestoresOnFailure(t *testing.T) {
 		t.Fatalf("valid config: %q", got)
 	}
 	assertCalls(t, "nginx -t", "nginx -t", "nginx -s reload")
+}
+
+// Each successful save keeps what the file was before, so a bad edit can be
+// undone from the editor; refused and unchanged saves keep nothing.
+func TestWriteConfigCheckedKeepsVersions(t *testing.T) {
+	simulateHost(t, "linux", false)
+	writePidFile(t, os.Getpid())
+	path := filepath.Join(t.TempDir(), "site.conf")
+	versions := func() []string {
+		var contents []string
+		for _, v := range models.ConfigVersions(path) {
+			contents = append(contents, v.Content)
+		}
+		return contents
+	}
+
+	for _, content := range []string{"v1", "v2", "v2"} {
+		if got := WriteConfigChecked(path, []byte(content)); got != "OK" {
+			t.Fatalf("save %s: %q", content, got)
+		}
+	}
+	if got := versions(); len(got) != 1 || got[0] != "v1" {
+		t.Fatalf("versions after v1, v2, v2: %q", got)
+	}
+
+	t.Setenv("FAKE_NGINX_TEST_FAIL", "nginx: [emerg] broken")
+	WriteConfigChecked(path, []byte("broken"))
+	t.Setenv("FAKE_NGINX_TEST_FAIL", "")
+	if got := versions(); len(got) != 1 {
+		t.Fatalf("a refused save was kept: %q", got)
+	}
+
+	for i := 3; i <= 40; i++ {
+		WriteConfigChecked(path, []byte("v"+strconv.Itoa(i)))
+	}
+	got := versions()
+	if len(got) != 30 || got[0] != "v39" || got[29] != "v10" {
+		t.Fatalf("kept %d versions, newest %q, oldest %q", len(got), got[0], got[len(got)-1])
+	}
 }

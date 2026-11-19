@@ -1,0 +1,30 @@
+{{ define "history-button" }}
+<button type="button" id="openHistory" class="btn btn-secondary" data-path="{{ . }}">{{ svgIcon "list" }}历史版本</button>
+{{ end }}
+
+{{ define "history-modal" }}
+<div id="history-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close-history></div>
+    <div class="relative flex h-full items-center justify-center p-4">
+        <div class="flex h-full max-h-[780px] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-card shadow-2xl">
+            <div class="flex items-center justify-between gap-4 border-b border-line-soft px-6 py-4">
+                <div class="min-w-0">
+                    <h3 id="historyTitle" class="text-base font-semibold text-fg">历史版本</h3>
+                    <p class="text-sm text-muted">每次保存前的内容，最多保留 30 个。左边是旧版本，右边是编辑器里现在的内容</p>
+                </div>
+                <button type="button" class="btn-icon -mr-2" data-close-history aria-label="关闭">{{ svgIcon "x" }}</button>
+            </div>
+            <div class="flex min-h-0 flex-1 flex-col md:flex-row">
+                <ul id="historyList" class="max-h-40 shrink-0 overflow-y-auto border-b border-line-soft md:max-h-none md:w-56 md:border-b-0 md:border-r"></ul>
+                <div class="flex min-h-0 flex-1 flex-col">
+                    <div id="historyDiff" class="min-h-[240px] flex-1"></div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft px-4 py-3">
+                        <span id="historyHint" class="text-sm text-muted"></span>
+                        <button type="button" id="restoreVersion" class="btn btn-primary" disabled>{{ svgIcon "rotate-cw" }}载入这个版本</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

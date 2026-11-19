@@ -52,6 +52,7 @@ func GetNginxConf(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{
 		"activePage":         "config",
 		"configFileName":     "nginx",
+		"configPath":         nginxConfPath,
 		"content":            string(content),
 		"isNginxDefaultConf": true,
 	})

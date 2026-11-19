@@ -19,6 +19,7 @@
             <span id="ssl_status">申请证书</span>
         </button>
         {{ end }}
+        {{ with .sitePath }}{{ template "history-button" . }}{{ end }}
         <button type="button" id="btnFormatterNginxConf" class="btn btn-secondary" title="快捷键 Shift+Alt+F">{{ svgIcon "align-left" }}格式化</button>
         <button type="button" id="saveSitesConf" class="btn btn-primary">{{ svgIcon "save" }}保存</button>
     </div>
@@ -101,6 +102,7 @@
         // 编辑器占满窗口剩余高度
         $(window).on("resize", fitEditor);
         fitEditor();
+        setupHistory();
     });
 
     function fitEditor() {
@@ -108,5 +110,7 @@
         $('#editor').css('height', Math.max(400, height) + 'px');
     }
 </script>
+
+{{ template "history-modal" }}
 
 {{template "footer.html" .}}

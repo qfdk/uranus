@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 	"uranus/internal/config"
+	"uranus/internal/models"
 )
 
 var (
@@ -316,6 +318,12 @@ func WriteConfigChecked(path string, content []byte) string {
 		}
 	}
 
+	// 留下改之前的样子，编辑页的“历史版本”里可以找回
+	if existed && !bytes.Equal(previous, content) {
+		if err := models.SaveConfigVersion(path, string(previous)); err != nil {
+			log.Printf("[NGINX] Error keeping the previous version of %s: %v", path, err)
+		}
+	}
 	log.Printf("[NGINX] Configuration saved: %s", path)
 	return ReloadNginx()
 }
