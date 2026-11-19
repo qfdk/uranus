@@ -251,3 +251,18 @@ func TestDeleteSiteRequiresPost(t *testing.T) {
 		t.Fatal("a GET request deleted the site")
 	}
 }
+
+// Renewing and deleting certificates change state; like deleting a site they
+// must not be reachable with GET from another website.
+func TestCertificateChangesRequirePost(t *testing.T) {
+	engine := newEngine()
+	cookie := login(t, engine)
+	for _, target := range []string{"/admin/ssl/delete?configName=blog.example.com", "/admin/ssl/renew?configName=blog.example.com"} {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req.AddCookie(cookie)
+		// gin's answer for a route that does not exist; the handlers answer 404 too, in JSON
+		if w := serve(engine, req); w.Code != http.StatusNotFound || w.Body.String() != "404 page not found" {
+			t.Fatalf("GET %s: %d %s", target, w.Code, w.Body.String())
+		}
+	}
+}

@@ -163,7 +163,7 @@ $('#enableSSL').click(() => {
     const configName = $("#filename").val();
     const proxy = $("#proxy").val();
 
-    $.get('/admin/ssl/renew', {domains, configName}, (data) => {
+    $.post('/admin/ssl/renew', {domains, configName}, (data) => {
         processResponse(data, false, "证书签发成功，已在下方配置中加入 SSL 部分，保存后生效");
 
         // Restore button state

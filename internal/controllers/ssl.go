@@ -30,8 +30,8 @@ func Certificates(ctx *gin.Context) {
 }
 
 func IssueCert(ctx *gin.Context) {
-	domains := ctx.QueryArray("domains[]")
-	configName := ctx.Query("configName")
+	domains := ctx.PostFormArray("domains[]")
+	configName := ctx.PostForm("configName")
 	message := "OK"
 	err := services2.IssueCert(domains, configName)
 	if err != nil {
@@ -59,7 +59,7 @@ func CertInfo(ctx *gin.Context) {
 }
 
 func DeleteSSL(ctx *gin.Context) {
-	configName := ctx.Query("configName")
+	configName := ctx.PostForm("configName")
 
 	// 验证 configName 防止路径遍历攻击
 	if configName == "" || strings.Contains(configName, "..") || strings.Contains(configName, "/") || strings.Contains(configName, "\\") {

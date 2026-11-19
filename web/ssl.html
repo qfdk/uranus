@@ -55,11 +55,13 @@
                         <span class="icon spinner hidden animate-spin">{{ svgIcon "loader" }}</span>
                         <span class="hidden sm:inline">续签</span>
                     </button>
-                    <a href="/admin/ssl/delete?configName={{ .configName }}"
-                       class="btn btn-ghost-danger btn-sm"
-                       onclick="return confirm('确定要删除这个证书吗？')">
-                        {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
-                    </a>
+                    <form action="/admin/ssl/delete" method="post"
+                          onsubmit="return confirm('确定要删除这个证书吗？')">
+                        <input type="hidden" name="configName" value="{{ .configName }}">
+                        <button type="submit" class="btn btn-ghost-danger btn-sm">
+                            {{ svgIcon "trash" }}<span class="hidden sm:inline">删除</span>
+                        </button>
+                    </form>
                 </div>
             </td>
         </tr>
@@ -90,7 +92,7 @@
             $btn.find('.spinner').removeClass('hidden');
             $('#alertSuccess, #alertError').addClass('hidden');
 
-            $.get('/admin/ssl/renew', {configName: $btn.data('config')})
+            $.post('/admin/ssl/renew', {configName: $btn.data('config')})
                 .done(function (resp) {
                     if (resp.message === 'OK') {
                         $('#successMessage').text('证书已续签');
