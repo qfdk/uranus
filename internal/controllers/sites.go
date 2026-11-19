@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	. "uranus/internal/config"
 	"uranus/internal/models"
@@ -23,12 +22,6 @@ var httpConf string
 
 //go:embed template/https.conf
 var httpsConf string
-
-// 模板缓存，用于防止重复的字符串操作
-var (
-	templateCache     = make(map[string]string)
-	templateCacheLock sync.RWMutex
-)
 
 // NewSite 创建新站点的页面处理
 func NewSite(ctx *gin.Context) {
@@ -42,46 +35,53 @@ func NewSite(ctx *gin.Context) {
 	})
 }
 
-// GetTemplate 获取配置模板
+// nginxAtLeast reports whether version, as nginx -V prints it
+// ("nginx/1.30.7", "openresty/1.21.4.3"), is at least major.minor.patch.
+// An unknown version counts as recent.
+func nginxAtLeast(version string, want ...int) bool {
+	_, number, _ := strings.Cut(version, "/")
+	parts := strings.Split(number, ".")
+	for i, w := range want {
+		if i >= len(parts) {
+			return true
+		}
+		n, err := strconv.Atoi(parts[i])
+		if err != nil {
+			return true
+		}
+		if n != w {
+			return n > w
+		}
+	}
+	return true
+}
+
+// siteTemplate returns the configuration of a new site that forwards the
+// domains to proxy, with HTTPS when ssl is set.
+func siteTemplate(ssl bool, domains []string, configName, proxy, nginxVersion string) string {
+	conf := httpConf
+	if ssl {
+		conf = httpsConf
+		// http2 on 从 nginx 1.25.1 开始才有，之前写在 listen 里（之后这样写会报过时）
+		if !nginxAtLeast(nginxVersion, 1, 25, 1) {
+			conf = strings.Replace(conf, "    listen 443 ssl;\n    listen [::]:443 ssl;\n    http2 on;\n",
+				"    listen 443 ssl http2;\n    listen [::]:443 ssl http2;\n", 1)
+		}
+	}
+	return strings.NewReplacer(
+		"{{domain}}", strings.Join(domains, " "),
+		"{{configName}}", configName,
+		"{{sslPath}}", SSLDir(),
+		"{{proxy}}", proxy,
+	).Replace(conf)
+}
+
+// GetTemplate 生成新网站的配置
 func GetTemplate(ctx *gin.Context) {
-	domains := ctx.QueryArray("domains[]")
-	configName := ctx.Query("configName")
-	proxy := ctx.Query("proxy")
 	enableSSL, _ := strconv.ParseBool(ctx.Query("ssl"))
-
-	// 根据参数创建缓存键
-	cacheKey := strings.Join(domains, ",") + "|" + configName + "|" + proxy + "|" + strconv.FormatBool(enableSSL)
-
-	// 首先检查模板缓存
-	templateCacheLock.RLock()
-	if cachedTemplate, ok := templateCache[cacheKey]; ok {
-		templateCacheLock.RUnlock()
-		ctx.JSON(http.StatusOK, gin.H{"content": cachedTemplate})
-		return
-	}
-	templateCacheLock.RUnlock()
-
-	// 缓存未命中，生成模板
-	var templateConf string
-	if enableSSL {
-		templateConf = httpsConf
-	} else {
-		templateConf = httpConf
-	}
-
-	// 应用模板替换
-	inputTemplate := templateConf
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{domain}}", strings.Join(domains, " "))
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{configName}}", configName)
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{sslPath}}", SSLDir())
-	inputTemplate = strings.ReplaceAll(inputTemplate, "{{proxy}}", proxy)
-
-	// 更新缓存
-	templateCacheLock.Lock()
-	templateCache[cacheKey] = inputTemplate
-	templateCacheLock.Unlock()
-
-	ctx.JSON(http.StatusOK, gin.H{"content": inputTemplate})
+	content := siteTemplate(enableSSL, ctx.QueryArray("domains[]"), ctx.Query("configName"), ctx.Query("proxy"),
+		ReadNginxCompileInfo().Version)
+	ctx.JSON(http.StatusOK, gin.H{"content": content})
 }
 
 // siteRow 是网站列表中的一行
@@ -288,11 +288,6 @@ func DeleteSiteConf(ctx *gin.Context) {
 
 	certKept := removeUnusedCertificate(site.ConfigName())
 
-	// 清除所有缓存以确保数据刷新
-	templateCacheLock.Lock()
-	templateCache = make(map[string]string)
-	templateCacheLock.Unlock()
-
 	// 重新加载失败时 Nginx 还在用旧配置提供这个网站，要告诉用户
 	query := url.Values{"deleted": {site.Name}, "message": {services.ReloadNginx()}}
 	if len(certKept) > 0 {
@@ -351,11 +346,6 @@ func SaveSiteConf(ctx *gin.Context) {
 		cert.Proxy = ctx.PostForm("proxy")
 		models.GetDbClient().Save(&cert)
 	}
-
-	// 清除所有缓存以确保数据刷新
-	templateCacheLock.Lock()
-	templateCache = make(map[string]string)
-	templateCacheLock.Unlock()
 
 	ctx.JSON(http.StatusOK, gin.H{"message": result})
 }
