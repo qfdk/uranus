@@ -199,3 +199,24 @@ func TestCertificateDeletionResults(t *testing.T) {
 		t.Fatal("kept certificate not shown")
 	}
 }
+
+// The stylesheet is cached for a day: its URL carries the build's commit, so
+// pages of a new release don't keep the previous release's styles.
+func TestStylesheetURLChangesWithRelease(t *testing.T) {
+	old := config.CommitID
+	config.CommitID = "abc1234"
+	t.Cleanup(func() { config.CommitID = old })
+	tmpl, err := parseTemplates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, page := range []string{"login.html", "header.html"} {
+		var out strings.Builder
+		if err := tmpl.ExecuteTemplate(&out, page, map[string]any{}); err != nil {
+			t.Fatalf("%s: %v", page, err)
+		}
+		if !strings.Contains(out.String(), `href="/public/css/tailwind.min.css?v=abc1234"`) {
+			t.Errorf("%s: stylesheet URL without the release:\n%s", page, out.String())
+		}
+	}
+}

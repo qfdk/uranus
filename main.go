@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -93,9 +94,13 @@ func initRouter() *gin.Engine {
 	return app
 }
 
-// parseTemplates 解析页面模板。页面用 svgIcon "名称" 内联 web/public/icons 下的图标
+// parseTemplates 解析页面模板。页面用 svgIcon "名称" 内联 web/public/icons 下的图标；
+// asset 给 /public 下的文件地址加上版本：样式表在浏览器里缓存一天，换了地址，升级后马上用新的
 func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
+		"asset": func(p string) string {
+			return p + "?v=" + url.QueryEscape(config.CommitID)
+		},
 		"svgIcon": func(name string) template.HTML {
 			content, err := staticFS.ReadFile("web/public/icons/" + name + ".svg")
 			if err != nil {
