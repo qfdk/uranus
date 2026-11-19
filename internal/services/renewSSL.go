@@ -7,6 +7,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"log"
 	"net"
+	"path/filepath"
 	"strings"
 	"time"
 	"uranus/internal/models"
@@ -39,28 +40,41 @@ func GetCertificateInfo(domain string) (*x509.Certificate, error) {
 	return certs[0], nil
 }
 
+// certsToRenew returns the certificates that expire within 30 days. Those of
+// disabled sites are skipped: nginx no longer serves the site, so the HTTP
+// challenge would fail.
+func certsToRenew(certs []models.Cert, now time.Time) []models.Cert {
+	disabled := map[string]bool{}
+	for _, site := range models.DisabledSites() {
+		disabled[strings.TrimSuffix(filepath.Base(site.Path), ".conf")] = true
+	}
+	var due []models.Cert
+	for _, cert := range certs {
+		switch {
+		case cert.NotAfter.IsZero():
+		case cert.NotAfter.Sub(now) >= 30*24*time.Hour:
+			log.Printf("%v => 证书续期时间: %v\n", cert.Domains, cert.NotAfter.Format("2006-01-02 15:04:05"))
+		case disabled[cert.FileName]:
+			log.Printf("%v => 网站已停用，不续签\n", cert.Domains)
+		default:
+			log.Printf("%v => 需要续期\n", cert.Domains)
+			due = append(due, cert)
+		}
+	}
+	return due
+}
+
 func RenewSSL() {
 	// 每天 00:05 进行检测
 	spec := "5 0 * * *"
 	c := cron.New()
 	_, _ = c.AddFunc(spec, func() {
-		for _, cert := range models.GetCertificates() {
-			var need2Renew = false
-			if cert.NotAfter.Unix() != -62135596800 {
-				if cert.NotAfter.Sub(time.Now()) < time.Hour*24*30 {
-					log.Printf("%v => 需要续期\n", cert.Domains)
-					need2Renew = true
-				} else {
-					log.Printf("%v => 证书续期时间: %v\n", cert.Domains, cert.NotAfter.Format("2006-01-02 15:04:05"))
-				}
+		for _, cert := range certsToRenew(models.GetCertificates(), time.Now()) {
+			if err := IssueCert(strings.Split(cert.Domains, ","), cert.FileName); err != nil {
+				log.Printf("%v => 证书续期失败: %v\n", cert.Domains, err)
+				continue
 			}
-			if need2Renew {
-				if err := IssueCert(strings.Split(cert.Domains, ","), cert.FileName); err != nil {
-					log.Printf("%v => 证书续期失败: %v\n", cert.Domains, err)
-					continue
-				}
-				ReloadNginx()
-			}
+			ReloadNginx()
 		}
 	})
 	go c.Start()

@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -98,6 +99,17 @@ func initRouter() *gin.Engine {
 // asset 给 /public 下的文件地址加上版本：样式表在浏览器里缓存一天，换了地址，升级后马上用新的
 func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
+		// wbr 允许路径和域名在 / . - 之后换行，窄屏上不再从单词中间断开
+		"wbr": func(s string) template.HTML {
+			var b strings.Builder
+			for _, r := range s {
+				b.WriteString(template.HTMLEscapeString(string(r)))
+				if r == '/' || r == '.' || r == '-' {
+					b.WriteString("<wbr>")
+				}
+			}
+			return template.HTML(b.String())
+		},
 		"asset": func(p string) string {
 			return p + "?v=" + url.QueryEscape(config.CommitID)
 		},

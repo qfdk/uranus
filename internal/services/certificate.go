@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	. "uranus/internal/config"
-	models2 "uranus/internal/models"
+	"uranus/internal/models"
 )
 
 // MyUser You'll need a user or account type that implements acme.User
@@ -109,9 +109,9 @@ func IssueCert(domains []string, configName string) error {
 		return err
 	}
 
-	cert := models2.GetCertByFilename(configName)
+	cert := models.GetCertByFilename(configName)
 	cert.NotAfter = pCert.NotAfter
-	if err := models2.GetDbClient().Save(&cert).Error; err != nil {
+	if err := models.GetDbClient().Save(&cert).Error; err != nil {
 		return err
 	}
 
@@ -156,14 +156,20 @@ func saveCertificate(dir string, chain, privateKey []byte, domains []string) err
 func CertificateUsers(configName string) []string {
 	dir := filepath.Join(SSLDir(), configName)
 	confDir := NginxConfDir()
-	if dump, err := nginxCommand("-T").Output(); err == nil {
-		return ConfigFilesUsing(string(dump), dir, confDir)
-	}
-
 	var dump strings.Builder
-	for _, site := range SiteFiles() {
-		if content, err := os.ReadFile(site.Path); err == nil {
-			fmt.Fprintf(&dump, "# configuration file %s:\n%s\n", site.Path, content)
+	if out, err := nginxCommand("-T").Output(); err == nil {
+		dump.Write(out)
+	} else {
+		for _, site := range SiteFiles() {
+			if content, err := os.ReadFile(site.Path); err == nil {
+				fmt.Fprintf(&dump, "# configuration file %s:\n%s\n", site.Path, content)
+			}
+		}
+	}
+	// 停用的网站重新启用时还要用它的证书
+	for _, site := range models.DisabledSites() {
+		if content, err := DisabledSiteConfig(site); err == nil {
+			fmt.Fprintf(&dump, "\n# configuration file %s（已停用）:\n%s\n", site.Path, content)
 		}
 	}
 	return ConfigFilesUsing(dump.String(), dir, confDir)

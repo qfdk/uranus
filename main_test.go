@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"uranus/internal/config"
 )
@@ -218,5 +219,43 @@ func TestStylesheetURLChangesWithRelease(t *testing.T) {
 		if !strings.Contains(out.String(), `href="/public/css/tailwind.min.css?v=abc1234"`) {
 			t.Errorf("%s: stylesheet URL without the release:\n%s", page, out.String())
 		}
+	}
+}
+
+// Enabled sites can be disabled (a link only, not deleted: deleting it would
+// lose nothing but the link); disabled sites can be enabled or deleted.
+func TestSitesTemplateDisabledSites(t *testing.T) {
+	type row struct {
+		Name, Path, Dir, Link, Size string
+		ModTime                     time.Time
+		DisabledID                  uint
+	}
+	data := map[string]any{"activePage": "sites", "sitesDir": "/etc/nginx/conf.d",
+		"files": []row{
+			{Name: "blog.conf", Path: "/etc/nginx/conf.d/blog.conf", Dir: "/etc/nginx/conf.d"},
+			{Name: "default", Path: "/etc/nginx/sites-enabled/default", Dir: "/etc/nginx/sites-enabled", Link: "/etc/nginx/sites-available/default"},
+		},
+		"disabled": []row{{Name: "shop.conf", Path: "/etc/nginx/conf.d/shop.conf", Dir: "/etc/nginx/conf.d", DisabledID: 7}},
+	}
+	page := render(t, "sites.html", data)
+	if n := strings.Count(page, `action="/admin/sites/disable"`); n != 2 {
+		t.Fatalf("%d disable buttons, want 2", n)
+	}
+	if n := strings.Count(page, `action="/admin/sites/delete"`); n != 1 {
+		t.Fatalf("%d delete buttons for enabled sites, want 1 (not for the link)", n)
+	}
+	for _, want := range []string{"已停用", `action="/admin/sites/enable"`, `action="/admin/sites/delete-disabled"`, `name="id" value="7"`, "另有 1 个已停用"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("missing %q", want)
+		}
+	}
+
+	data["disabledName"], data["message"] = "blog.conf", "OK"
+	if page := render(t, "sites.html", data); !strings.Contains(page, "已停用 blog.conf") {
+		t.Fatal("disable result not shown")
+	}
+	data["disabledName"], data["enabled"], data["message"] = "", "shop.conf", "加上这个网站后配置检查不通过"
+	if page := render(t, "sites.html", data); !strings.Contains(page, "启用 shop.conf 没有完成") || !strings.Contains(page, "配置检查不通过") {
+		t.Fatal("failed enable not shown")
 	}
 }

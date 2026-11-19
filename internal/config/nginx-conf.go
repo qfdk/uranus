@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"uranus/internal/tools"
 )
 
 // 网站目录和证书目录不再按发行版猜测，而是读 nginx 自己的主配置：
@@ -534,4 +535,14 @@ func ConfigFilesUsing(dump, dir, confDir string) []string {
 	}
 	flush()
 	return files
+}
+
+// DisabledSitesDir is where the configuration files of disabled sites wait:
+// in Uranus's own directory, where no include of nginx reaches them.
+func DisabledSitesDir() string {
+	dir := GetAppConfig().InstallPath
+	if dir == "" {
+		dir = tools.GetPWD()
+	}
+	return filepath.Join(dir, "disabled-sites")
 }

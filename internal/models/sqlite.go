@@ -50,6 +50,7 @@ func InitWithContext(ctx context.Context) {
 
 		// Auto migrate models
 		AutoMigrate(&Cert{})
+		AutoMigrate(&DisabledSite{})
 
 		log.Println("[+] SQLite initialization successful")
 

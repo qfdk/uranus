@@ -92,6 +92,8 @@ type siteRow struct {
 	Link    string
 	Size    string
 	ModTime time.Time
+	// DisabledID 是停用网站的记录编号，启用中的网站为 0
+	DisabledID uint
 }
 
 // GetSites 列出 nginx 加载的所有网站：Debian、Ubuntu 同时加载 conf.d/*.conf 和 sites-enabled/*
@@ -109,19 +111,34 @@ func GetSites(ctx *gin.Context) {
 		})
 	}
 
+	disabled := []siteRow{}
+	for _, record := range models.DisabledSites() {
+		disabled = append(disabled, siteRow{
+			Name:       filepath.Base(record.Path),
+			Path:       record.Path,
+			Dir:        filepath.Dir(record.Path),
+			Link:       record.Link,
+			ModTime:    record.CreatedAt.Local(),
+			DisabledID: record.ID,
+		})
+	}
+
 	ctx.HTML(http.StatusOK, "sites.html", gin.H{
 		"activePage": "sites",
 		"files":      rows,
+		"disabled":   disabled,
 		"sitesDir":   sites.Dir,
 		// nginx 主配置没有引用网站目录时，这里的网站不会生效
 		"notIncluded": sites.Checked && !sites.Included,
 		"nginxConf":   ReadNginxCompileInfo().NginxConfPath,
 		// 删除网站、添加 include 之后带回来的结果
-		"deleted":  ctx.Query("deleted"),
-		"message":  ctx.Query("message"),
-		"certKept": ctx.Query("certKept"),
-		"linkKept": ctx.Query("linkKept"),
-		"included": ctx.Query("included"),
+		"deleted":      ctx.Query("deleted"),
+		"message":      ctx.Query("message"),
+		"certKept":     ctx.Query("certKept"),
+		"linkKept":     ctx.Query("linkKept"),
+		"included":     ctx.Query("included"),
+		"enabled":      ctx.Query("enabled"),
+		"disabledName": ctx.Query("disabled"),
 	})
 }
 
@@ -174,6 +191,85 @@ func validSiteName(name string) bool {
 	return name != "" && name == filepath.Base(name) && !strings.HasPrefix(name, ".")
 }
 
+// removeUnusedCertificate deletes the certificate of a deleted site, unless
+// another configuration (enabled or disabled) still uses it: without its files
+// the next reload would fail, without its record it would not be renewed.
+// Returns the configurations that keep it.
+func removeUnusedCertificate(configName string) []string {
+	if !validSiteName(configName) {
+		return nil
+	}
+	if kept := services.CertificateUsers(configName); len(kept) > 0 {
+		log.Printf("证书 %s 还在被 %s 使用，已保留", configName, strings.Join(kept, ", "))
+		return kept
+	}
+	if err := os.RemoveAll(filepath.Join(SSLDir(), configName)); err != nil {
+		log.Printf("删除SSL目录出错: %v", err)
+	}
+	cert := models.GetCertByFilename(configName)
+	if err := cert.Remove(); err != nil {
+		log.Println(err)
+	}
+	return nil
+}
+
+// sitesResult goes back to the site list with the result of an action.
+func sitesResult(ctx *gin.Context, query url.Values) {
+	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
+}
+
+// DisableSiteConf 停用网站：Nginx 不再加载它，配置保留，可以重新启用
+func DisableSiteConf(ctx *gin.Context) {
+	site, ok := FindSiteFile(ctx.PostForm("path"))
+	if !ok {
+		ctx.String(http.StatusBadRequest, "没有这个网站")
+		return
+	}
+	sitesResult(ctx, url.Values{"disabled": {site.Name}, "message": {services.DisableSite(site)}})
+}
+
+// disabledSite returns the disabled site named by the id field of the form.
+func disabledSite(ctx *gin.Context) (models.DisabledSite, bool) {
+	id, err := strconv.ParseUint(ctx.PostForm("id"), 10, 0)
+	if err != nil {
+		return models.DisabledSite{}, false
+	}
+	return models.FindDisabledSite(uint(id))
+}
+
+// EnableSiteConf 重新启用停用的网站
+func EnableSiteConf(ctx *gin.Context) {
+	record, ok := disabledSite(ctx)
+	if !ok {
+		ctx.String(http.StatusBadRequest, "没有这个停用的网站")
+		return
+	}
+	sitesResult(ctx, url.Values{"enabled": {filepath.Base(record.Path)}, "message": {services.EnableSite(record.ID)}})
+}
+
+// DeleteDisabledSiteConf 删除停用的网站和它不再被使用的证书。Nginx 没有加载它，不用重新加载
+func DeleteDisabledSiteConf(ctx *gin.Context) {
+	record, ok := disabledSite(ctx)
+	if !ok {
+		ctx.String(http.StatusBadRequest, "没有这个停用的网站")
+		return
+	}
+	name := filepath.Base(record.Path)
+	if err := services.DeleteDisabledSite(record); err != nil {
+		log.Printf("删除停用的网站出错: %v", err)
+		sitesResult(ctx, url.Values{"deleted": {name}, "message": {"删除配置文件失败：" + err.Error()}})
+		return
+	}
+	query := url.Values{"deleted": {name}, "message": {"OK"}}
+	if kept := removeUnusedCertificate(strings.TrimSuffix(name, ".conf")); len(kept) > 0 {
+		query.Set("certKept", strings.Join(kept, "\n"))
+	}
+	if record.Link != "" {
+		query.Set("linkKept", record.Link)
+	}
+	sitesResult(ctx, query)
+}
+
 // DeleteSiteConf 删除网站配置和它的证书，然后重新加载 Nginx。路径必须是网站列表里的文件
 func DeleteSiteConf(ctx *gin.Context) {
 	site, ok := FindSiteFile(ctx.PostForm("path"))
@@ -190,23 +286,7 @@ func DeleteSiteConf(ctx *gin.Context) {
 		return
 	}
 
-	// 证书只在没有别的配置使用时才一起删除：文件没了下一次重载会失败，记录没了就不再续签
-	configName := site.ConfigName()
-	var certKept []string
-	if validSiteName(configName) {
-		certKept = services.CertificateUsers(configName)
-		if len(certKept) == 0 {
-			if err := os.RemoveAll(filepath.Join(SSLDir(), configName)); err != nil {
-				log.Printf("删除SSL目录出错: %v", err)
-			}
-			cert := models.GetCertByFilename(configName)
-			if err := cert.Remove(); err != nil {
-				log.Println(err)
-			}
-		} else {
-			log.Printf("证书 %s 还在被 %s 使用，已保留", configName, strings.Join(certKept, ", "))
-		}
-	}
+	certKept := removeUnusedCertificate(site.ConfigName())
 
 	// 清除所有缓存以确保数据刷新
 	templateCacheLock.Lock()
@@ -221,7 +301,7 @@ func DeleteSiteConf(ctx *gin.Context) {
 	if site.Link != "" {
 		query.Set("linkKept", site.Link)
 	}
-	ctx.Redirect(http.StatusFound, "/admin/sites?"+query.Encode())
+	sitesResult(ctx, query)
 }
 
 // SaveSiteConf 保存站点配置：写入后用 nginx -t 检查，不通过就撤销这次修改。
