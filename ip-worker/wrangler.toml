@@ -1,0 +1,14 @@
+# ip.tar.tn 和 ip.bin.tn：以纯文本返回访问者的公网 IP，Uranus 首次启动时用它确定服务器的 IP
+# （internal/config/app-config.go 的 getIP，先试 ip.tar.tn，不通再试 ip.bin.tn）。
+# 部署：cd ip-worker && wrangler deploy
+# ip.tar.tn 原有一条走代理的 DNS 记录，用路由在 Cloudflare 边缘接管，不经过源站；
+# ip.bin.tn 用 Worker 自定义域名，DNS 记录和证书由 Cloudflare 自动创建。
+name = "ip-tar-tn"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "ip.tar.tn/*", zone_name = "tar.tn" },
+  { pattern = "ip.bin.tn", custom_domain = true },
+]

@@ -1,15 +1,19 @@
 package config
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -233,52 +237,66 @@ func watchConfigFile(configFile string) {
 	}()
 }
 
-// getIP retrieves the public IP with caching
+// ipServiceURLs answer with the caller's public IP: the Cloudflare Worker in
+// ip-worker/ under two domains, tried in order.
+var ipServiceURLs = []string{"https://ip.tar.tn", "https://ip.bin.tn"}
+
+// getIP returns this server's public IPv4 address, or "Unknown". It becomes the
+// url http://<ip>:7777 and the address the control center shows.
 func getIP() string {
-	// Check if cache is valid
 	if ipCache != "" && time.Now().Before(ipCacheTTL) {
 		return ipCache
 	}
 
-	// Create an HTTP client with timeout
+	// 只走 IPv4：双栈的服务器会经 IPv6 连过去，拿到的 IPv6 地址拼不成 http://IP:7777
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	client := &http.Client{
 		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
+				return dialer.DialContext(ctx, "tcp4", addr)
+			},
+		},
 	}
+	for _, url := range ipServiceURLs {
+		ip, err := askIP(client, url)
+		if err != nil {
+			log.Printf("[-] 获取公网 IP 失败: %v", err)
+			continue
+		}
+		ipCache = ip
+		ipCacheTTL = time.Now().Add(24 * time.Hour)
+		return ip
+	}
+	return "Unknown"
+}
 
-	req, err := http.NewRequest("GET", "https://ip.tar.tn", nil)
+// askIP asks one IP service for the public IPv4 address of this server.
+func askIP(client *http.Client, url string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Printf("请求创建失败: %v", err)
-		return "Unknown"
+		return "", err
 	}
 	req.Header.Set("User-Agent", "Uranus")
-
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("请求失败: %v", err)
-		return "Unknown"
+		return "", err
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("请求返回非200状态码: %d", resp.StatusCode)
-		return "Unknown"
+		return "", fmt.Errorf("%s 返回 %d", url, resp.StatusCode)
 	}
-
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
 	if err != nil {
-		log.Printf("读取响应体失败: %v", err)
-		return "Unknown"
+		return "", err
 	}
-
-	ip := strings.TrimSpace(string(body))
-
-	// Update cache
-	ipCache = ip
-	ipCacheTTL = time.Now().Add(24 * time.Hour) // Cache for 24 hours
-
-	return ip
+	// 服务出错时也可能用 200 返回一个网页，不能把它当成 IP 存进配置
+	addr, err := netip.ParseAddr(strings.TrimSpace(string(body)))
+	if err != nil || !addr.Is4() {
+		return "", fmt.Errorf("%s 返回的不是 IPv4 地址", url)
+	}
+	return addr.String(), nil
 }
 
 // ReloadConfig 强制重新加载配置

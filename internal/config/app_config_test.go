@@ -3,6 +3,9 @@ package config
 import (
 	"encoding/base64"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -131,4 +134,63 @@ func TestReloadAfterFileReplacement(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
+}
+
+// serveAnswer starts a server on network ("tcp4" or "tcp6") that answers every
+// request with answer, like ip.tar.tn answers with the caller's IP.
+func serveAnswer(t *testing.T, network, answer string) string {
+	t.Helper()
+	addr := "127.0.0.1:0"
+	if network == "tcp6" {
+		addr = "[::1]:0"
+	}
+	l, err := net.Listen(network, addr)
+	if err != nil {
+		t.Skipf("cannot listen on %s: %v", network, err)
+	}
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, answer)
+	}))
+	srv.Listener.Close()
+	srv.Listener = l
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// The public IP becomes the url http://<ip>:7777 and the address the control
+// center shows, so only an IPv4 address is usable.
+func TestGetIP(t *testing.T) {
+	savedURLs := ipServiceURLs
+	t.Cleanup(func() { ipServiceURLs, ipCache = savedURLs, "" })
+
+	for _, tc := range []struct{ answer, want string }{
+		{"203.0.113.7\n", "203.0.113.7"},
+		{"<h1>Not Found</h1>", "Unknown"}, // an error page served with 200
+		{"", "Unknown"},
+		{"2001:db8::1", "Unknown"},
+		{"::ffff:203.0.113.7", "Unknown"},
+	} {
+		ipCache = ""
+		ipServiceURLs = []string{serveAnswer(t, "tcp4", tc.answer)}
+		if got := getIP(); got != tc.want {
+			t.Errorf("answer %q: getIP() = %q, want %q", tc.answer, got, tc.want)
+		}
+	}
+
+	// When the first domain fails, the second one answers.
+	ipCache = ""
+	ipServiceURLs = []string{serveAnswer(t, "tcp4", "<h1>Bad Gateway</h1>"), serveAnswer(t, "tcp4", "203.0.113.9")}
+	if got := getIP(); got != "203.0.113.9" {
+		t.Errorf("second service not asked: %q", got)
+	}
+
+	// A dual-stack server would reach the service over IPv6 and be told its IPv6 address.
+	t.Run("IPv6", func(t *testing.T) {
+		ipCache = ""
+		ipServiceURLs = []string{serveAnswer(t, "tcp6", "198.51.100.4")}
+		if got := getIP(); got != "Unknown" {
+			t.Errorf("reached the service over IPv6, got %q", got)
+		}
+	})
 }
