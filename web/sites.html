@@ -16,7 +16,7 @@
     {{ svgIcon "circle-alert" }}
     <div class="min-w-0">
         <p class="font-medium">没有修改 nginx.conf</p>
-        <p class="mt-1 whitespace-pre-wrap break-all opacity-90">{{ .included }}</p>
+        <p class="mt-1 whitespace-pre-wrap break-words opacity-90">{{ .included }}</p>
     </div>
 </div>
 {{ end }}
@@ -25,7 +25,7 @@
     {{ svgIcon "circle-alert" }}
     <div class="min-w-0">
         <p class="font-medium">Nginx 没有加载这个目录里的网站</p>
-        <p class="mt-1 break-all opacity-90">{{ .nginxConf }} 的 http 块里没有 include {{ .sitesDir }}。源码编译、OpenResty 和 Arch Linux 的默认配置都是这样。</p>
+        <p class="mt-1 break-words opacity-90">{{ .nginxConf }} 的 http 块里没有 include {{ .sitesDir }}。源码编译、OpenResty 和 Arch Linux 的默认配置都是这样。</p>
         <form action="/admin/sites/include" method="post" class="mt-3">
             <button type="submit" class="btn btn-secondary btn-sm">{{ svgIcon "file-cog" }}在 nginx.conf 中引用这个目录</button>
         </form>
@@ -41,7 +41,7 @@
     {{ svgIcon "circle-alert" }}
     <div class="min-w-0">
         <p class="font-medium">已删除 {{ .deleted }}，但 Nginx 没有重新加载，这个网站可能仍在运行</p>
-        <p class="mt-1 whitespace-pre-wrap break-all opacity-90">{{ .message }}</p>
+        <p class="mt-1 whitespace-pre-wrap break-words opacity-90">{{ .message }}</p>
     </div>
 </div>
 {{ end }}
