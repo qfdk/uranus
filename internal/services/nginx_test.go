@@ -389,24 +389,6 @@ func TestNginxStatusIgnoresStalePidFile(t *testing.T) {
 	}
 }
 
-// The editor shows the file named by --conf-path, so saving must write that
-// same file, whatever its name.
-func TestSaveNginxConfWritesTheMainConfigFile(t *testing.T) {
-	simulateHost(t, "linux", false)
-	writePidFile(t, 0)
-
-	if got := SaveNginxConf("events {}\n"); got != "OK" {
-		t.Fatalf("SaveNginxConf: %q", got)
-	}
-	content, err := os.ReadFile(filepath.Join(fakeDir, "custom-main.conf"))
-	if err != nil || string(content) != "events {}\n" {
-		t.Fatalf("main config not written: %q %v", content, err)
-	}
-	if _, err := os.Stat(filepath.Join(fakeDir, "nginx.conf")); err == nil {
-		t.Fatal("wrote a separate nginx.conf next to the real config file")
-	}
-}
-
 // A broken configuration must stop start, reload and restart before they touch
 // nginx, and the reason has to reach the user.
 func TestNginxActionsRefuseBrokenConfig(t *testing.T) {

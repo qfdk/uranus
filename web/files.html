@@ -1,0 +1,73 @@
+{{template "header.html" .}}
+
+<div class="page-header">
+    <div class="min-w-0">
+        <a href="/admin/nginx/config-info" class="back-link">{{ svgIcon "arrow-left" }}Nginx 配置</a>
+        <h1 class="page-title">配置文件</h1>
+        <p class="page-desc break-words">{{ wbr .confDir }} 里的文件。保存前先检查整份配置，不通过不会写入，通过后重新加载 Nginx</p>
+    </div>
+    {{ template "check-button" }}
+</div>
+
+{{ template "check-result" }}
+
+{{ with .error }}
+<div class="alert alert-error mb-4">{{ svgIcon "circle-alert" }}<span class="min-w-0 break-words">{{ . }}</span></div>
+{{ end }}
+
+<nav class="mb-3 flex flex-wrap items-center gap-1 text-sm text-muted" aria-label="当前目录">
+    <a href="/admin/nginx/files" class="link font-medium">{{ wbr .confDir }}</a>
+    {{ range .crumbs }}
+    <span class="text-subtle">/</span>
+    <a href="/admin/nginx/files?dir={{ .Rel }}" class="link font-medium">{{ wbr .Name }}</a>
+    {{ end }}
+</nav>
+
+<div class="card overflow-hidden">
+    {{ if .files }}
+    <div class="overflow-x-auto">
+    <table class="table">
+        <thead>
+        <tr>
+            <th>名称</th>
+            <th class="hidden text-right sm:table-cell">大小</th>
+            <th class="hidden md:table-cell">修改时间</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{ range .files }}
+        <tr>
+            <td>
+                <a href="{{ if .IsDir }}/admin/nginx/files?dir={{ .Rel }}{{ else }}/admin/nginx/file?path={{ .Rel }}{{ end }}"
+                   class="flex min-w-0 items-center gap-3 font-medium text-fg">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hover text-muted [&>svg]:h-4 [&>svg]:w-4">
+                        {{ if .IsDir }}{{ svgIcon "folder" }}{{ else }}{{ svgIcon "file-code" }}{{ end }}
+                    </span>
+                    <span class="min-w-0">
+                        <span class="block [overflow-wrap:anywhere]">{{ wbr .Name }}</span>
+                        {{ with .Link }}<span class="block text-xs font-normal text-muted [overflow-wrap:anywhere]">→ {{ wbr . }}</span>{{ end }}
+                    </span>
+                </a>
+            </td>
+            <td class="hidden text-right tabular-nums text-muted sm:table-cell">{{ .SizeText }}</td>
+            <td class="hidden text-muted md:table-cell">{{ .ModTime.Format "2006-01-02 15:04" }}</td>
+        </tr>
+        {{ end }}
+        </tbody>
+    </table>
+    </div>
+    {{ else if not .error }}
+    <p class="px-6 py-12 text-center text-sm text-muted">这个目录是空的</p>
+    {{ end }}
+</div>
+
+<script>
+    // 去掉地址栏里的错误提示，刷新页面时不再重复
+    if (new URLSearchParams(location.search).has('error')) {
+        const url = new URL(location.href);
+        url.searchParams.delete('error');
+        history.replaceState(null, '', url);
+    }
+</script>
+
+{{template "footer.html" .}}

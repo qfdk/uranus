@@ -194,17 +194,24 @@ func nginxInstalled() bool {
 	return config.ReadNginxCompileInfo().NginxConfPath != ""
 }
 
-// TestNginxConfig runs `nginx -t` and returns "" when the configuration is
-// valid, otherwise nginx's explanation (which file and line is wrong).
-func TestNginxConfig() string {
+// CheckNginxConfig runs `nginx -t` and returns whether the configuration is
+// valid, with what nginx said (on failure, which file and line is wrong).
+func CheckNginxConfig() (bool, string) {
 	out, err := nginxCommand("-t").CombinedOutput()
-	if err == nil {
-		return ""
+	msg := strings.TrimSpace(string(out))
+	if err != nil && msg == "" {
+		msg = err.Error()
 	}
-	if msg := strings.TrimSpace(string(out)); msg != "" {
+	return err == nil, msg
+}
+
+// TestNginxConfig runs `nginx -t` and returns "" when the configuration is
+// valid, otherwise nginx's explanation.
+func TestNginxConfig() string {
+	if ok, msg := CheckNginxConfig(); !ok {
 		return msg
 	}
-	return err.Error()
+	return ""
 }
 
 func configCheckFailed(detail string) string {
@@ -326,16 +333,6 @@ func WriteConfigChecked(path string, content []byte) string {
 	}
 	log.Printf("[NGINX] Configuration saved: %s", path)
 	return ReloadNginx()
-}
-
-// SaveNginxConf writes the main nginx configuration file, the same file that
-// is shown in the editor, and reloads nginx.
-func SaveNginxConf(content string) string {
-	confPath := config.ReadNginxCompileInfo().NginxConfPath
-	if confPath == "" {
-		return "未找到 nginx 主配置文件，请确认 nginx 已安装"
-	}
-	return WriteConfigChecked(confPath, []byte(content))
 }
 
 // IncludeSitesDir adds the sites directory to the http block of the main

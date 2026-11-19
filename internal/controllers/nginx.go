@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"uranus/internal/config"
 	"uranus/internal/services"
 )
@@ -35,33 +34,6 @@ func Nginx(ctx *gin.Context) {
 	// 直接回到仪表盘显示结果：经过 / 再跳转会丢掉查询参数
 	query := url.Values{"action": {action}, "message": {nginxActionResult}}
 	ctx.Redirect(http.StatusFound, "/admin/dashboard?"+query.Encode())
-}
-
-// GetNginxConf shows nginx.conf as it currently is on disk. It may have been
-// edited elsewhere (e.g. in the web terminal); showing a cached copy would make
-// the next save silently undo those edits.
-func GetNginxConf(ctx *gin.Context) {
-	nginxConfPath := config.ReadNginxCompileInfo().NginxConfPath
-	content, err := os.ReadFile(nginxConfPath)
-	if err != nil {
-		log.Printf("Failed to read Nginx configuration file: %v", err)
-		ctx.String(http.StatusInternalServerError, "Failed to read Nginx configuration file")
-		return
-	}
-
-	ctx.HTML(http.StatusOK, "nginxEdit.html", gin.H{
-		"activePage":         "config",
-		"configFileName":     "nginx",
-		"configPath":         nginxConfPath,
-		"content":            string(content),
-		"isNginxDefaultConf": true,
-	})
-}
-
-func SaveNginxConf(ctx *gin.Context) {
-	content, _ := ctx.GetPostForm("content")
-	result := services.SaveNginxConf(content)
-	ctx.JSON(http.StatusOK, gin.H{"message": result})
 }
 
 // GetNginxCompileInfo shows how nginx is installed: its build and where

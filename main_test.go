@@ -259,3 +259,39 @@ func TestSitesTemplateDisabledSites(t *testing.T) {
 		t.Fatal("failed enable not shown")
 	}
 }
+
+func TestConfigFilePages(t *testing.T) {
+	type row struct {
+		Name, Rel, Link, SizeText string
+		IsDir                     bool
+		ModTime                   time.Time
+	}
+	page := render(t, "files.html", map[string]any{
+		"activePage": "config", "confDir": "/etc/nginx", "rel": "sites-enabled",
+		"crumbs": []map[string]string{{"Name": "sites-enabled", "Rel": "sites-enabled"}},
+		"files": []row{
+			{Name: "default", Rel: "sites-enabled/default", Link: "/etc/nginx/sites-available/default", SizeText: "2.4 kB"},
+			{Name: "extra", Rel: "sites-enabled/extra", IsDir: true},
+		},
+	})
+	for _, want := range []string{`href="/admin/nginx/file?path=sites-enabled%2fdefault"`, `href="/admin/nginx/files?dir=sites-enabled%2fextra"`,
+		"→ /<wbr>etc/<wbr>nginx/<wbr>sites-<wbr>available/<wbr>default", `id="checkConf"`} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("file list misses %q", want)
+		}
+	}
+	if page := render(t, "files.html", map[string]any{"confDir": "/etc/nginx", "error": "没有这个文件或目录"}); !strings.Contains(page, "没有这个文件或目录") || strings.Contains(page, "这个目录是空的") {
+		t.Fatal("error not shown alone")
+	}
+
+	page = render(t, "fileEdit.html", map[string]any{
+		"activePage": "config", "rel": "conf.d/blog.conf", "parent": "conf.d", "name": "blog.conf",
+		"abs": "/etc/nginx/conf.d/blog.conf", "content": "server {}\n",
+	})
+	for _, want := range []string{`data-path="conf.d/blog.conf"`, `href="/admin/nginx/files?dir=conf.d"`, `id="openHistory"`,
+		`data-path="/etc/nginx/conf.d/blog.conf"`, `id="checkConf"`, `id="history-modal"`} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("editor misses %q", want)
+		}
+	}
+}

@@ -218,13 +218,10 @@ $('#saveSitesConf').click(() => {
     });
 });
 
-$('#saveNginxConf').click(() => {
-    $.post('/admin/nginx/save', {
-        action: "saveConfig",
-        name: $("#filename").val(),
-        content: editor.getValue()
-    }, (data) => {
-        processResponse(data, "/");
+// Nginx 配置目录里的文件：保存后留在这页，可以接着改
+$('#saveConfFile').click(function () {
+    $.post('/admin/nginx/file/save', {path: $(this).data('path'), content: editor.getValue()}, (data) => {
+        processResponse(data, null, '已保存，Nginx 已重新加载');
     });
 });
 

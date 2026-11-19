@@ -1,22 +1,23 @@
 {{template "header.html" .}}
 
 <div class="page-header">
-    <div>
-        <a href="/admin/nginx/config-info" class="back-link">{{ svgIcon "arrow-left" }}Nginx 配置</a>
-        <h1 class="page-title">编辑 nginx.conf</h1>
-        <p class="page-desc">保存后写入磁盘并自动重新加载 Nginx</p>
+    <div class="min-w-0">
+        <a href="/admin/nginx/files{{ with .parent }}?dir={{ . }}{{ end }}" class="back-link">{{ svgIcon "arrow-left" }}配置文件</a>
+        <h1 class="page-title break-words">{{ wbr .name }}</h1>
+        <p class="page-desc break-words">{{ wbr .abs }}{{ with .link }} → {{ wbr . }}{{ end }}。保存前先检查整份配置，通过后重新加载 Nginx</p>
     </div>
     <div class="flex flex-wrap gap-2">
-        {{ template "history-button" .configPath }}
+        {{ template "history-button" .abs }}
+        {{ template "check-button" }}
         <button type="button" id="btnFormatterNginxConf" class="btn btn-secondary" title="快捷键 Shift+Alt+F">{{ svgIcon "align-left" }}格式化</button>
-        <button type="button" id="saveNginxConf" class="btn btn-primary">{{ svgIcon "save" }}保存并重载</button>
+        <button type="button" id="saveConfFile" class="btn btn-primary" data-path="{{ .rel }}">{{ svgIcon "save" }}保存并重载</button>
     </div>
 </div>
 
+{{ template "check-result" }}
 <div id="alert" class="alert alert-error mb-4 hidden">{{ svgIcon "circle-alert" }}<span id="message" class="min-w-0 whitespace-pre-wrap break-words"></span></div>
 <div id="alertSuccess" class="alert alert-success mb-4 hidden">{{ svgIcon "circle-check" }}<span id="successMessage"></span></div>
 
-<input type="hidden" id="filename" value="{{ .configFileName }}">
 <div class="editor-frame">
     <div id="editor" data-lang="nginx" style="height: 600px;"></div>
 </div>

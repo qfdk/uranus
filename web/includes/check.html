@@ -1,0 +1,39 @@
+{{ define "check-button" }}
+<button type="button" id="checkConf" class="btn btn-secondary">{{ svgIcon "circle-check-big" }}检查配置</button>
+{{ end }}
+
+{{ define "check-result" }}
+<div id="checkResult" class="alert mb-4 hidden">
+    <span id="checkIcon"></span>
+    <div class="min-w-0">
+        <p id="checkTitle" class="font-medium"></p>
+        <pre id="checkOutput" class="mt-1 whitespace-pre-wrap break-words font-mono text-xs opacity-90"></pre>
+    </div>
+</div>
+<template id="checkIconOk">{{ svgIcon "circle-check" }}</template>
+<template id="checkIconFail">{{ svgIcon "circle-alert" }}</template>
+<script>
+    // nginx -t 检查整份配置（不只是当前文件），显示 nginx 的原话
+    document.getElementById('checkConf').addEventListener('click', async (e) => {
+        const button = e.currentTarget;
+        const box = document.getElementById('checkResult');
+        button.disabled = true;
+        try {
+            const res = await fetch('/admin/nginx/test', {method: 'POST'});
+            const {ok, output} = await res.json();
+            box.classList.remove('hidden', 'alert-success', 'alert-error');
+            box.classList.add(ok ? 'alert-success' : 'alert-error');
+            document.getElementById('checkIcon').innerHTML = document.getElementById(ok ? 'checkIconOk' : 'checkIconFail').innerHTML;
+            document.getElementById('checkTitle').textContent = ok ? '配置检查通过' : '配置检查没有通过';
+            document.getElementById('checkOutput').textContent = output;
+        } catch {
+            box.classList.remove('hidden', 'alert-success');
+            box.classList.add('alert-error');
+            document.getElementById('checkTitle').textContent = '检查失败，请确认 Uranus 还在运行';
+            document.getElementById('checkOutput').textContent = '';
+        } finally {
+            button.disabled = false;
+        }
+    });
+</script>
+{{ end }}
