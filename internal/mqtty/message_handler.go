@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 	"uranus/internal/config"
 	"uranus/internal/services"
 
@@ -27,13 +27,6 @@ func max(a, b int) int {
 // 缓存响应主题以避免重复格式化
 var responseTopicCache = make(map[string]string)
 var responseTopicMutex sync.RWMutex
-
-// 使用已发送消息缓存，防止重复消息
-var (
-	recentOutputs      = make(map[string]time.Time)
-	recentOutputsMutex sync.RWMutex
-	maxRecentOutputs   = 100 // 最多缓存100条最近消息
-)
 
 // 输出缓冲设置
 const (
@@ -565,9 +558,6 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 	// 打印输出主题
 	log.Printf("[MQTTY] 转发输出到主题: %s", responseTopic)
 
-	// 清理过期的输出缓存
-	cleanupRecentOutputs()
-
 	// 预先分配缓冲区以减少内存分配
 	buffer := new(bytes.Buffer)
 
@@ -578,28 +568,25 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 	// 上次发送时间
 	lastSendTime := time.Now()
 
-	// 发送函数，封装重复逻辑
-	sendAccumulatedOutput := func() {
-		if accumulated.Len() == 0 {
+	// 发送积累的输出。消息里的输出是 JSON 字符串，被切开的半个多字节字符（中文等）会变成乱码，
+	// 所以末尾不完整的字符先留着，跟下一块输出一起发；会话结束时（final）全部发出
+	sendOutput := func(final bool) {
+		data := accumulated.Bytes()
+		if !final {
+			data = data[:len(data)-incompleteUTF8Tail(data)]
+		}
+		if len(data) == 0 {
 			return
 		}
-
-		// 使用时间戳作为唯一标识
-		timestampNow := time.Now().UnixNano() / 1e6
-		outputHash := fmt.Sprintf("%s-%d", sessionID, timestampNow)
-
-		// 获取积累的输出
-		accumulatedOutput := accumulated.String()
-		// 清空积累缓冲区以备下次使用
-		accumulated.Reset()
 
 		// 创建标准MQTT消息
 		message := Message{
 			SessionID: sessionID,
 			Type:      "output", // 添加类型信息，与前端对应
-			Data:      accumulatedOutput,
-			Timestamp: timestampNow,
+			Data:      string(data),
+			Timestamp: time.Now().UnixMilli(),
 		}
+		accumulated.Next(len(data))
 
 		// 重用缓冲区以减少内存分配
 		buffer.Reset()
@@ -608,11 +595,6 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 			log.Printf("[MQTTY] 序列化输出消息失败: %v", err)
 			return
 		}
-
-		// 添加到最近消息缓存
-		recentOutputsMutex.Lock()
-		recentOutputs[outputHash] = time.Now()
-		recentOutputsMutex.Unlock()
 
 		// 发布到前端响应主题
 		token := mqttClient.Publish(responseTopic, 1, false, buffer.Bytes())
@@ -647,7 +629,7 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 		case output, ok := <-session.Output:
 			if !ok {
 				// 通道已关闭
-				sendAccumulatedOutput() // 发送剩余数据
+				sendOutput(true) // 发送剩余数据
 				return
 			}
 
@@ -693,7 +675,7 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 					default:
 					}
 				}
-				sendAccumulatedOutput()
+				sendOutput(false)
 			} else if accumulated.Len() > 0 {
 				// 如果有数据但没有立即发送，启动定时器以确保不会延迟太久
 				// 先尝试停止定时器
@@ -709,18 +691,27 @@ func forwardSessionOutputWithUUID(topicPrefix, sessionID string, manager *Sessio
 
 		case <-flushTimer.C:
 			// 定时器触发，发送积累的数据
-			sendAccumulatedOutput()
+			sendOutput(false)
 
 		case <-session.Done:
 			// 会话已关闭，发送剩余数据
-			sendAccumulatedOutput()
+			sendOutput(true)
+			// shell 自己结束（exit、空闲超时）时告诉总控，页面上才能提示重连。
+			// 同一个会话 ID 已经换成新会话时不发，免得把新会话当成已关闭
+			if current, err := manager.GetSession(sessionID); err != nil || current == session {
+				_ = manager.CloseSession(sessionID)
+				if mqttClient != nil && mqttClient.IsConnected() {
+					closed, _ := json.Marshal(Message{SessionID: sessionID, Type: "closed", Timestamp: time.Now().UnixMilli()})
+					mqttClient.Publish(responseTopic, 1, false, closed)
+				}
+			}
 			return
 
 		case <-stopCh:
 			// 收到停止信号，可能是新的转发进程启动
 			log.Printf("[MQTTY] 终止已有的输出转发 (会话: %s)", sessionID)
 			// 发送剩余数据
-			sendAccumulatedOutput()
+			sendOutput(true)
 			return
 		}
 	}
@@ -933,55 +924,6 @@ func handleRestartCommand(client mqtt.Client, command struct {
 	}
 }
 
-// 清理过期的输出缓存
-func cleanupRecentOutputs() {
-	// 清理超过5秒的输出缓存
-	now := time.Now()
-	toDelete := make([]string, 0, 10) // 预分配一个合理大小的切片
-
-	// 先收集要删除的key（使用写锁）
-	recentOutputsMutex.Lock()
-	defer recentOutputsMutex.Unlock()
-
-	for hash, timestamp := range recentOutputs {
-		if now.Sub(timestamp) > 5*time.Second {
-			toDelete = append(toDelete, hash)
-		}
-	}
-
-	// 批量删除，减少map操作次数
-	for _, hash := range toDelete {
-		delete(recentOutputs, hash)
-	}
-
-	// 如果缓存太大，只保留最新的一半条目
-	if len(recentOutputs) > maxRecentOutputs {
-		// 创建一个时间排序的条目数组
-		entries := make([]struct {
-			hash string
-			time time.Time
-		}, 0, len(recentOutputs))
-
-		for hash, t := range recentOutputs {
-			entries = append(entries, struct {
-				hash string
-				time time.Time
-			}{hash, t})
-		}
-
-		// 按时间排序
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].time.Before(entries[j].time)
-		})
-
-		// 删除最旧的一半
-		halfSize := len(entries) / 2
-		for i := 0; i < halfSize; i++ {
-			delete(recentOutputs, entries[i].hash)
-		}
-	}
-}
-
 // handleConfigCommand 处理配置更新命令
 func handleConfigCommand(client mqtt.Client, command struct {
 	Command   string      `json:"command"`
@@ -1017,8 +959,6 @@ func handleConfigCommand(client mqtt.Client, command struct {
 		client.Publish(responseTopic, 1, false, respPayload)
 		return
 	}
-
-	log.Printf("[MQTTY] 配置数据: %+v", configData)
 
 	// 更新配置文件
 	updatedKeys, err := services.UpdateAgentConfig(configData)
@@ -1137,4 +1077,17 @@ func authorizeCommand(payload []byte) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(auth.Token), []byte(expected)) == 1
+}
+
+// incompleteUTF8Tail 返回 b 末尾被切开、还不完整的多字节字符占几个字节，末尾完整时返回 0
+func incompleteUTF8Tail(b []byte) int {
+	for i := 1; i <= utf8.UTFMax && i <= len(b); i++ {
+		if utf8.RuneStart(b[len(b)-i]) {
+			if utf8.FullRune(b[len(b)-i:]) {
+				return 0
+			}
+			return i
+		}
+	}
+	return 0
 }
