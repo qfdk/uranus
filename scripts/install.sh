@@ -71,6 +71,21 @@ stop_service() {
   fi
 }
 
+# Uranus 管理本机的 nginx，运行时不会自己安装（以免和装在别处的 nginx 重复），这里没有找到就装上
+install_nginx() {
+  if command -v nginx >/dev/null 2>&1 || command -v openresty >/dev/null 2>&1 \
+    || [ -x /usr/local/nginx/sbin/nginx ] || [ -x /usr/local/openresty/nginx/sbin/nginx ]; then
+    echo -e "${FontGreen}info: 已安装 nginx${FontSuffix}"
+    return
+  fi
+  echo -e "${FontGreen}正在安装 nginx...${FontSuffix}"
+  if apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx; then
+    echo -e "${FontGreen}info: nginx 安装完成${FontSuffix}"
+  else
+    echo -e "${FontYellow}warning: nginx 安装失败，请稍后手动安装：apt install nginx${FontSuffix}"
+  fi
+}
+
 create_directories() {
   # 创建主安装目录
   if [ ! -d ${INSTALL_PATH} ]; then
@@ -117,6 +132,8 @@ main() {
   wget -q --show-progress https://de.qfdk.me/uranus/uranus-"${PLATFORM}" -O ${INSTALL_PATH}/uranus
   chmod +x ${INSTALL_PATH}/${APP_NAME}
   echo -e "${FontGreen}下载完成并设置执行权限${FontSuffix}"
+
+  install_nginx
 
   # 安装服务
   echo -e "${FontGreen}安装 systemd 服务...${FontSuffix}"

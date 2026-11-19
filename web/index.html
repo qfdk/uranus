@@ -78,8 +78,8 @@
             <div>
                 <h2 class="text-base font-semibold text-fg">未检测到 Nginx</h2>
                 <p class="mt-1 max-w-xl text-sm text-muted">
-                    以 root 身份运行时，Uranus 会自动用系统包管理器安装 Nginx（Debian、Ubuntu、CentOS、Rocky、Alma、Alpine、Arch）。
-                    也可以在终端里手动安装，例如 <span class="whitespace-nowrap font-medium text-fg">apt install nginx</span>，安装后刷新本页即可。
+                    打开终端安装，例如 <span class="whitespace-nowrap font-medium text-fg">apt install nginx</span>（CentOS、Rocky、Alma 用 <span class="whitespace-nowrap font-medium text-fg">dnf install nginx</span>），装好后刷新本页即可。
+                    Uranus 不会自己安装，以免和装在别处的 Nginx 重复；一键安装脚本会一并装好 Nginx。
                 </p>
             </div>
         </div>

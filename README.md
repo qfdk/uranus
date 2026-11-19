@@ -36,7 +36,7 @@ mqttBroker = "mqtts://your-mqtt-server:8883"
 ### 一键脚本
 
 ```bash
-# 支持 Ubuntu 22.04 及以上（发布的程序需要 glibc 2.34+）
+# 支持 Ubuntu 22.04 及以上（发布的程序需要 glibc 2.34+），没有 nginx 时会一并用 apt 安装
 wget -qO- https://de.qfdk.me/uranus/install.sh|bash
 # 升级脚本
 wget -qO- https://de.qfdk.me/uranus/upgrade.sh|bash
@@ -53,6 +53,7 @@ kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 - 网站目录：nginx.conf 的 http 块里 include 的目录。Debian、Ubuntu、CentOS 系是 `conf.d`，Alpine 是 `http.d`，Homebrew 是 `servers`。源码编译、OpenResty 和 Arch 默认没有引用任何目录，「网站」页面会提示，并可以一键在 nginx.conf 里加上 include
 - 证书目录：nginx 配置目录下的 `ssl`
 - 启停：nginx 由 systemd 服务运行时用 `systemctl`，否则直接用 `nginx -s`
+- 找不到 nginx 时 Uranus 不会自己安装（以免和装在别处的 nginx 重复），概览页会提示安装命令
 
 需要时可以在 `config.toml` 里用 `vhostpath`、`sslpath` 指定网站目录和证书目录。「Nginx 配置」页面列出了检测到的所有位置。
 

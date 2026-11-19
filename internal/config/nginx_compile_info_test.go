@@ -91,7 +91,6 @@ func TestParseNginxInfoPaths(t *testing.T) {
 // test and makes sure the test never triggers a real package install.
 func resetNginxDetection(t *testing.T) {
 	t.Helper()
-	autoInstallOnce.Do(func() {})
 	savedPaths := nginxSearchPaths
 	nciMutex.Lock()
 	savedInfo, savedInstalled := _nci, nciInstalled
@@ -173,5 +172,27 @@ func TestParseNginxInfoParams(t *testing.T) {
 	want := []string{"prefix=/etc/nginx", "with-http_ssl_module"}
 	if strings.Join(info.Params, "|") != strings.Join(want, "|") {
 		t.Fatalf("Params = %q, want %q", info.Params, want)
+	}
+}
+
+// Uranus used to install nginx with the package manager, as root, when it did
+// not find it, so an nginx installed where detection does not look got a
+// second one. The install script installs nginx now; Uranus only says how.
+func TestMissingNginxIsNotInstalled(t *testing.T) {
+	resetNginxDetection(t)
+	pretendLinux(t)
+	bin := t.TempDir()
+	calls := filepath.Join(bin, "calls.log")
+	for _, manager := range []string{"apt", "apt-get", "dnf", "yum", "apk", "pacman"} {
+		writeExecutable(t, filepath.Join(bin, manager), "#!/bin/sh\necho \"$0 $*\" >> '"+calls+"'\n")
+	}
+	t.Setenv("PATH", bin)
+	nginxSearchPaths = nil
+
+	if info := ReadNginxCompileInfo(); info.NginxConfPath != "" {
+		t.Fatalf("missing nginx detected as %+v", info)
+	}
+	if ran, err := os.ReadFile(calls); err == nil {
+		t.Fatalf("a package manager ran:\n%s", ran)
 	}
 }

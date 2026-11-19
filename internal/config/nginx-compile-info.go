@@ -28,10 +28,10 @@ type NginxCompileInfo struct {
 }
 
 var (
-	_nci            *NginxCompileInfo
-	nciInstalled    bool
-	nciMutex        sync.Mutex
-	autoInstallOnce sync.Once
+	_nci         *NginxCompileInfo
+	nciInstalled bool
+	nciMutex     sync.Mutex
+	missingOnce  sync.Once
 
 	// nginxSearchPaths 是 PATH 中找不到 nginx 时依次尝试的位置。
 	// 例如 macOS 上由 launchd 启动时 PATH 不包含 Homebrew 目录，OpenResty 不把 nginx 放进 PATH。
@@ -125,17 +125,9 @@ func detectNginx() (*NginxCompileInfo, bool) {
 	binary, unit := findNginx()
 	out, err := exec.Command(binary, "-V").CombinedOutput()
 	if err != nil {
-		installed := false
-		// 只在第一次发现缺少 nginx 时提示安装或尝试自动安装
-		autoInstallOnce.Do(func() { installed = installNginx(err) })
-		if !installed {
-			return notInstalledInfo(), false
-		}
-		binary, unit = findNginx()
-		if out, err = exec.Command(binary, "-V").CombinedOutput(); err != nil {
-			return notInstalledInfo(), false
-		}
-		log.Printf("[+] Nginx installation verified, continuing with initialization...")
+		// 只在第一次发现缺少 nginx 时提示
+		missingOnce.Do(func() { logMissingNginx(err) })
+		return notInstalledInfo(), false
 	}
 
 	info := parseNginxInfo(string(out))
@@ -162,32 +154,17 @@ func notInstalledInfo() *NginxCompileInfo {
 	}
 }
 
-// installNginx prints install instructions and, when running as root on a
-// supported Linux distribution, installs nginx with the package manager.
-func installNginx(cause error) bool {
-	log.Printf("[-] Nginx doesn't seem to be installed: %v", cause)
-
+// logMissingNginx says how to install nginx. Uranus never installs it by
+// itself: an nginx installed where detection does not look would end up
+// installed twice. The install script installs nginx along with Uranus.
+func logMissingNginx(cause error) {
+	log.Printf("[-] 没有找到 nginx：%v", cause)
 	if runtime.GOOS == "darwin" {
-		log.Printf("[!] Please install nginx with Homebrew: brew install nginx")
-		return false
+		log.Printf("[!] 用 Homebrew 安装：brew install nginx")
+		return
 	}
-
-	// 检查是否以root权限运行
-	if os.Geteuid() != 0 {
-		log.Printf("[!] Please install nginx manually or run as root for auto-installation:")
-		log.Printf("    Ubuntu/Debian: sudo apt update && sudo apt install nginx")
-		log.Printf("    CentOS/RHEL:   sudo yum install nginx")
-		log.Printf("    Rocky/Alma:    sudo dnf install nginx")
-		return false
-	}
-
-	log.Printf("[!] Attempting to auto-install nginx...")
-	if autoInstallNginx() {
-		log.Printf("[+] Nginx installed successfully! Re-initializing...")
-		return true
-	}
-	log.Printf("[-] Auto-installation failed. Please install nginx manually")
-	return false
+	log.Printf("[!] 安装 nginx 后刷新页面即可，例如 Debian/Ubuntu：apt install nginx，" +
+		"CentOS/Rocky/Alma：dnf install nginx，Alpine：apk add nginx，Arch：pacman -S nginx")
 }
 
 // parseNginxInfo parses `nginx -V` output
@@ -289,60 +266,4 @@ func underPrefix(prefix, value, fallback string) string {
 		return value
 	}
 	return filepath.Join(prefix, value)
-}
-
-// autoInstallNginx attempts to automatically install nginx based on the detected Linux distribution
-func autoInstallNginx() bool {
-	log.Printf("[*] Detecting Linux distribution...")
-
-	// 检测Ubuntu/Debian
-	if _, err := os.Stat("/etc/debian_version"); err == nil {
-		log.Printf("[*] Detected Debian/Ubuntu system")
-		return runCommand("apt", "update") && runCommand("apt", "install", "-y", "nginx")
-	}
-
-	// 检测CentOS/RHEL (有/etc/redhat-release)
-	if _, err := os.Stat("/etc/redhat-release"); err == nil {
-		// 先尝试dnf (较新的系统)
-		if _, err := exec.LookPath("dnf"); err == nil {
-			log.Printf("[*] Detected RHEL/CentOS/Rocky/Alma with dnf")
-			return runCommand("dnf", "install", "-y", "nginx")
-		}
-		// 回退到yum (较老的系统)
-		if _, err := exec.LookPath("yum"); err == nil {
-			log.Printf("[*] Detected RHEL/CentOS with yum")
-			return runCommand("yum", "install", "-y", "nginx")
-		}
-	}
-
-	// 检测Alpine
-	if _, err := os.Stat("/etc/alpine-release"); err == nil {
-		log.Printf("[*] Detected Alpine Linux")
-		return runCommand("apk", "update") && runCommand("apk", "add", "nginx")
-	}
-
-	// 检测Arch Linux
-	if _, err := os.Stat("/etc/arch-release"); err == nil {
-		log.Printf("[*] Detected Arch Linux")
-		return runCommand("pacman", "-Sy", "--noconfirm", "nginx")
-	}
-
-	log.Printf("[-] Unsupported Linux distribution for auto-installation")
-	return false
-}
-
-// runCommand executes a command with arguments and returns success status
-func runCommand(command string, args ...string) bool {
-	log.Printf("[*] Running: %s %s", command, strings.Join(args, " "))
-	cmd := exec.Command(command, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[-] Command failed: %v", err)
-		if len(output) > 0 {
-			log.Printf("[-] Output: %s", string(output))
-		}
-		return false
-	}
-	log.Printf("[+] Command completed successfully")
-	return true
 }
