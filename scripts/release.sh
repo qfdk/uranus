@@ -16,6 +16,8 @@ cd "$(dirname "$0")/.."
 
 PUBLIC_URL="https://de.qfdk.me/uranus"
 GO_VERSION="$(sed -n 's/^toolchain go//p' go.mod)"
+# archive.ubuntu.com 有时连不上或极慢，默认用法国镜像，可以用 APT_MIRROR 换成别的
+APT_MIRROR="${APT_MIRROR:-http://fr.archive.ubuntu.com/ubuntu}"
 FILES=(uranus-amd64 uranus-arm64 install.sh upgrade.sh uninstall.sh version.json)
 
 if [ "${1:-}" != "--build-only" ]; then
@@ -36,10 +38,15 @@ fi
 echo "==> 编译 $(git rev-parse --short HEAD)（Ubuntu 22.04，go${GO_VERSION}）"
 rm -rf dist
 mkdir -p dist
+# 从当前提交的干净克隆编译：发布过程中工作区的修改不会混进发布的程序
+SRC="$(mktemp -d)"
+trap 'rm -rf "$SRC"' EXIT
+git clone -q --no-hardlinks . "$SRC/uranus"
 docker run --rm --platform linux/amd64 \
-  -v "$PWD":/src:ro -v "$PWD/dist":/out \
-  -e GO_VERSION="$GO_VERSION" -e TZ=Europe/Paris -e DEBIAN_FRONTEND=noninteractive \
+  -v "$SRC/uranus":/src:ro -v "$PWD/dist":/out \
+  -e GO_VERSION="$GO_VERSION" -e APT_MIRROR="$APT_MIRROR" -e TZ=Europe/Paris -e DEBIAN_FRONTEND=noninteractive \
   ubuntu:22.04 bash -euo pipefail -c '
+    sed -i "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g; s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" /etc/apt/sources.list
     apt-get update -qq
     apt-get install -y -qq gcc gcc-aarch64-linux-gnu libc6-dev-arm64-cross make git ca-certificates curl tzdata >/dev/null
     curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz
