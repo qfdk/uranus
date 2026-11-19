@@ -8,32 +8,45 @@
 </div>
 
 {{ if .files }}
-<section class="card mb-4 p-4">
-    <div class="flex flex-wrap items-end gap-3">
-        <div class="min-w-0 flex-1 basis-72">
+<section class="card mb-4 space-y-3 p-4">
+    <div class="flex flex-col gap-3 sm:flex-row">
+        <div class="min-w-0 flex-1">
             <label for="logFile" class="label">日志文件</label>
-            <select id="logFile" class="input">
-                {{ range .files }}<option value="{{ . }}" {{ if eq . $.selected }}selected{{ end }}>{{ . }}</option>{{ end }}
-            </select>
+            <div class="select-wrap">
+                <select id="logFile" class="select">
+                    {{ range .files }}<option value="{{ . }}" {{ if eq . $.selected }}selected{{ end }}>{{ . }}</option>{{ end }}
+                </select>
+                {{ svgIcon "chevron-down" }}
+            </div>
         </div>
-        <div class="w-28">
+        <div class="shrink-0 sm:w-24">
             <label for="logLines" class="label">行数</label>
-            <select id="logLines" class="input">
-                <option value="100">100</option>
-                <option value="200" selected>200</option>
-                <option value="500">500</option>
-                <option value="1000">1000</option>
-                <option value="2000">2000</option>
-            </select>
+            <div class="select-wrap">
+                <select id="logLines" class="select">
+                    <option value="100">100</option>
+                    <option value="200" selected>200</option>
+                    <option value="500">500</option>
+                    <option value="1000">1000</option>
+                    <option value="2000">2000</option>
+                </select>
+                {{ svgIcon "chevron-down" }}
+            </div>
         </div>
-        <div class="min-w-0 flex-1 basis-56">
-            <label for="logFilter" class="label">过滤</label>
-            <input type="search" id="logFilter" class="input" placeholder="例如 404、IP 地址、error" autocomplete="off">
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+        <input type="search" id="logFilter" class="input min-w-0 flex-1 basis-56" placeholder="过滤，例如 404、IP 地址、error"
+               aria-label="过滤" autocomplete="off">
+        <div class="flex items-center gap-3">
+            <label class="flex h-10 cursor-pointer select-none items-center gap-2.5 text-sm text-fg">
+                <span class="relative inline-flex">
+                    <input type="checkbox" id="logFollow" role="switch" class="peer sr-only">
+                    <span class="h-5 w-9 rounded-full bg-line transition-colors peer-checked:bg-fg peer-focus-visible:ring-2 peer-focus-visible:ring-fg/20 peer-focus-visible:ring-offset-1"></span>
+                    <span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition-transform peer-checked:translate-x-4"></span>
+                </span>
+                自动刷新
+            </label>
+            <button type="button" id="logRefresh" class="btn btn-secondary h-10">{{ svgIcon "refresh-cw" }}刷新</button>
         </div>
-        <label class="flex h-10 cursor-pointer items-center gap-2 text-sm text-fg">
-            <input type="checkbox" id="logFollow" class="h-4 w-4 accent-current">自动刷新
-        </label>
-        <button type="button" id="logRefresh" class="btn btn-secondary">{{ svgIcon "refresh-cw" }}刷新</button>
     </div>
 </section>
 

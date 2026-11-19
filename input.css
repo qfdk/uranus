@@ -153,6 +153,17 @@
         focus:border-fg/30 focus:outline-none focus:ring-2 focus:ring-fg/10
         read-only:bg-surface read-only:text-muted;
     }
+    /* 下拉框：外观同输入框，箭头用图标（.input 的只读灰底会套到 select 上，所以单独一个类） */
+    .select-wrap {
+        @apply relative;
+    }
+    .select {
+        @apply block h-10 w-full cursor-pointer appearance-none rounded-lg border border-line bg-card pl-3 pr-9 text-sm text-fg shadow-sm
+        focus:border-fg/30 focus:outline-none focus:ring-2 focus:ring-fg/10;
+    }
+    .select-wrap > svg {
+        @apply pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted;
+    }
     .hint {
         @apply mt-1.5 text-xs text-muted;
     }
