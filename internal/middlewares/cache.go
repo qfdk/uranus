@@ -20,8 +20,11 @@ func CacheMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.RequestURI
 
-		// JavaScript 文件不缓存
-		if jsFilePattern.MatchString(path) {
+		// 第三方库的目录名带版本号，换版本就换路径，可以一直缓存
+		if strings.HasPrefix(path, "/public/vendor/") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		} else if jsFilePattern.MatchString(path) {
+			// 自己的 JavaScript 文件不缓存
 			setNoCacheHeaders(c)
 		} else if staticFilePattern.MatchString(path) {
 			// 静态内容缓存 24 小时

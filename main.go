@@ -15,7 +15,6 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -32,7 +31,9 @@ import (
 //go:embed web
 var templates embed.FS
 
-//go:embed web/public
+// Directory embeds skip files starting with "_", so ghostty-web's helper module is named.
+//
+//go:embed web/public web/public/vendor/ghostty-web-0.4.0/__vite-browser-external-2447137e.js
 var staticFS embed.FS
 
 func init() {
@@ -68,25 +69,7 @@ func initRouter() *gin.Engine {
 	// 使用缓存中间件
 	app.Use(middlewares.CacheMiddleware())
 
-	// 设置静态文件服务，直接使用 embed.FS
-	app.Use(func(c *gin.Context) {
-		// 处理静态文件请求
-		if strings.HasPrefix(c.Request.URL.Path, "/public/") {
-			// 移除 /public/ 前缀
-			filePath := strings.TrimPrefix(c.Request.URL.Path, "/public/")
-
-			// 尝试读取文件
-			file, err := staticFS.ReadFile(path.Join("web/public", filePath))
-			if err == nil {
-				// 根据文件扩展名设置正确的 MIME 类型
-				contentType := getMimeType(filePath)
-				c.Data(http.StatusOK, contentType, file)
-				c.Abort()
-				return
-			}
-		}
-		c.Next()
-	})
+	app.Use(staticFiles(staticFS))
 
 	// 处理favicon.ico
 	app.GET("/favicon.ico", func(c *gin.Context) {

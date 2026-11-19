@@ -1,115 +1,105 @@
 <!DOCTYPE html>
-<html style="background-color: #2A2C34;">
+<html lang="zh-CN">
 <head>
-    <title>Οὐρανός - {{ .title }}</title>
-    <!-- Immediate background color script -->
-    <script>
-        // Set background color immediately
-        document.documentElement.style.backgroundColor = "#2A2C34";
-        document.body ? document.body.style.backgroundColor = "#2A2C34" : null;
-    </script>
-    <!-- Preload to prevent white flash -->
-    <style id="terminal-preload">
-        html, body, #terminal {
-            background-color: #2A2C34 !important;
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            color: white;
-        }
-        /* Force immediate application of background color */
-        * {
-            transition: none !important;
-        }
-    </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.18.0/css/xterm.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/xterm@4.18.0/lib/xterm.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-unicode11@0.3.0/lib/xterm-addon-unicode11.min.js"></script>
-    
-    <!-- MQTT库，仅在MQTT模式下需要 -->
-    {{ if eq .mode "mqtt" }}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
-    {{ end }}
-    
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .hostname }} · 终端</title>
+    <link rel="icon" href="/favicon.ico">
     <style>
-        html::-webkit-scrollbar,
-        body::-webkit-scrollbar,
-        div::-webkit-scrollbar {
-            display: none;
-            width: 0;
+        :root {
+            --bg: #1d1d1d;
+            --panel: #2a2a2a;
+            --line: #3a3a3a;
+            --fg: #f2f4f8;
+            --muted: #a8a8a8;
         }
-
-        html,
-        body {
+        html, body {
+            height: 100%;
             margin: 0;
             overflow: hidden;
-            padding: 0;
-            background-color: #2A2C34; /* Match the terminal background color */
+            background: var(--bg);
         }
-
-        div#terminal {
-            height: 100%;
-            left: 0;
+        #terminal {
             position: absolute;
-            top: 0;
-            width: 100%;
-            background-color: #2A2C34; /* Match the terminal background color */
+            inset: 8px;
+            overflow: hidden;
         }
-
-        div#terminal div {
-            height: 100%;
+        #search {
+            position: fixed;
+            top: 10px;
+            right: 18px;
+            z-index: 10;
+            display: none;
+            align-items: center;
+            gap: 2px;
+            height: 34px;
+            padding: 0 4px 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            background: var(--panel);
+            color: var(--fg);
+            font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
         }
-
-        .xterm-viewport,
-        .xterm-screen {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #2A2C34; /* Match the terminal background color */
+        #search.open {
+            display: flex;
         }
-
-        .terminal.xterm {
-            padding: 8px;
-            background-color: #2A2C34; /* Match the terminal background color */
+        #search input {
+            width: 170px;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+        }
+        #search input::placeholder {
+            color: var(--muted);
+        }
+        #search output {
+            min-width: 44px;
+            padding: 0 6px;
+            color: var(--muted);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+        #search button {
+            display: grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        #search button:hover {
+            background: var(--line);
+            color: var(--fg);
+        }
+        #search svg {
+            width: 16px;
+            height: 16px;
         }
     </style>
 </head>
+<body>
+<div id="terminal"></div>
 
-<body style="background-color: #2A2C34;">
-<!-- 隐藏的表单用于传递终端模式和代理UUID -->
-<input type="hidden" id="terminal-mode" value="{{ .mode }}">
-<input type="hidden" id="agent-uuid" value="{{ .agentUUID }}">
-
-<div id="terminal-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #2A2C34; display: flex; justify-content: center; align-items: center;">
-    <div id="loading-indicator" style="color: white; font-family: monospace; text-align: center;">
-        <div style="margin-bottom: 20px; font-size: 18px;">正在加载终端...</div>
-        <div style="width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-    </div>
-    <div id="terminal" style="display: none; width: 100%; height: 100%;"></div>
+<div id="search" role="search">
+    <input type="text" placeholder="在终端里查找" aria-label="在终端里查找" autocomplete="off" spellcheck="false">
+    <output aria-live="polite"></output>
+    <button type="button" data-action="previous" title="上一个（↵）" aria-label="上一个">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+    </button>
+    <button type="button" data-action="next" title="下一个（⇧↵）" aria-label="下一个">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <button type="button" data-action="close" title="关闭（Esc）" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
 </div>
 
-<style>
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-</style>
-
-<script src="/public/js/terminal.js"></script>
-<script>
-    // 在终端准备就绪后隐藏加载指示器并显示终端
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-            var terminalElement = document.getElementById('terminal');
-            var loadingIndicator = document.getElementById('loading-indicator');
-            if (terminalElement && loadingIndicator) {
-                terminalElement.style.display = 'block';
-                loadingIndicator.style.display = 'none';
-            }
-        }, 500); // 给终端500毫秒的时间完成初始化
-    });
-</script>
+<script type="module" src="/public/js/terminal.js"></script>
 </body>
-
 </html>

@@ -28,3 +28,23 @@ func TestStaticFilesGetValidCacheHeaders(t *testing.T) {
 		t.Fatalf("Content-Type = %q", got)
 	}
 }
+
+// Vendored libraries live in versioned directories, so browsers may keep them;
+// the uranus scripts next to them must not be cached.
+func TestVendorFilesAreCachedForLong(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.Use(CacheMiddleware())
+	engine.GET("/public/*file", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	for p, want := range map[string]string{
+		"/public/vendor/ghostty-web-0.4.0/ghostty-web.js": "public, max-age=31536000, immutable",
+		"/public/js/terminal.js":                          "no-store, no-cache, must-revalidate, max-age=0",
+	} {
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, p, nil))
+		if got := w.Header().Get("Cache-Control"); got != want {
+			t.Errorf("%s: Cache-Control = %q, want %q", p, got, want)
+		}
+	}
+}

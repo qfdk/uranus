@@ -98,7 +98,7 @@ func login(t *testing.T, engine *gin.Engine) *http.Cookie {
 // could mint an admin session and open the root web terminal.
 func TestForgedSessionCookieIsRejected(t *testing.T) {
 	engine := newEngine()
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/terminal/info", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/sites/template", nil)
 	req.AddCookie(forgeSessionCookie(t, "secret"))
 	w := serve(engine, req)
 	if w.Code != http.StatusFound || w.Header().Get("Location") != "/" {
@@ -113,7 +113,7 @@ func TestLoginSessionCookie(t *testing.T) {
 		t.Fatalf("session cookie should be HttpOnly and SameSite=Lax: %+v", c)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/terminal/info", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/sites/template", nil)
 	req.AddCookie(c)
 	if w := serve(engine, req); w.Code != http.StatusOK {
 		t.Fatalf("logged-in request rejected: %d", w.Code)
