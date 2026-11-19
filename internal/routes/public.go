@@ -2,14 +2,11 @@ package routes
 
 import (
 	"crypto/subtle"
-	"encoding/json"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"io"
 	"log"
 	"net/http"
 	"runtime"
-	"time"
 	"uranus/internal/config"
 	"uranus/internal/services"
 )
@@ -17,23 +14,12 @@ import (
 // 升级相关操作，测试中替换为桩函数，避免真的下载和替换程序
 var (
 	checkSelfUpdate = services.CheckSelfUpdate
-	runUpgrade      = func() error {
-		return services.ToUpdateProgram(services.ReleaseBaseURL + "/uranus-" + runtime.GOARCH)
-	}
+	runUpgrade      = services.ToUpdateProgram
 )
 
 // secureEqual 以常量时间比较凭证；期望值为空时一律不通过
 func secureEqual(given, expected string) bool {
 	return expected != "" && subtle.ConstantTimeCompare([]byte(given), []byte(expected)) == 1
-}
-
-// 版本信息响应结构体
-type VersionResponse struct {
-	ID           string `json:"_id"`
-	CommitID     string `json:"commitId"`
-	V            int    `json:"__v"`
-	BuildTime    string `json:"buildTime"`
-	BuildVersion string `json:"buildVersion"`
 }
 
 func publicRoute(engine *gin.Engine) {
@@ -87,13 +73,11 @@ func publicRoute(engine *gin.Engine) {
 		})
 	})
 
-	// 检查更新接口
+	// 检查更新接口：发布清单要有正确的签名，按发布编号判断新旧
 	engine.GET("/checkUpdate", func(context *gin.Context) {
-		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Get(services.ReleaseBaseURL + "/version.json")
+		manifest, err := services.FetchManifest()
 		if err != nil {
-			log.Println("[-] 检查更新出错")
-			log.Println(err)
+			log.Printf("[-] 检查更新出错: %v", err)
 			context.JSON(200, gin.H{
 				"status":       "KO",
 				"buildTime":    "检查更新出错",
@@ -102,35 +86,21 @@ func publicRoute(engine *gin.Engine) {
 			})
 			return
 		}
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
-		body, _ := io.ReadAll(resp.Body)
-		var response VersionResponse
-		if json.Unmarshal(body, &response) == nil {
-			if config.CommitID != response.CommitID {
-				context.JSON(200, gin.H{
-					"status":       "OK",
-					"buildTime":    response.BuildTime,
-					"commitId":     response.CommitID,
-					"buildVersion": response.BuildVersion,
-				})
-			} else {
-				context.JSON(200, gin.H{
-					"status":       "KO",
-					"buildTime":    config.BuildTime,
-					"commitId":     config.CommitID,
-					"buildVersion": config.BuildVersion,
-				})
-			}
-		} else {
+		if manifest.Newer() {
 			context.JSON(200, gin.H{
-				"status":       "KO",
-				"buildTime":    "解析版本信息出错",
-				"commitId":     "解析版本信息出错",
-				"buildVersion": "解析版本信息出错",
+				"status":       "OK",
+				"buildTime":    manifest.BuildTime,
+				"commitId":     manifest.CommitID,
+				"buildVersion": manifest.BuildVersion,
 			})
+			return
 		}
+		context.JSON(200, gin.H{
+			"status":       "KO",
+			"buildTime":    config.BuildTime,
+			"commitId":     config.CommitID,
+			"buildVersion": config.BuildVersion,
+		})
 	})
 
 	// 升级接口：仪表盘（已登录会话）或携带 token 的远程调用

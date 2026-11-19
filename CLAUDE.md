@@ -39,7 +39,10 @@ make release
 
 # Build the release in Docker (Ubuntu 22.04) and publish it to https://de.qfdk.me/uranus/
 # (binaries, install/upgrade/uninstall scripts and version.json); works from macOS too.
-# The upload target (SSH host and directory) lives in the untracked .release.env
+# The upload target (SSH host and directory) lives in the untracked .release.env.
+# version.json is signed with the ed25519 key ~/.config/uranus/release-signing.key
+# (URANUS_SIGNING_KEY); agents verify it with releasePublicKey in internal/services/update.go.
+# The key must be backed up: without it deployed agents accept no new release.
 scripts/release.sh
 # Only build into dist/
 scripts/release.sh --build-only

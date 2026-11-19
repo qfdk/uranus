@@ -10,7 +10,9 @@ var (
 	BuildVersion = "开发版本"
 	BuildTime    = "未知构建时间" // This will be set during build via ldflags
 	CommitID     = "DEV888888"
-	GoVersion    = "go version 开发环境"
+	// Release 是发布编号（提交数），越大越新；开发版本为 0
+	Release   = "0"
+	GoVersion = "go version 开发环境"
 )
 
 func DisplayVersion() {

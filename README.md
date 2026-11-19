@@ -44,6 +44,12 @@ wget -qO- https://de.qfdk.me/uranus/upgrade.sh|bash
 kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 ```
 
+### 在线升级
+
+- 节点只安装发布机签名过的版本：`version.json` 用 ed25519 签名，节点用编在程序里的公钥验证，再核对下载程序的 sha256 和大小，并在本机试运行（`--version`）确认能跑、提交号一致，才替换程序
+- 版本新旧按发布编号（提交数）判断
+- 替换前的程序保留为 `/etc/uranus/uranus.previous`。新版本连续 3 次没能正常启动，或者 90 秒内没有就绪，会自动换回上一版
+
 ### Nginx 的安装位置
 
 不同系统的 nginx 装在不同的地方，Uranus 不按发行版猜路径，而是以 nginx 自己的说法为准：

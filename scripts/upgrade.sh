@@ -45,8 +45,18 @@ mv ${TEMP_FILE} ${CUR_FILE}
 # Start the service again
 echo "Starting Uranus service..."
 service uranus start
-if [ $? -ne 0 ]; then
+# 服务是 Type=simple，启动命令成功不代表程序跑起来了：等它的页面能访问
+started=1
+for i in $(seq 1 20); do
+  if wget -q -T 2 -O /dev/null http://127.0.0.1:7777/info; then
+    started=0
+    break
+  fi
+  sleep 1
+done
+if [ $started -ne 0 ]; then
   echo "Failed to start the Uranus service with the new version. Rolling back..."
+  service uranus stop
   mv ${OLD_FILE} ${CUR_FILE}
   service uranus start
   if [ $? -ne 0 ]; then

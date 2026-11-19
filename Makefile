@@ -2,11 +2,14 @@ BUILD_VERSION:=v1.0.0
 BUILD_TIME:=$(shell date "+%F %T")
 BUILD_NAME:=uranus
 COMMIT_SHA1:=$(shell git rev-parse HEAD )
+# 发布编号：提交数，越大越新
+RELEASE:=$(shell git rev-list --count HEAD 2>/dev/null || echo 0)
 GoVersion:=$(shell go version)
 CONFIG_PATH=uranus/internal/config
 
 LDFLAGS=-ldflags "-X ${CONFIG_PATH}.BuildName=${BUILD_NAME} \
 -X ${CONFIG_PATH}.CommitID=${COMMIT_SHA1} \
+-X ${CONFIG_PATH}.Release=${RELEASE} \
 -X '${CONFIG_PATH}.BuildTime=${BUILD_TIME}' \
 -X '${CONFIG_PATH}.GoVersion=${GoVersion}' \
 -X ${CONFIG_PATH}.BuildVersion=${BUILD_VERSION}"

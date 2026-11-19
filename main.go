@@ -334,6 +334,7 @@ func Graceful() {
 	if err := upg.Ready(); err != nil {
 		panic(err)
 	}
+	services.ConfirmUpgrade()
 	<-upg.Exit()
 
 	// 关闭服务器
@@ -364,6 +365,9 @@ func main() {
 	if gin.Mode() == gin.ReleaseMode {
 		config.DisplayVersion()
 	}
+
+	// 刚升级完时检查新版本能否正常启动，不行就换回上一版
+	services.CheckPendingUpgrade()
 
 	// 初始化配置文件
 	config.InitAppConfig()
