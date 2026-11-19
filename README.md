@@ -56,7 +56,7 @@ kill -9 $(ps aux|grep "uranus"|grep -v grep|awk '{print $2}')
 
 需要时可以在 `config.toml` 里用 `vhostpath`、`sslpath` 指定网站目录和证书目录。「Nginx 配置」页面列出了检测到的所有位置。
 
-`scripts/test-nginx-layouts.sh` 会在 Docker 里依次安装各发行版的 nginx，检查检测结果，以及保存在网站目录里的网站能否通过 `nginx -t`。
+`scripts/test-nginx-layouts.sh` 会在 Docker 里依次安装各发行版的 nginx，检查 Uranus 找到的位置，再像在页面上一样保存一个网站，启动、重载、重启、停止 nginx，并确认网站能访问。
 
 ### 截图预览
 

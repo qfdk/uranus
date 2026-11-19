@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 	"uranus/internal/config"
@@ -16,7 +17,10 @@ import (
 //
 // The fake nginx behaves like the real one where it matters: `-t` fails when
 // FAKE_NGINX_TEST_FAIL is set, `-s quit` lets the master exit a second later,
-// and starting while the old master still holds the port fails.
+// and starting while the old master still holds the port fails. When started
+// with FAKE_NGINX_LOG_TO_STDERR set, the master keeps stdout and stderr open
+// as nginx logging to stderr does; with FAKE_NGINX_NO_PID it never writes its
+// pid file, as a master that exits right after starting.
 //
 // The fake `systemctl show` reports the units listed in FAKE_SYSTEMD_UNITS as
 // installed, and those in FAKE_SYSTEMD_ACTIVE as running.
@@ -50,7 +54,9 @@ func TestMain(m *testing.M) {
 		"  '') if [ -f \"$PID\" ] && kill -0 \"$(cat \"$PID\")\" 2>/dev/null; then\n" +
 		"        echo 'nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)' >&2; exit 1\n" +
 		"      fi\n" +
-		"      echo $PPID > \"$PID\" ;;\n" +
+		"      if [ -n \"$FAKE_NGINX_NO_PID\" ]; then exit 0; fi\n" +
+		"      echo $PPID > \"$PID\"\n" +
+		"      if [ -n \"$FAKE_NGINX_LOG_TO_STDERR\" ]; then sleep 20 & echo $! > \"$DIR/master.pid\"; fi ;;\n" +
 		"esac\n"
 	systemctl := "#!/bin/sh\n" +
 		"DIR='" + fakeDir + "'\n" +
@@ -423,6 +429,52 @@ func TestRestartNginxWaitsForTheOldMaster(t *testing.T) {
 	assertCalls(t, "nginx -t", "nginx -s quit", "nginx")
 	if NginxStatus() == "KO" {
 		t.Fatal("nginx is not running after the restart")
+	}
+}
+
+// nginx logging to stderr keeps the output of the start command open while it
+// runs: the official Docker image links its logs to /dev/stdout and
+// /dev/stderr, others use `error_log stderr`. Starting it never returned.
+func TestStartNginxLoggingToStderr(t *testing.T) {
+	simulateHost(t, "linux", false)
+	writePidFile(t, 0)
+	t.Setenv("FAKE_NGINX_LOG_TO_STDERR", "1")
+	t.Cleanup(func() {
+		master := filepath.Join(fakeDir, "master.pid")
+		data, _ := os.ReadFile(master)
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+		os.Remove(master)
+	})
+
+	begin := time.Now()
+	if got := StartNginx(); got != "OK" {
+		t.Fatalf("start: %q", got)
+	}
+	if elapsed := time.Since(begin); elapsed > 5*time.Second {
+		t.Fatalf("start returned after %v, when nginx closed its output", elapsed.Round(time.Second))
+	}
+	assertCalls(t, "nginx -t", "nginx")
+}
+
+// The start command succeeds as soon as nginx forked into the background; the
+// master can still exit right away (it cannot write its pid file, say).
+func TestStartNginxReportsNginxThatIsNotRunning(t *testing.T) {
+	simulateHost(t, "linux", false)
+	writePidFile(t, 0)
+	t.Setenv("FAKE_NGINX_NO_PID", "1")
+	saved := nginxStartTimeout
+	nginxStartTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { nginxStartTimeout = saved })
+
+	got := StartNginx()
+	if got == "OK" || !strings.Contains(got, config.NginxPidFile()) {
+		t.Fatalf("start of an nginx that does not run: %q", got)
+	}
+	writePidFile(t, 0)
+	if got := RestartNginx(); got == "OK" {
+		t.Fatalf("restart of an nginx that does not run: %q", got)
 	}
 }
 

@@ -22,6 +22,9 @@ var (
 
 	// systemdRunDir 存在说明本机由 systemd 启动（同 sd_booted(3) 的判断方式）
 	systemdRunDir = "/run/systemd/system"
+
+	// nginxStartTimeout 是直接启动 nginx 后，等它的进程号出现在 PID 文件里的最长时间
+	nginxStartTimeout = 5 * time.Second
 )
 
 // NginxStatus returns the PID of the running nginx master, or "KO", with caching for better performance
@@ -150,6 +153,10 @@ func waitNginxRunning(running bool, timeout time.Duration) bool {
 // systemctl and, for a systemd unit, the last lines of its journal.
 func run(cmd *exec.Cmd, unit string) string {
 	out, err := cmd.CombinedOutput()
+	if errors.Is(err, exec.ErrWaitDelay) {
+		// 命令本身成功退出了，只是它启动的后台进程还占着输出管道（见 startNginx）
+		err = nil
+	}
 	invalidateNginxStatus()
 	command := strings.Join(cmd.Args, " ")
 
@@ -219,10 +226,18 @@ func startNginx() string {
 	if unit, ok := nginxUnit(); ok {
 		return run(exec.Command("systemctl", "start", unit.Name), unit.Name)
 	}
-	if result := run(nginxCommand(), ""); result != "OK" {
+	cmd := nginxCommand()
+	// nginx 启动后转入后台。日志写到 stderr 时（官方 Docker 镜像把日志链接到 /dev/stdout 和
+	// /dev/stderr，或者 error_log stderr），后台的 nginx 一直占着输出管道，要读到管道关闭就得
+	// 等 nginx 退出。启动命令退出后最多再读一秒
+	cmd.WaitDelay = time.Second
+	if result := run(cmd, ""); result != "OK" {
 		return result
 	}
-	waitNginxRunning(true, 5*time.Second)
+	// 启动命令在 nginx 转入后台后就成功返回，nginx 随后仍可能退出（比如写不了 PID 文件）
+	if !waitNginxRunning(true, nginxStartTimeout) {
+		return "已执行启动命令，但没有在 " + config.NginxPidFile() + " 找到运行中的 nginx 进程，原因请查看 nginx 的错误日志"
+	}
 	return "OK"
 }
 
