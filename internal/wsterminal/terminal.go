@@ -3,8 +3,6 @@ package wsterminal
 import (
 	"fmt"
 	"log"
-	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -15,6 +13,15 @@ import (
 
 // writeWait bounds how long a write may block on a slow or stalled client.
 const writeWait = 10 * time.Second
+
+// The server pings the browser every pingPeriod. A connection that stays
+// silent for pongWait (no pong, no input) is gone, e.g. a laptop that was
+// closed: the terminal is closed and its shell hung up instead of waiting for
+// TCP to notice.
+var (
+	pingPeriod = 30 * time.Second
+	pongWait   = 60 * time.Second
+)
 
 // Terminal represents a terminal session with WebSocket connectivity
 type Terminal struct {
@@ -31,10 +38,7 @@ type Terminal struct {
 func NewTerminal(id string, conn *websocket.Conn, shell string) (*Terminal, error) {
 	log.Printf("[WS Terminal] Creating new terminal with ID: %s", id)
 
-	env := append(os.Environ(),
-		"TERM=xterm-256color",
-		"PS1=\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] ")
-	sh, err := ptyshell.Start(shell, env, 24, 80)
+	sh, err := ptyshell.Start(shell, 24, 80)
 	if err != nil {
 		log.Printf("[WS Terminal] Failed to start shell: %v", err)
 		return nil, fmt.Errorf("failed to start shell: %v", err)
@@ -61,6 +65,10 @@ func (t *Terminal) write(messageType int, data []byte) error {
 func (t *Terminal) Start() {
 	log.Printf("[WS Terminal] Starting terminal I/O for session: %s", t.ID)
 
+	alive := func() error { return t.WsConn.SetReadDeadline(time.Now().Add(pongWait)) }
+	_ = alive()
+	t.WsConn.SetPongHandler(func(string) error { return alive() })
+
 	go func() {
 		defer func() {
 			log.Printf("[WS Terminal] WebSocket->PTY handler exiting for session: %s", t.ID)
@@ -75,6 +83,7 @@ func (t *Terminal) Start() {
 				}
 				return
 			}
+			_ = alive()
 
 			if messageType == websocket.TextMessage && len(p) > 0 && p[0] == '{' {
 				handleControlMessage(t, p)
@@ -110,6 +119,23 @@ func (t *Terminal) Start() {
 		}
 	}()
 
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				// WriteControl may run concurrently with the output writer.
+				if err := t.WsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+					t.Close()
+					return
+				}
+			case <-t.Done:
+				return
+			}
+		}
+	}()
+
 	// End the session when the shell exits, e.g. after `exit`.
 	go func() {
 		select {
@@ -119,27 +145,6 @@ func (t *Terminal) Start() {
 		case <-t.Done:
 		}
 	}()
-
-	// Send initial message to client
-	_ = t.write(websocket.BinaryMessage, []byte("\r\nWelcome to WebSocket Terminal\r\n\r\n"))
-
-	// 在服务器端配置 Shell 环境，这样用户就不会看到这些命令执行过程
-	time.Sleep(100 * time.Millisecond) // 确保 shell 已经准备好接收命令
-	shellInitCmd := []byte("export TERM=xterm-256color && " +
-		"PS1=\"\\[\\033[1;31m\\]\\u\\[\\033[1;33m\\]@\\[\\033[1;32m\\]\\h:\\[\\033[1;34m\\][\\w]\\$\\[\\033[0m\\] \" && " +
-		"alias ls='" + lsWithColor() + "' && " +
-		"alias ll='ls -alF' && " +
-		"clear\n")
-	_, _ = t.shell.PTY().Write(shellInitCmd)
-}
-
-// lsWithColor returns an ls invocation with colors: BSD ls on macOS uses -G,
-// and macOS releases before Ventura reject --color.
-func lsWithColor() string {
-	if runtime.GOOS == "darwin" {
-		return "ls -G"
-	}
-	return "ls --color=auto"
 }
 
 // Close terminates the terminal session

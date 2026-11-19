@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -227,4 +228,37 @@ func TestClosedSessionShellIsReaped(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("shell %d still in the process table after Close", pid)
+}
+
+// When the MQTT side reads slowly, the output must wait instead of being
+// dropped: `cat` of a big file used to lose whole chunks.
+func TestSlowReaderLosesNoOutput(t *testing.T) {
+	shell := testShell(t)
+	s, err := newSession("slow-reader", shell)
+	if err != nil {
+		t.Fatalf("newSession: %v", err)
+	}
+	t.Cleanup(func() { closeAndWait(t, s) })
+
+	const n = 200000
+	if err := s.SendInput([]byte("stty -echo; seq 1 " + strconv.Itoa(n) + "; echo END_$((3+4))\r")); err != nil {
+		t.Fatal(err)
+	}
+	// Nobody reads for a while: far more chunks than the channel holds pile up.
+	time.Sleep(2 * time.Second)
+
+	out := collectOutput(s)
+	if !out.waitFor(regexp.MustCompile(`END_7`), 30*time.Second) {
+		t.Fatalf("output did not finish")
+	}
+	next := 1
+	// \r too: bash 5 puts its bracketed-paste switch on the line of the first number.
+	for _, line := range strings.FieldsFunc(out.String(), func(r rune) bool { return r == '\r' || r == '\n' }) {
+		if v, err := strconv.Atoi(line); err == nil && v == next {
+			next++
+		}
+	}
+	if next != n+1 {
+		t.Fatalf("output lost: the numbers stop being consecutive after %d of %d", next-1, n)
+	}
 }

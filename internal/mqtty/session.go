@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
@@ -250,10 +249,7 @@ func (m *SessionManager) ListSessions() []string {
 
 // newSession 创建新的会话实例
 func newSession(id, shell string) (*Session, error) {
-	env := append(os.Environ(),
-		"TERM=xterm-256color",
-		"PS1=\\[\\e[32m\\]\\u@\\h:\\[\\e[33m\\]\\w\\[\\e[0m\\]\\$ ")
-	sh, err := ptyshell.Start(shell, env, 24, 80)
+	sh, err := ptyshell.Start(shell, 24, 80)
 	if err != nil {
 		return nil, fmt.Errorf("启动命令失败: %v", err)
 	}
@@ -296,7 +292,8 @@ func (s *Session) writeInput() {
 	}
 }
 
-// readOutput 把 PTY 输出转到 Output 通道，PTY 关闭或 shell 退出时结束会话
+// readOutput 把 PTY 输出转到 Output 通道，PTY 关闭或 shell 退出时结束会话。
+// 通道满了就等转发取走，不丢数据：shell 的输出跟着慢下来，和真实终端一样
 func (s *Session) readOutput() {
 	defer s.Close()
 
@@ -310,8 +307,6 @@ func (s *Session) readOutput() {
 			case s.Output <- data:
 			case <-s.Done:
 				return
-			default:
-				log.Printf("[MQTTY] 输出缓冲区已满，丢弃数据")
 			}
 		}
 		if err != nil {

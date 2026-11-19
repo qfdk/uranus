@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -39,17 +41,27 @@ func (o *output) waitFor(re *regexp.Regexp, timeout time.Duration) []string {
 // and collects its output.
 func startShell(t *testing.T, shell string) (*Shell, *output) {
 	t.Helper()
+	if shell == "" {
+		shell = DefaultShell()
+	}
+	home := t.TempDir()
 	env := []string{
-		"HOME=" + t.TempDir(),
+		"HOME=" + home,
 		"PATH=" + os.Getenv("PATH"),
 		"TERM=xterm",
 		"PS1=$ ",
 		"BASH_SILENCE_DEPRECATION_WARNING=1",
 	}
-	s, err := Start(shell, env, 24, 80)
+	s, err := start(shell, env, home, 24, 80)
 	if err != nil {
-		t.Fatalf("Start: %v", err)
+		t.Fatalf("start: %v", err)
 	}
+	return s, collect(t, s)
+}
+
+// collect closes s when the test ends and gathers its output meanwhile.
+func collect(t *testing.T, s *Shell) *output {
+	t.Helper()
 	t.Cleanup(func() {
 		s.Close()
 		// Let the shell exit (bash writes its history into HOME) before HOME is removed.
@@ -75,7 +87,77 @@ func startShell(t *testing.T, shell string) (*Shell, *output) {
 			}
 		}
 	}()
-	return s, out
+	return out
+}
+
+func envMap(env []string) map[string]string {
+	m := map[string]string{}
+	for _, kv := range env {
+		name, value, _ := strings.Cut(kv, "=")
+		m[name] = value
+	}
+	return m
+}
+
+// The terminal must not inherit the service's own variables, and gets a UTF-8
+// locale when the service has none.
+func TestLoginEnv(t *testing.T) {
+	t.Setenv("HOME", "/home/test")
+	t.Setenv("INVOCATION_ID", "0123abcd")
+	t.Setenv("GIN_MODE", "release")
+	t.Setenv("LANG", "")
+	t.Setenv("LC_ALL", "")
+	t.Setenv("LC_CTYPE", "")
+	t.Setenv("LC_TIME", "en_GB.UTF-8")
+
+	env, home := loginEnv("/bin/bash")
+	got := envMap(env)
+	if home != "/home/test" || got["HOME"] != "/home/test" {
+		t.Errorf("home = %q, HOME = %q, want /home/test", home, got["HOME"])
+	}
+	for name, want := range map[string]string{
+		"SHELL": "/bin/bash", "TERM": "xterm-256color", "COLORTERM": "truecolor",
+		"LANG": "C.UTF-8", "LC_TIME": "en_GB.UTF-8", "PATH": os.Getenv("PATH"),
+	} {
+		if got[name] != want {
+			t.Errorf("%s = %q, want %q", name, got[name], want)
+		}
+	}
+	for _, name := range []string{"INVOCATION_ID", "GIN_MODE", "LC_ALL"} {
+		if _, ok := got[name]; ok {
+			t.Errorf("%s leaked into the terminal environment", name)
+		}
+	}
+
+	t.Setenv("LANG", "zh_CN.UTF-8")
+	if env, _ := loginEnv("/bin/bash"); envMap(env)["LANG"] != "zh_CN.UTF-8" {
+		t.Errorf("the service's LANG was replaced: %q", envMap(env)["LANG"])
+	}
+}
+
+// Like an SSH login: a login shell, started in the home directory.
+func TestStartLoginShellInHome(t *testing.T) {
+	if _, err := os.Stat("/bin/bash"); err != nil {
+		t.Skip("/bin/bash not available")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("INVOCATION_ID", "0123abcd")
+
+	s, err := Start("/bin/bash", 24, 80)
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	out := collect(t, s)
+	send(t, s, `shopt -q login_shell && L=yes; echo "R:$L:$(pwd -P):$SHELL:${INVOCATION_ID-none}:E"`+"\r")
+	m := out.waitFor(regexp.MustCompile(`R:(\w*):(.*):(.*):(.*):E`), 5*time.Second)
+	if m == nil {
+		t.Fatalf("no answer, output:\n%s", out)
+	}
+	want, _ := filepath.EvalSymlinks(home)
+	if m[1] != "yes" || m[2] != want || m[3] != "/bin/bash" || m[4] != "none" {
+		t.Fatalf("login=%q dir=%q SHELL=%q INVOCATION_ID=%q, want yes %q /bin/bash none", m[1], m[2], m[3], m[4], want)
+	}
 }
 
 func send(t *testing.T, s *Shell, input string) {

@@ -23,9 +23,30 @@ func prepareShellEnv(t *testing.T) {
 	t.Setenv("BASH_SILENCE_DEPRECATION_WARNING", "1")
 }
 
-// dialTerminal starts a server that opens a terminal per WebSocket connection
-// through m, connects to it and collects everything the server sends.
+// dialTerminal connects to a terminal opened through m and collects everything
+// the server sends.
 func dialTerminal(t *testing.T, m *Manager) (*websocket.Conn, *clientOutput) {
+	t.Helper()
+	conn, _ := connectTerminal(t, m)
+
+	out := &clientOutput{}
+	go func() {
+		for {
+			_, data, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			out.mu.Lock()
+			out.buf.Write(data)
+			out.mu.Unlock()
+		}
+	}()
+	return conn, out
+}
+
+// connectTerminal starts a server that opens a terminal per WebSocket
+// connection through m and connects to it, without reading anything.
+func connectTerminal(t *testing.T, m *Manager) (*websocket.Conn, *Terminal) {
 	t.Helper()
 	upgrader := websocket.Upgrader{}
 	terminals := make(chan *Terminal, 1)
@@ -61,23 +82,11 @@ func dialTerminal(t *testing.T, m *Manager) (*websocket.Conn, *clientOutput) {
 				t.Errorf("shell %d did not exit", term.shell.Pid())
 			}
 		})
+		return conn, term
 	case <-time.After(5 * time.Second):
 		t.Fatal("terminal was not created")
+		return nil, nil
 	}
-
-	out := &clientOutput{}
-	go func() {
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-			out.mu.Lock()
-			out.buf.Write(data)
-			out.mu.Unlock()
-		}
-	}()
-	return conn, out
 }
 
 type clientOutput struct {
@@ -187,5 +196,43 @@ func TestManagerForgetsClosedTerminals(t *testing.T) {
 			t.Fatalf("closed terminal still tracked: %v", m.ListTerminals())
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func shortKeepalive(t *testing.T) {
+	t.Helper()
+	period, wait := pingPeriod, pongWait
+	pingPeriod, pongWait = 50*time.Millisecond, 300*time.Millisecond
+	t.Cleanup(func() { pingPeriod, pongWait = period, wait })
+}
+
+// A browser that went away without closing the connection (laptop closed,
+// network gone) no longer answers pings: its root shell must be hung up.
+func TestSilentClientIsDisconnected(t *testing.T) {
+	prepareShellEnv(t)
+	shortKeepalive(t)
+	m := NewManager()
+	defer m.CloseAll()
+	_, term := connectTerminal(t, m) // nothing reads, so pings go unanswered
+
+	select {
+	case <-term.Done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the terminal of a silent client is still open")
+	}
+}
+
+// A browser that answers pings keeps its terminal while idle.
+func TestAnsweringClientStaysConnected(t *testing.T) {
+	prepareShellEnv(t)
+	shortKeepalive(t)
+	m := NewManager()
+	defer m.CloseAll()
+	conn, out := dialTerminal(t, m)
+
+	time.Sleep(time.Second) // several pongWait periods without input
+	sendInput(t, conn, "echo ALIVE_$((5+6))\r")
+	if !out.waitFor(regexp.MustCompile(`ALIVE_11`), 5*time.Second) {
+		t.Fatalf("idle terminal was closed, output:\n%s", out)
 	}
 }
